@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>봉덕김쌤수학학원 | 수학 성적을 넘어, 흔들리지 않는 미래를 설계합니다</title>
+
+<!-- Pretendard -->
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<!-- Tailwind CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          navy: {
+            950: '#000000',
+            900: '#0A0A0A',
+            800: '#161616',
+            700: '#262626',
+            600: '#404040',
+          },
+          gold: {
+            400: '#E5E5E5',
+            500: '#FFFFFF',
+            600: '#F2F2F2',
+          },
+          ink: '#111111',
+          muted: '#5C5C5C',
+        },
+        fontFamily: {
+          sans: ['Pretendard', 'Noto Sans KR', 'sans-serif'],
+        },
+      }
+    }
+  }
+</script>
+
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Pretendard', 'Noto Sans KR', sans-serif; color: #111111; }
+
+  /* 모눈종이(그래프 용지) 텍스처 - 수학의 상징을 배경 질감으로 사용 */
+  .grid-paper {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+  .grid-paper-light {
+    background-image:
+      linear-gradient(rgba(11,31,58,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(11,31,58,0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .num-badge {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .graph-line {
+    stroke-dasharray: 900;
+    stroke-dashoffset: 900;
+    animation: draw 2.4s 0.4s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  @keyframes draw {
+    to { stroke-dashoffset: 0; }
+  }
+  .graph-dot {
+    opacity: 0;
+    animation: pop 0.5s ease forwards;
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.4); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .graph-line { animation: none; stroke-dashoffset: 0; }
+    .graph-dot { animation: none; opacity: 1; }
+  }
+
+  .section-eyebrow {
+    letter-spacing: 0.16em;
+  }
+
+  ::selection { background: #000000; color: #FFFFFF; }
+</style>
+</head>
+
+<body class="bg-white text-ink antialiased">
+
+<!-- ===================== HEADER ===================== -->
+<header id="site-header" class="fixed top-0 inset-x-0 z-50 transition-all duration-300 bg-navy-900/95 backdrop-blur border-b border-white/5">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8 h-16 md:h-20 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-2.5 shrink-0">
+      <span class="w-9 h-9 rounded-md bg-gold-500 text-navy-900 flex items-center justify-center font-black text-sm">봉</span>
+      <span class="text-white font-bold text-[15px] md:text-base tracking-tight leading-tight">
+        봉덕김쌤수학학원
+        <span class="hidden sm:inline text-white/50 font-medium text-xs ml-1">Bongdeok Math</span>
+      </span>
+    </a>
+
+    <nav class="hidden lg:flex items-center gap-9 text-[14.5px] text-white/75 font-medium">
+      <a href="#philosophy" class="hover:text-white transition-colors">교육철학</a>
+      <a href="#teachers" class="hover:text-white transition-colors">강사진 소개</a>
+      <a href="#curriculum" class="hover:text-white transition-colors">커리큘럼</a>
+      <a href="#system" class="hover:text-white transition-colors">학습 시스템</a>
+      <a href="#policy" class="hover:text-white transition-colors">학원생활안내</a>
+    </nav>
+
+    <div class="flex items-center gap-2 md:gap-3">
+      <button type="button" class="js-login-trigger hidden sm:inline-flex items-center gap-1.5 appearance-none bg-transparent cursor-pointer text-white/85 border border-white/25 hover:border-white/60 hover:bg-white/5 transition-colors text-[13.5px] font-semibold px-4 py-2 rounded-full">
+        <i class="fa-solid fa-user-lock text-[11px]"></i> 학부모 로그인
+      </button>
+      <button type="button" class="js-consult-trigger appearance-none cursor-pointer inline-flex items-center gap-1.5 bg-gold-500 hover:bg-gold-400 text-navy-900 transition-colors text-[13.5px] font-bold px-4 md:px-5 py-2 rounded-full">
+        상담 신청
+      </button>
+      <button id="menu-toggle" class="lg:hidden text-white text-lg ml-1" aria-label="메뉴 열기">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- mobile menu -->
+  <div id="mobile-menu" class="hidden lg:hidden bg-navy-900 border-t border-white/10 px-5 py-4 space-y-3 text-white/80 text-sm font-medium">
+    <a href="#philosophy" class="block py-1.5">교육철학</a>
+    <a href="#teachers" class="block py-1.5">강사진 소개</a>
+    <a href="#curriculum" class="block py-1.5">커리큘럼</a>
+    <a href="#system" class="block py-1.5">학습 시스템</a>
+    <a href="#policy" class="block py-1.5">학원생활안내</a>
+    <button type="button" class="js-login-trigger block w-full py-1.5 appearance-none bg-transparent cursor-pointer text-gold-400 text-left">학부모 로그인(마이페이지)</button>
+  </div>
+</header>
+
+<!-- ===================== HERO ===================== -->
+<section id="top" class="relative bg-navy-900 grid-paper pt-32 pb-24 md:pt-44 md:pb-32 overflow-hidden">
+  <div class="absolute inset-0 bg-gradient-to-b from-navy-950/0 via-navy-900/0 to-navy-950 pointer-events-none"></div>
+  <div class="absolute -top-24 -right-24 w-[420px] h-[420px] bg-white/[0.06] rounded-full blur-3xl"></div>
+
+  <div class="relative max-w-7xl mx-auto px-5 sm:px-8 grid lg:grid-cols-[1.05fr,0.95fr] gap-14 items-center">
+    <div class="">
+      <p class="section-eyebrow text-gold-400 text-[13px] font-bold mb-5 uppercase">대구 남구 봉덕동 초·중·고 수학 전문학원</p>
+      <h1 class="text-white font-black text-[34px] leading-[1.28] sm:text-5xl sm:leading-[1.22] md:text-[52px] md:leading-[1.18] tracking-tight">
+        수학 성적을 넘어,<br>
+        아이의 <span class="text-gold-400">흔들리지 않는 미래</span>를<br class="hidden md:block">
+        설계합니다.
+      </h1>
+      <p class="mt-6 text-white/65 text-[15.5px] md:text-base leading-relaxed max-w-lg">
+        초3부터 대입까지, 한 명의 학생을 오래 지켜본 로드맵으로 지도합니다.
+        봉덕김쌤수학학원은 성적표 너머의 태도와 사고력을 함께 키웁니다.
+      </p>
+
+      <div class="mt-9 flex flex-wrap items-center gap-3">
+        <button type="button" class="js-consult-trigger appearance-none cursor-pointer inline-flex items-center gap-2 bg-gold-500 hover:bg-gold-400 transition-colors text-navy-900 font-bold text-[15px] px-7 py-3.5 rounded-full">
+          <i class="fa-regular fa-calendar-check"></i> 상담 신청하기
+        </button>
+        <button type="button" id="parent-login" class="js-login-trigger inline-flex items-center gap-2 appearance-none bg-transparent cursor-pointer border border-white/30 hover:bg-white/10 transition-colors text-white font-semibold text-[15px] px-7 py-3.5 rounded-full">
+          <i class="fa-solid fa-user-lock"></i> 학부모 로그인(마이페이지)
+        </button>
+      </div>
+
+      <div class="mt-10 grid grid-cols-3 gap-4 max-w-md">
+        <div>
+          <p class="text-gold-400 font-black text-xl md:text-2xl num-badge">장기로드맵</p>
+          <p class="text-white/50 text-[12.5px] mt-0.5">초·중·고 전 학년</p>
+        </div>
+        <div>
+          <p class="text-gold-400 font-black text-xl md:text-2xl num-badge">20년+</p>
+          <p class="text-white/50 text-[12.5px] mt-0.5">선생님 지도 경력</p>
+        </div>
+        <div>
+          <p class="text-gold-400 font-black text-xl md:text-2xl num-badge">정원제</p>
+          <p class="text-white/50 text-[12.5px] mt-0.5">밀착 관리 수업</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Signature visual: ascending growth graph, echoing math coordinate grid -->
+    <div class="relative">
+      <div class="relative bg-navy-800/70 border border-white/10 rounded-2xl p-6 md:p-8">
+        <p class="text-white/50 text-xs font-semibold mb-4 tracking-wide">STUDENT GROWTH ROADMAP</p>
+        <svg viewBox="0 0 480 260" class="w-full h-auto">
+          <line x1="20" y1="220" x2="460" y2="220" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+          <line x1="20" y1="20" x2="20" y2="220" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+          <path class="graph-line" d="M 30 200 C 110 195, 150 170, 190 150 S 280 90, 330 65 S 420 35, 450 25"
+                fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+          <circle class="graph-dot" style="animation-delay:0.6s" cx="30" cy="200" r="5" fill="rgba(255,255,255,0.55)"/>
+          <circle class="graph-dot" style="animation-delay:1.3s" cx="190" cy="150" r="5" fill="rgba(255,255,255,0.55)"/>
+          <circle class="graph-dot" style="animation-delay:1.9s" cx="330" cy="65" r="5" fill="rgba(255,255,255,0.55)"/>
+          <circle class="graph-dot" style="animation-delay:2.4s" cx="450" cy="25" r="6" fill="#FFFFFF"/>
+          <text x="20" y="240" fill="rgba(255,255,255,0.45)" font-size="12">초3</text>
+          <text x="178" y="240" fill="rgba(255,255,255,0.45)" font-size="12">초6</text>
+          <text x="316" y="240" fill="rgba(255,255,255,0.45)" font-size="12">중3</text>
+          <text x="432" y="240" fill="rgba(255,255,255,0.6)" font-size="12">대입</text>
+        </svg>
+        <p class="text-white/55 text-[13px] leading-relaxed mt-3">
+          기초 체력부터 실전 감각까지 — 한 방향으로 이어지는 장기 로드맵
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 원장 소개 & 교육철학 ===================== -->
+<section id="philosophy" class="bg-white py-24 md:py-32">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8">
+    <div class="grid lg:grid-cols-[0.85fr,1.15fr] gap-14 items-start">
+
+      <!-- 원장 인사말 -->
+      <div class="lg:sticky lg:top-28">
+        <p class="section-eyebrow text-navy-600 text-[13px] font-bold mb-3 uppercase">Greetings</p>
+        <h2 class="text-2xl md:text-[32px] font-black text-navy-900 leading-tight tracking-tight">원장 소개 및<br>교육 철학</h2>
+
+        <div class="mt-8 flex items-center gap-4">
+          <div class="w-16 h-16 rounded-full bg-navy-900 text-gold-400 flex items-center justify-center font-black text-xl shrink-0">김</div>
+          <div>
+            <p class="font-bold text-navy-900 text-lg">김수영 원장</p>
+            <p class="text-muted text-[13.5px]">봉덕김쌤수학학원</p>
+          </div>
+        </div>
+
+        <div class="mt-7 text-[15px] leading-relaxed text-ink/85 space-y-4">
+          <p>안녕하세요, 봉덕김쌤수학학원 원장 김수영입니다.</p>
+          <p>
+            수학은 많은 학생들에게 어렵고 막막한 과목입니다. 하지만 수학을 극복하는 과정은
+            단순히 점수를 올리는 것을 넘어, 아이들이 끈기를 배우고 스스로 문제를 해결하는
+            힘을 기르는 가장 훌륭한 훈련 과정이기도 합니다.
+          </p>
+          <p>
+            저는 우리 아이들이 수학이라는 과목에 지치지 않도록, 세 가지 철학을 바탕으로
+            지도하고 있습니다.
+          </p>
+        </div>
+
+        <div class="mt-8 bg-navy-900 grid-paper rounded-xl p-6">
+          <p class="text-white/85 text-[14.5px] leading-relaxed">
+            "아이들의 소중한 꿈이 결실을 맺을 수 있도록,<br>
+            봉덕김쌤수학학원이 가장 든든한 <span class="text-gold-400 font-bold">페이스메이커</span>가 되겠습니다."
+          </p>
+          <p class="text-white/40 text-xs mt-3">— 원장 김수영 드림</p>
+        </div>
+      </div>
+
+      <!-- 철학 3가지 카드 -->
+      <div class="space-y-5">
+        <div class="flex gap-5 p-6 md:p-7 rounded-2xl border border-navy-900/10 hover:border-navy-900/25 transition-colors">
+          <div class="shrink-0 w-12 h-12 rounded-xl bg-navy-900 text-gold-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-compass"></i>
+          </div>
+          <div>
+            <p class="text-navy-600 text-xs font-bold tracking-wide mb-1">PHILOSOPHY 1</p>
+            <h3 class="font-bold text-navy-900 text-[17px] mb-2">스스로 공부하는 힘, '자기주도학습'의 완성</h3>
+            <p class="text-ink/70 text-[14.5px] leading-relaxed">
+              물고기를 잡아주는 것이 아니라 물고기 잡는 법을 가르칩니다. 학생 스스로 학습
+              목표를 세우고 달성해 나가는 기쁨을 알게 하여, 고학년이 될수록 더욱 빛을 발하는
+              탄탄한 자기주도학습 능력을 길러줍니다.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-5 p-6 md:p-7 rounded-2xl border border-navy-900/10 hover:border-navy-900/25 transition-colors">
+          <div class="shrink-0 w-12 h-12 rounded-xl bg-navy-900 text-gold-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-route"></i>
+          </div>
+          <div>
+            <p class="text-navy-600 text-xs font-bold tracking-wide mb-1">PHILOSOPHY 2</p>
+            <h3 class="font-bold text-navy-900 text-[17px] mb-2">초등부터 대입까지, 큰 그림을 그리는 '진로 및 진학 로드맵'</h3>
+            <p class="text-ink/70 text-[14.5px] leading-relaxed">
+              수학 공부의 최종 목적지는 결국 아이의 성공적인 미래입니다. 초등학교 3학년
+              첫 수학의 기본기부터 고등학교 대입 수험생활까지, 긴 호흡으로 아이들의 진로와
+              적성을 함께 고민하며 최적의 진학 솔루션을 제시하는 멘토가 되겠습니다.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-5 p-6 md:p-7 rounded-2xl border border-navy-900/10 hover:border-navy-900/25 transition-colors">
+          <div class="shrink-0 w-12 h-12 rounded-xl bg-navy-900 text-gold-400 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-lightbulb"></i>
+          </div>
+          <div>
+            <p class="text-navy-600 text-xs font-bold tracking-wide mb-1">PHILOSOPHY 3</p>
+            <h3 class="font-bold text-navy-900 text-[17px] mb-2">틀림을 두려워하지 않는 '창의적 인재' 양성</h3>
+            <p class="text-ink/70 text-[14.5px] leading-relaxed">
+              정답을 맞히는 것만큼이나 중요한 것은 왜 틀렸는지 스스로 고민하는 시간입니다.
+              아이들이 실패를 두려워하지 않고, 다양한 각도에서 문제를 바라보며 창의적으로
+              사고할 수 있도록 격려하고 이끌겠습니다.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 봉덕김쌤의 교육 전문가 그룹 ===================== -->
+<section id="teachers" class="bg-navy-950 grid-paper py-24 md:py-32">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8">
+    <div class="max-w-2xl mb-14">
+      <p class="section-eyebrow text-gold-400 text-[13px] font-bold mb-3 uppercase">Our Experts</p>
+      <h2 class="text-2xl md:text-[32px] font-black text-white leading-tight tracking-tight">봉덕김쌤의 교육 전문가 그룹</h2>
+      <p class="text-white/60 text-[15px] mt-3 leading-relaxed">원장의 전문성과 선생님들의 노하우가 만나 완성되는 지도 시스템입니다.</p>
+    </div>
+
+    <!-- 원장 김수영: 무게감 있는 대표 프로필 -->
+    <div class="rounded-2xl border border-white/15 bg-white/5 p-8 md:p-10 mb-10">
+      <div class="flex flex-col md:flex-row gap-8 md:gap-10">
+        <div class="flex items-center gap-4 md:flex-col md:items-start md:w-52 shrink-0">
+          <div class="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center font-black text-xl shrink-0">김</div>
+          <div>
+            <p class="font-black text-white text-lg leading-tight">김수영 원장</p>
+            <p class="text-white/50 text-[13px] mt-1">봉덕김쌤수학학원 대표원장</p>
+          </div>
+        </div>
+
+        <ul class="flex-1 border-t border-white/10 divide-y divide-white/10">
+          <li class="flex items-start gap-3.5 py-4">
+            <span class="mt-2 w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
+            <p class="text-white/80 text-[14.5px] md:text-[15px] leading-relaxed">영남대학교 통계학과 졸업 및 수성구 고등부 전문 지도</p>
+          </li>
+          <li class="flex items-start gap-3.5 py-4">
+            <span class="mt-2 w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
+            <p class="text-white/80 text-[14.5px] md:text-[15px] leading-relaxed">메이저 수학 교재 검토: 천재교육(해결의 법칙 등), 동아출판, 블랙라벨(미적분, 대수 등)</p>
+          </li>
+          <li class="flex items-start gap-3.5 py-4">
+            <span class="mt-2 w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
+            <p class="text-white/80 text-[14.5px] md:text-[15px] leading-relaxed">5년 연속 이투스북 연간검토단 활동 (고쟁이, 어삼쉬사 등 다수)</p>
+          </li>
+          <li class="flex items-start gap-3.5 py-4">
+            <span class="mt-2 w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
+            <p class="text-white/80 text-[14.5px] md:text-[15px] leading-relaxed">입시·진로 전문가: 진로진학상담사 1급, 자기주도학습 코칭지도사 1급 등 전문 자격 보유</p>
+          </li>
+          <li class="flex items-start gap-3.5 py-4">
+            <span class="mt-2 w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
+            <p class="text-white/80 text-[14.5px] md:text-[15px] leading-relaxed">교육 지침서 《결정적코치14》 공저</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 강사진 3인 -->
+    <p class="text-white/40 text-xs font-bold uppercase tracking-wide mb-5">Teaching Staff</p>
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="bg-white/5 border border-white/15 rounded-2xl p-7 md:p-8">
+        <div class="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center font-black text-lg mb-5">박</div>
+        <p class="font-black text-white text-lg">박지혜 선생님</p>
+        <p class="text-gold-400 text-[13px] font-semibold mt-1">담당 · 초등부 ~ 고등부</p>
+        <p class="text-white/50 text-[13px] mt-3">영남대 통계학과 졸업 · 지도 경력 20년</p>
+        <p class="text-white/70 text-[14.5px] leading-relaxed mt-4">
+          20년의 오랜 지도 경험에서 우러나오는 노련함으로, 초등 기초부터 고등 심화까지
+          모든 과정을 완벽하게 아우르는 '경험치 만렙' 실력파 선생님입니다.
+        </p>
+      </div>
+
+      <div class="bg-white/5 border border-white/15 rounded-2xl p-7 md:p-8">
+        <div class="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center font-black text-lg mb-5">한</div>
+        <p class="font-black text-white text-lg">한금정 선생님</p>
+        <p class="text-gold-400 text-[13px] font-semibold mt-1">담당 · 초등부 ~ 중등부</p>
+        <p class="text-white/50 text-[13px] mt-3">대구가톨릭대 수학과 졸업 · 입시학원 경력 15년</p>
+        <p class="text-white/70 text-[14.5px] leading-relaxed mt-4">
+          아이들의 눈높이에 맞춘 이모 같은 따뜻함으로 마음을 열고, 한 명 한 명
+          빈틈없이 밀착 지도하는 꼼꼼함의 대명사입니다.
+        </p>
+      </div>
+
+      <div class="bg-white/5 border border-white/15 rounded-2xl p-7 md:p-8">
+        <div class="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center font-black text-lg mb-5">신</div>
+        <p class="font-black text-white text-lg">신성호 선생님</p>
+        <p class="text-gold-400 text-[13px] font-semibold mt-1">담당 · 초등부 ~ 고3 전 과정</p>
+        <p class="text-white/50 text-[13px] mt-3">영남대 화학공학과 졸업 · 수성구 대형학원 출신</p>
+        <p class="text-white/70 text-[14.5px] leading-relaxed mt-4">
+          학생들을 흔들림 없이 이끌어가는 압도적인 카리스마와 탄탄한 강의력을
+          풀장착하여, 목표 달성까지 확실하게 견인합니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 학년별 커리큘럼 ===================== -->
+<section id="curriculum" class="bg-white py-24 md:py-32">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8">
+    <div class="max-w-2xl mb-14">
+      <p class="section-eyebrow text-navy-600 text-[13px] font-bold mb-3 uppercase">Curriculum</p>
+      <h2 class="text-2xl md:text-[32px] font-black text-navy-900 leading-tight tracking-tight">학년별 커리큘럼 및 자체 교재 라인업</h2>
+      <p class="text-muted text-[15px] mt-3 leading-relaxed">초3부터 고3까지, 끊김 없이 이어지는 하나의 로드맵으로 설계했습니다.</p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="rounded-2xl border border-navy-900/10 overflow-hidden hover:shadow-xl hover:shadow-navy-900/5 transition-shadow">
+        <div class="h-1.5 bg-navy-600"></div>
+        <div class="p-7 md:p-8">
+          <p class="text-navy-600 text-xs font-bold tracking-wide mb-2">초등부 · 초3~초6</p>
+          <h3 class="font-black text-navy-900 text-lg mb-4">수학의 기초 체력 다지기</h3>
+          <p class="text-[13px] font-semibold text-muted mb-1">핵심 목표</p>
+          <p class="text-ink/75 text-[14.5px] leading-relaxed mb-4">올바른 공부 습관 형성 및 원리 중심의 개념 이해</p>
+          <p class="text-[13px] font-semibold text-muted mb-1">수업 특징</p>
+          <p class="text-ink/75 text-[14.5px] leading-relaxed">단순 암기가 아닌 원리 이해를 통한 연산 훈련과 서술형 문제 풀이의 기본기를 탄탄하게 확립합니다.</p>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-navy-900/10 overflow-hidden hover:shadow-xl hover:shadow-navy-900/5 transition-shadow">
+        <div class="h-1.5 bg-navy-800"></div>
+        <div class="p-7 md:p-8">
+          <p class="text-navy-600 text-xs font-bold tracking-wide mb-2">중등부 · 중1~중3</p>
+          <h3 class="font-black text-navy-900 text-lg mb-4">완벽한 내신 대비와 고등 수학의 브릿지</h3>
+          <p class="text-[13px] font-semibold text-muted mb-1">핵심 목표</p>
+          <p class="text-ink/75 text-[14.5px] leading-relaxed mb-4">학교별 맞춤 내신 관리 및 심화 사고력 확장</p>
+          <p class="text-[13px] font-semibold text-muted mb-1">수업 특징</p>
+          <p class="text-ink/75 text-[14.5px] leading-relaxed">철저한 기출 분석을 통해 내신을 완벽하게 대비하고, 고등 수학으로 자연스럽게 이어질 수 있도록 심화 문제 풀이 능력을 기릅니다.</p>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-navy-900/10 overflow-hidden hover:shadow-xl hover:shadow-navy-900/5 transition-shadow">
+        <div class="h-1.5 bg-black"></div>
+        <div class="p-7 md:p-8">
+          <p class="text-black text-xs font-bold tracking-wide mb-2">고등부 · 고1~고3</p>
+          <h3 class="font-black text-navy-900 text-lg mb-4">실전 수능 완벽 대비 및 최상위권 도약</h3>
+          <p class="text-[13px] font-semibold text-muted mb-1">핵심 목표</p>
+          <p class="text-ink/75 text-[14.5px] leading-relaxed mb-4">흔들림 없는 내신 1등급 달성과 수능 실전 감각 극대화</p>
+          <p class="text-[13px] font-semibold text-muted mb-1">수업 특징</p>
+          <p class="text-ink/75 text-[14.5px] leading-relaxed">학교별 출제 경향을 완벽하게 분석한 내신 대비는 물론, 수준별 심화 학습과 체계적인 기출 분석을 통해 수능까지 이어지는 탄탄한 수학 실력을 완성합니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 자체 교재 라인업 ===== -->
+    <div class="mt-20 md:mt-24">
+      <div class="max-w-2xl mb-10">
+        <p class="section-eyebrow text-navy-600 text-[13px] font-bold mb-3 uppercase">Textbook System</p>
+        <h3 class="text-xl md:text-2xl font-black text-navy-900 leading-tight tracking-tight">자체 교재 라인업</h3>
+        <p class="text-muted text-[14.5px] mt-3 leading-relaxed">빈틈없는 단계별 학습으로 완성하는 봉덕김쌤만의 교재 시스템입니다.</p>
+      </div>
+
+      <!-- 초중등부: 단계별 파이프라인 -->
+      <p class="text-navy-600 text-[13px] font-bold mb-4">초·중등부 자체 교재 시스템</p>
+      <div class="flex flex-col lg:flex-row lg:items-stretch gap-3">
+        <div class="flex-1 rounded-xl border border-navy-900/10 p-5 md:p-6">
+          <span class="text-black/10 font-black text-3xl leading-none">01</span>
+          <p class="font-bold text-navy-900 text-[15px] mt-3">개념서</p>
+          <p class="text-muted text-[12.5px] mt-1">Level 1~2</p>
+        </div>
+        <div class="hidden lg:flex items-center justify-center text-black/20 shrink-0">
+          <i class="fa-solid fa-arrow-right"></i>
+        </div>
+        <div class="flex-1 rounded-xl border border-navy-900/10 p-5 md:p-6">
+          <span class="text-black/10 font-black text-3xl leading-none">02</span>
+          <p class="font-bold text-navy-900 text-[15px] mt-3">유형서</p>
+          <p class="text-muted text-[12.5px] mt-1">Level 1~3</p>
+        </div>
+        <div class="hidden lg:flex items-center justify-center text-black/20 shrink-0">
+          <i class="fa-solid fa-arrow-right"></i>
+        </div>
+        <div class="flex-1 rounded-xl border border-navy-900/10 p-5 md:p-6">
+          <span class="text-black/10 font-black text-3xl leading-none">03</span>
+          <p class="font-bold text-navy-900 text-[15px] mt-3">서술형</p>
+          <p class="text-muted text-[12.5px] mt-1">Level 1~2</p>
+        </div>
+        <div class="hidden lg:flex items-center justify-center text-black/20 shrink-0">
+          <i class="fa-solid fa-arrow-right"></i>
+        </div>
+        <div class="flex-1 rounded-xl border-2 border-black p-5 md:p-6">
+          <span class="text-black/10 font-black text-3xl leading-none">04</span>
+          <p class="font-bold text-navy-900 text-[15px] mt-3">심화서</p>
+          <p class="text-muted text-[12.5px] mt-1">라인업 구축</p>
+        </div>
+      </div>
+
+      <!-- 고등부: 실전 커리큘럼 -->
+      <p class="text-navy-600 text-[13px] font-bold mt-10 mb-4">고등부 실전 커리큘럼</p>
+      <div class="rounded-2xl border-2 border-black p-7 md:p-9">
+        <div class="flex gap-4 max-w-2xl">
+          <div class="shrink-0 w-11 h-11 rounded-lg bg-black text-white flex items-center justify-center">
+            <i class="fa-solid fa-file-pen"></i>
+          </div>
+          <div>
+            <p class="font-bold text-navy-900 text-[15px] mb-1.5">100% 자체 제작 프린트물</p>
+            <p class="text-ink/70 text-[13.5px] leading-relaxed">
+              개념서를 제외한 모든 문제풀이는 100% 자체 제작 프린트물로 진행하여
+              수능과 내신을 완벽하게 대비합니다.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 동기부여 및 장학 시스템 ===================== -->
+<section id="system" class="bg-black grid-paper py-24 md:py-32 border-y-4 border-white/10">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8">
+    <div class="max-w-2xl mb-14">
+      <span class="inline-flex items-center gap-2 border-2 border-white text-white text-[12.5px] font-bold px-4 py-1.5 rounded-full mb-5">
+        <i class="fa-solid fa-gears text-[11px]"></i> Learning System
+      </span>
+      <p class="section-eyebrow text-white/50 text-[13px] font-bold mb-3 uppercase">Only at Bongdeok</p>
+      <h2 class="text-3xl md:text-[42px] font-black text-white leading-[1.15] tracking-tight">봉덕김쌤만의 학습 시스템</h2>
+      <p class="text-white/60 text-[15px] md:text-base mt-4 leading-relaxed max-w-xl">
+        철저한 관리와 확실한 보상, 따뜻한 멘토링까지 — 아이의 성장을 뒷받침하는 4가지 원칙입니다.
+      </p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- 01 -->
+      <div class="bg-white rounded-2xl p-7 md:p-9 shadow-2xl shadow-black/40 hover:-translate-y-1.5 transition-transform">
+        <div class="flex items-start justify-between mb-6">
+          <div class="w-14 h-14 rounded-xl bg-black text-white flex items-center justify-center text-xl">
+            <i class="fa-solid fa-users"></i>
+          </div>
+          <span class="text-black/10 font-black text-4xl leading-none">01</span>
+        </div>
+        <h3 class="font-black text-navy-900 text-lg md:text-xl mb-4">1:1 맞춤형 소수 정예 클래스</h3>
+        <ul class="space-y-2.5">
+          <li class="flex gap-2.5 text-ink/75 text-[14px] leading-relaxed">
+            <span class="mt-2 w-1 h-1 rounded-full bg-black/40 shrink-0"></span>
+            초3~고3 대상, 동학년 소수 정예 편성 (초중등 6명, 고등부 5명 정원)
+          </li>
+          <li class="flex gap-2.5 text-ink/75 text-[14px] leading-relaxed">
+            <span class="mt-2 w-1 h-1 rounded-full bg-black/40 shrink-0"></span>
+            같은 반이라도 학생 개개인의 레벨과 속도에 맞춘 1:1 개별 진도 및 맞춤 교재 선정
+          </li>
+          <li class="flex gap-2.5 text-ink/75 text-[14px] leading-relaxed">
+            <span class="mt-2 w-1 h-1 rounded-full bg-black/40 shrink-0"></span>
+            고등부는 김수영 원장 &amp; 신성호 선생님의 밀착 직강으로 진행
+          </li>
+        </ul>
+      </div>
+
+      <!-- 02 -->
+      <div class="bg-white rounded-2xl p-7 md:p-9 shadow-2xl shadow-black/40 hover:-translate-y-1.5 transition-transform">
+        <div class="flex items-start justify-between mb-6">
+          <div class="w-14 h-14 rounded-xl bg-black text-white flex items-center justify-center text-xl">
+            <i class="fa-solid fa-file-lines"></i>
+          </div>
+          <span class="text-black/10 font-black text-4xl leading-none">02</span>
+        </div>
+        <h3 class="font-black text-navy-900 text-lg md:text-xl mb-4">체계적인 월간 평가 시스템</h3>
+        <ul class="space-y-2.5">
+          <li class="flex gap-2.5 text-ink/75 text-[14px] leading-relaxed">
+            <span class="mt-2 w-1 h-1 rounded-full bg-black/40 shrink-0"></span>
+            매월 '월간평가'를 실시하고, 취약점과 성취도를 상세히 담은 '월간 분석표'를 학부모님 카카오톡으로 직접 발송합니다.
+          </li>
+        </ul>
+      </div>
+
+      <!-- 03 -->
+      <div class="bg-white rounded-2xl p-7 md:p-9 shadow-2xl shadow-black/40 hover:-translate-y-1.5 transition-transform">
+        <div class="flex items-start justify-between mb-6">
+          <div class="w-14 h-14 rounded-xl bg-black text-white flex items-center justify-center text-xl">
+            <i class="fa-solid fa-trophy"></i>
+          </div>
+          <span class="text-black/10 font-black text-4xl leading-none">03</span>
+        </div>
+        <h3 class="font-black text-navy-900 text-lg md:text-xl mb-4">확실한 동기부여와 입시·진로 멘토링</h3>
+        <ul class="space-y-2.5">
+          <li class="flex gap-2.5 text-ink/75 text-[14px] leading-relaxed">
+            <span class="mt-2 w-1 h-1 rounded-full bg-black/40 shrink-0"></span>
+            장학 혜택: 매월 월간평가 및 내신 우수자에게 '장학카드' 장학금 지급 및 '명예의 전당' 등재로 강력한 성취감 부여
+          </li>
+          <li class="flex gap-2.5 text-ink/75 text-[14px] leading-relaxed">
+            <span class="mt-2 w-1 h-1 rounded-full bg-black/40 shrink-0"></span>
+            상시 멘토링: 진로진학 검사 및 학습 심리 진단 프로그램 도입. 전문 자격(진로진학상담사 1급, 자기주도학습 코칭지도사 1급 등)을 바탕으로 한 깊이 있는 멘토링
+          </li>
+        </ul>
+      </div>
+
+      <!-- 04 -->
+      <div class="bg-white rounded-2xl p-7 md:p-9 shadow-2xl shadow-black/40 hover:-translate-y-1.5 transition-transform">
+        <div class="flex items-start justify-between mb-6">
+          <div class="w-14 h-14 rounded-xl bg-black text-white flex items-center justify-center text-xl">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <span class="text-black/10 font-black text-4xl leading-none">04</span>
+        </div>
+        <h3 class="font-black text-navy-900 text-lg md:text-xl mb-4">타협 없는 원칙, 그리고 편리한 소통</h3>
+        <ul class="space-y-2.5">
+          <li class="flex gap-2.5 text-ink/75 text-[14px] leading-relaxed">
+            <span class="mt-2 w-1 h-1 rounded-full bg-black/40 shrink-0"></span>
+            단호한 관리: 촘촘한 수업 밀도를 위해 무단 지각, 결석, 과제 미이행을 엄격하게 관리하는 최상의 면학 분위기
+          </li>
+          <li class="flex gap-2.5 text-ink/75 text-[14px] leading-relaxed">
+            <span class="mt-2 w-1 h-1 rounded-full bg-black/40 shrink-0"></span>
+            학부모 안심 시스템: 학생 직접 체크 방식의 안심 등하원 알림(문자/카카오톡) 및 간편 결제(결제선생) 도입
+          </li>
+        </ul>
+      </div>
+
+      <!-- 05 -->
+      <div class="md:col-span-2 bg-white rounded-2xl p-7 md:p-9 shadow-2xl shadow-black/40 hover:-translate-y-1.5 transition-transform">
+        <div class="flex items-start justify-between mb-6">
+          <div class="w-14 h-14 rounded-xl bg-black text-white flex items-center justify-center text-xl">
+            <i class="fa-solid fa-star"></i>
+          </div>
+          <span class="text-black/10 font-black text-4xl leading-none">05</span>
+        </div>
+        <h3 class="font-black text-navy-900 text-lg md:text-xl mb-6">공부에만 집중할 수 있는 최상의 프리미엄 환경</h3>
+
+        <div class="grid md:grid-cols-2 gap-8 items-stretch">
+          <!-- 텍스트: 3가지 프리미엄 환경 특징 -->
+          <ul class="space-y-5">
+            <li class="flex gap-3.5">
+              <div class="shrink-0 w-9 h-9 rounded-lg bg-navy-900/5 text-navy-900 flex items-center justify-center">
+                <i class="fa-solid fa-couch text-[15px]"></i>
+              </div>
+              <p class="text-ink/75 text-[14px] leading-relaxed pt-1.5">강의실 3개를 합친 20평 규모의 쾌적한 대형 자습실 운영</p>
+            </li>
+            <li class="flex gap-3.5">
+              <div class="shrink-0 w-9 h-9 rounded-lg bg-navy-900/5 text-navy-900 flex items-center justify-center">
+                <i class="fa-solid fa-spray-can-sparkles text-[15px]"></i>
+              </div>
+              <p class="text-ink/75 text-[14px] leading-relaxed pt-1.5">비데 설치 및 먼지 하나 없는 지역 최고 수준의 철저한 위생 관리</p>
+            </li>
+            <li class="flex gap-3.5">
+              <div class="shrink-0 w-9 h-9 rounded-lg bg-navy-900/5 text-navy-900 flex items-center justify-center">
+                <i class="fa-solid fa-book-open-reader text-[15px]"></i>
+              </div>
+              <p class="text-ink/75 text-[14px] leading-relaxed pt-1.5">
+                자투리 시간 스마트폰 프리(Free) 존: 아이들이 핸드폰 대신 책을 꺼내 읽으며 쉴 수 있도록
+                아이보리&amp;브라운 톤으로 따뜻하게 조성된 북라운지 '봉덕김쌤의 마음충전소' 운영
+              </p>
+            </li>
+          </ul>
+
+          <!-- 사진 갤러리: 학원 사진 3장 삽입 예정 (실제 사진으로 교체) -->
+          <div class="grid grid-cols-2 grid-rows-2 gap-3 min-h-[220px] md:min-h-[260px]">
+            <div class="row-span-2 rounded-xl bg-gray-100 border border-dashed border-black/15 flex flex-col items-center justify-center gap-2 text-black/30">
+              <i class="fa-solid fa-image text-2xl"></i>
+              <span class="text-[11px] font-medium">학원 사진 1</span>
+            </div>
+            <div class="rounded-xl bg-gray-100 border border-dashed border-black/15 flex flex-col items-center justify-center gap-2 text-black/30">
+              <i class="fa-solid fa-image text-xl"></i>
+              <span class="text-[11px] font-medium">학원 사진 2</span>
+            </div>
+            <div class="rounded-xl bg-gray-100 border border-dashed border-black/15 flex flex-col items-center justify-center gap-2 text-black/30">
+              <i class="fa-solid fa-image text-xl"></i>
+              <span class="text-[11px] font-medium">학원 사진 3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 학원 생활 및 수강 규정 ===================== -->
+<section id="policy" class="bg-white py-24 md:py-32">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8">
+    <div class="max-w-2xl mb-14">
+      <p class="section-eyebrow text-navy-600 text-[13px] font-bold mb-3 uppercase">Academy Policy</p>
+      <h2 class="text-2xl md:text-[32px] font-black text-navy-900 leading-tight tracking-tight">학원 생활 및 수강 규정 안내</h2>
+      <p class="text-muted text-[15px] mt-3 leading-relaxed">최상의 수업 품질을 지키기 위한 원칙입니다. 입회 전 꼭 확인해 주세요.</p>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-6">
+      <div class="rounded-2xl border-2 border-black p-7 md:p-8">
+        <div class="w-11 h-11 rounded-lg bg-black text-white flex items-center justify-center text-base mb-5">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <h3 class="font-bold text-navy-900 text-[16.5px] mb-3">누적 경고제</h3>
+        <p class="text-[13px] font-semibold text-muted mb-1">사유</p>
+        <p class="text-ink/75 text-[14px] leading-relaxed mb-3">과제 미이행 및 무단 지각·결석</p>
+        <p class="text-[13px] font-semibold text-muted mb-1">규정</p>
+        <p class="text-ink/75 text-[14px] leading-relaxed mb-3">위 사유로 경고 3회 누적 시 강제 퇴회 조치됩니다.</p>
+        <p class="text-white text-[13px] font-semibold bg-black rounded-lg px-3 py-2 leading-relaxed">
+          경고 누적으로 인한 퇴회 시 재입회가 절대 불가합니다.
+        </p>
+      </div>
+
+      <div class="rounded-2xl border-2 border-navy-900/10 p-7 md:p-8">
+        <div class="w-11 h-11 rounded-lg bg-navy-900/5 text-navy-800 flex items-center justify-center text-base mb-5">
+          <i class="fa-solid fa-users-viewfinder"></i>
+        </div>
+        <h3 class="font-bold text-navy-900 text-[16.5px] mb-3">결석 및 보강 규정</h3>
+        <p class="text-ink/75 text-[14px] leading-relaxed">
+          본 학원의 모든 수업은 철저한 정원제로 운영됩니다. 이는 기존 수강생들의 수업
+          몰입도를 높이고 최상의 수업 질을 흔들림 없이 유지하기 위한 필수적인 원칙입니다.
+          따라서 학생의 단기적인 개인 사정에 의한 결석 시 별도의 보강은 진행되지 않사오니,
+          학부모님들의 너른 양해를 부탁드리며 학생의 출결 및 스케줄 관리에 유의해 주시기
+          바랍니다.
+        </p>
+      </div>
+
+      <div class="rounded-2xl border-2 border-dashed border-black/20 bg-gray-50 p-7 md:p-8">
+        <div class="w-11 h-11 rounded-lg bg-white border border-black/15 text-black flex items-center justify-center text-base mb-5">
+          <i class="fa-solid fa-plane-departure"></i>
+        </div>
+        <h3 class="font-bold text-navy-900 text-[16.5px] mb-3">장기 결석 예외 규정</h3>
+        <p class="text-ink/75 text-[14px] leading-relaxed">
+          단, 가족 여행 등 1주일 이상의 장기 결석이 필요한 경우, 학생들의 재충전 시간을
+          존중하여 1년에 1회에 한해 1주일 분의 수강료 차감을 진행해 드리고 있습니다.
+          사전에 미리 말씀해 주시면 일정에 맞춰 안내해 드리겠습니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CONSULT CTA ===================== -->
+<section id="consult" class="bg-navy-900 grid-paper py-20 md:py-24">
+  <div class="max-w-4xl mx-auto px-5 sm:px-8 text-center">
+    <h2 class="text-white font-black text-2xl md:text-[34px] leading-tight tracking-tight">
+      아이의 성장, 지금 상담으로 시작해보세요.
+    </h2>
+    <p class="text-white/60 text-[15px] mt-4 leading-relaxed">
+      학년별 학습 상태 진단과 맞춤 커리큘럼 안내를 받아보실 수 있습니다.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <button type="button" class="js-consult-trigger appearance-none cursor-pointer inline-flex items-center gap-2 bg-gold-500 hover:bg-gold-400 transition-colors text-navy-900 font-bold text-[15px] px-8 py-3.5 rounded-full">
+        <i class="fa-regular fa-comment-dots"></i> 상담 신청하기
+      </button>
+      <button type="button" class="js-login-trigger inline-flex items-center gap-2 appearance-none bg-transparent cursor-pointer border border-white/30 hover:bg-white/10 transition-colors text-white font-semibold text-[15px] px-8 py-3.5 rounded-full">
+        <i class="fa-solid fa-user-lock"></i> 학부모 마이페이지
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="bg-navy-950 py-14">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <div class="flex items-center gap-2.5">
+        <span class="w-8 h-8 rounded-md bg-gold-500 text-navy-900 flex items-center justify-center font-black text-xs">봉</span>
+        <span class="text-white font-bold text-[15px]">봉덕김쌤수학학원</span>
+      </div>
+      <div class="text-white/40 text-[13px] leading-relaxed">
+        <p>대구광역시 남구 효성로 49 2층 · 상담문의 053-473-8586</p>
+      </div>
+    </div>
+    <div class="border-t border-white/10 mt-8 pt-6 text-white/30 text-[12.5px]">
+      &copy; 2026 Bongdeok Kim-ssaem Math Academy. All rights reserved.
+    </div>
+  </div>
+</footer>
+
+<!-- ===================== 학부모 로그인 모달 ===================== -->
+<div id="login-modal" class="hidden fixed inset-0 z-[100]" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
+  <!-- 배경 오버레이 -->
+  <div id="login-modal-backdrop" class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+
+  <!-- 모달 카드 -->
+  <div class="relative min-h-full flex items-center justify-center p-5">
+    <div id="login-modal-panel" class="w-full max-w-sm bg-white rounded-2xl border border-black/10 shadow-2xl shadow-black/30 p-7 md:p-8 relative">
+
+      <button type="button" id="login-modal-close" aria-label="닫기" class="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center text-black/50 hover:text-black hover:bg-black/5 transition-colors">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="w-11 h-11 rounded-xl bg-black text-white flex items-center justify-center text-base mb-5">
+        <i class="fa-solid fa-user-lock"></i>
+      </div>
+
+      <h2 id="login-modal-title" class="text-navy-900 font-black text-xl leading-tight">학부모 마이페이지 로그인</h2>
+      <p class="text-muted text-[14px] leading-relaxed mt-2.5">
+        카카오 계정으로 간편하게 로그인하고 우리 아이의 학습 현황을 확인하세요.
+      </p>
+
+      <!-- 카카오 로그인 버튼 -->
+      <button type="button" id="kakao-login-btn" class="mt-6 w-full flex items-center justify-center gap-2 bg-[#FEE500] hover:brightness-95 transition-[filter] text-black font-bold text-[15px] px-5 py-3.5 rounded-xl">
+        <i class="fa-solid fa-comment text-black"></i> 카카오로 1초 만에 시작하기
+      </button>
+
+      <div class="flex items-center gap-3 my-6">
+        <span class="h-px flex-1 bg-black/10"></span>
+        <span class="text-black/35 text-xs font-medium">최초 1회 인증</span>
+        <span class="h-px flex-1 bg-black/10"></span>
+      </div>
+
+      <!-- 학생 코드 입력 -->
+      <label for="student-code" class="block text-[13.5px] font-semibold text-navy-900 mb-2">
+        최초 1회 학생 코드를 입력해 주세요.
+      </label>
+      <form id="student-code-form" class="flex items-center gap-2">
+        <input
+          type="text"
+          id="student-code"
+          name="student-code"
+          placeholder="예) BD-2026-0001"
+          class="flex-1 min-w-0 border border-black/15 focus:border-black outline-none rounded-lg px-3.5 py-2.5 text-[14px] text-black placeholder:text-black/30 transition-colors"
+        />
+        <button type="submit" class="shrink-0 bg-black hover:bg-navy-800 transition-colors text-white font-semibold text-[14px] px-5 py-2.5 rounded-lg">
+          확인
+        </button>
+      </form>
+      <p id="student-code-message" class="text-[12.5px] mt-2.5 hidden"></p>
+
+      <p class="text-black/35 text-[11.5px] leading-relaxed mt-6 text-center">
+        학생 코드는 최초 등록 시 원비 안내와 함께 문자로 발송됩니다.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 상담 신청 모달 ===================== -->
+<div id="consult-modal" class="hidden fixed inset-0 z-[100]" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="consult-modal-title">
+  <!-- 배경 오버레이 -->
+  <div id="consult-modal-backdrop" class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+
+  <!-- 모달 카드 -->
+  <div class="relative min-h-full flex items-center justify-center p-4 sm:p-6">
+    <div id="consult-modal-panel" class="w-full max-w-2xl bg-white rounded-2xl border border-black/10 shadow-2xl shadow-black/30 relative max-h-[90vh] flex flex-col">
+
+      <div class="flex items-start justify-between gap-4 px-6 md:px-8 pt-6 md:pt-7 pb-5 border-b border-black/10 shrink-0">
+        <div>
+          <p class="text-navy-600 text-xs font-bold tracking-wide mb-1 uppercase">Consultation</p>
+          <h2 id="consult-modal-title" class="text-navy-900 font-black text-lg md:text-xl leading-tight">봉덕김쌤수학학원 1:1 상담 신청</h2>
+        </div>
+        <button type="button" id="consult-modal-close" aria-label="닫기" class="appearance-none bg-transparent cursor-pointer shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-black/50 hover:text-black hover:bg-black/5 transition-colors">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="px-6 md:px-8 py-6 overflow-y-auto">
+        <!-- 구글 캘린더 예약(Appointment Scheduling) 삽입 영역: 실제 예약 페이지 링크가 확정되면 아래 iframe의 src만 교체하면 됩니다 -->
+        <div class="w-full h-[65vh] sm:h-[70vh] md:h-[75vh] rounded-xl overflow-hidden bg-gray-50">
+
+          <iframe
+            src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ1d5Kh69NHVjCN65UjD9O4ZOX3r9ncvYYU1GRbp2iRsrbkQRVH2mFWT1hog_BlQksYDFLlLTclI?gv=true" width="100%" height="600" frameborder="0" scrolling="yes"gv=true"
+            title="봉덕김쌤수학학원 1:1 상담 예약 (구글 캘린더)"
+            class="w-full h-full block border-0"
+            frameborder="0"
+            loading="lazy"
+            allow="fullscreen"
+          ></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 모바일 메뉴 토글
+  const menuToggle = document.getElementById('menu-toggle');
+  const mobileMenu = document.getElementById('mobile-menu');
+  menuToggle.addEventListener('click', () => {
+    mobileMenu.classList.toggle('hidden');
+  });
+  mobileMenu.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => mobileMenu.classList.add('hidden'));
+  });
+
+  // 헤더 스크롤 스타일
+  const header = document.getElementById('site-header');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 8) {
+      header.classList.add('shadow-lg', 'shadow-black/20');
+    } else {
+      header.classList.remove('shadow-lg', 'shadow-black/20');
+    }
+  });
+
+  // ===================== 학부모 로그인 모달 =====================
+  const loginModal = document.getElementById('login-modal');
+  const loginModalPanel = document.getElementById('login-modal-panel');
+  const loginModalBackdrop = document.getElementById('login-modal-backdrop');
+  const loginModalClose = document.getElementById('login-modal-close');
+  const loginTriggers = document.querySelectorAll('.js-login-trigger');
+  let lastFocusedEl = null;
+
+  function openLoginModal() {
+    // 상담 신청 모달이 열려 있으면 먼저 닫기 (모달 중첩 방지)
+    if (typeof consultModal !== 'undefined' && !consultModal.classList.contains('hidden')) {
+      closeConsultModal();
+    }
+    lastFocusedEl = document.activeElement;
+    loginModal.classList.remove('hidden');
+    loginModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('overflow-hidden');
+    // 모바일 메뉴가 열려 있으면 함께 닫기
+    mobileMenu.classList.add('hidden');
+    setTimeout(() => document.getElementById('student-code')?.blur(), 0);
+    loginModalClose.focus();
+  }
+
+  function closeLoginModal() {
+    loginModal.classList.add('hidden');
+    loginModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('overflow-hidden');
+    if (lastFocusedEl) lastFocusedEl.focus();
+  }
+
+  loginTriggers.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openLoginModal();
+    });
+  });
+
+  loginModalClose.addEventListener('click', closeLoginModal);
+  loginModalBackdrop.addEventListener('click', closeLoginModal);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !loginModal.classList.contains('hidden')) {
+      closeLoginModal();
+    }
+  });
+  // 패널 내부 클릭은 닫힘으로 전파되지 않도록 방지
+  loginModalPanel.addEventListener('click', (e) => e.stopPropagation());
+
+  // 카카오 로그인 버튼 (실제 OAuth 연동 예정 자리)
+  document.getElementById('kakao-login-btn').addEventListener('click', () => {
+    alert('카카오 로그인 연동 예정 영역입니다. 실제 배포 시 카카오 OAuth 로그인으로 교체해 주세요.');
+  });
+
+  // 학생 코드 확인 (실제 인증 로직 연동 예정 자리)
+  document.getElementById('student-code-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('student-code');
+    const msg = document.getElementById('student-code-message');
+    const code = input.value.trim();
+
+    msg.classList.remove('hidden');
+    if (!code) {
+      msg.textContent = '학생 코드를 입력해 주세요.';
+      msg.className = 'text-[12.5px] mt-2.5 text-black font-semibold';
+      input.focus();
+      return;
+    }
+    msg.textContent = `'${code}' 코드 확인을 진행합니다. (실제 인증 로직 연동 예정)`;
+    msg.className = 'text-[12.5px] mt-2.5 text-muted';
+  });
+
+  // ===================== 상담 신청 모달 (로그인 모달과 완전히 분리된 ID/변수 사용) =====================
+  const consultModal = document.getElementById('consult-modal');
+  const consultModalPanel = document.getElementById('consult-modal-panel');
+  const consultModalBackdrop = document.getElementById('consult-modal-backdrop');
+  const consultModalClose = document.getElementById('consult-modal-close');
+  const consultTriggers = document.querySelectorAll('.js-consult-trigger');
+  let lastFocusedElConsult = null;
+
+  function openConsultModal() {
+    // 학부모 로그인 모달이 열려 있으면 먼저 닫기 (모달 중첩 방지)
+    if (!loginModal.classList.contains('hidden')) {
+      closeLoginModal();
+    }
+    lastFocusedElConsult = document.activeElement;
+    consultModal.classList.remove('hidden');
+    consultModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('overflow-hidden');
+    // 모바일 메뉴가 열려 있으면 함께 닫기
+    mobileMenu.classList.add('hidden');
+    consultModalClose.focus();
+  }
+
+  function closeConsultModal() {
+    consultModal.classList.add('hidden');
+    consultModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('overflow-hidden');
+    if (lastFocusedElConsult) lastFocusedElConsult.focus();
+  }
+
+  consultTriggers.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openConsultModal();
+    });
+  });
+
+  consultModalClose.addEventListener('click', closeConsultModal);
+  consultModalBackdrop.addEventListener('click', closeConsultModal);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !consultModal.classList.contains('hidden')) {
+      closeConsultModal();
+    }
+  });
+  // 패널 내부 클릭은 닫힘으로 전파되지 않도록 방지
+  consultModalPanel.addEventListener('click', (e) => e.stopPropagation());
+</script>
+
+</body>
+</html>
