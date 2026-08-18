@@ -91,6 +91,9 @@
 
   ::selection { background: #000000; color: #FFFFFF; }
 </style>
+
+<!-- 카카오 JavaScript SDK -->
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.8.2/kakao.min.js" crossorigin="anonymous"></script>
 </head>
 
 <body class="bg-white text-ink antialiased">
@@ -820,7 +823,7 @@
         <div class="w-full h-[65vh] sm:h-[70vh] md:h-[75vh] rounded-xl overflow-hidden bg-gray-50">
 
           <iframe
-            src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ1d5Kh69NHVjCN65UjD9O4ZOX3r9ncvYYU1GRbp2iRsrbkQRVH2mFWT1hog_BlQksYDFLlLTclI?gv=true" width="100%" height="600" frameborder="0" scrolling="yes"gv=true"
+            src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ1d5Kh69NHVjCN65UjD9O4ZOX3r9ncvYYU1GRbp2iRsrbkQRVH2mFWT1hog_BlQksYDFLlLTclI?gv=true"
             title="봉덕김쌤수학학원 1:1 상담 예약 (구글 캘린더)"
             class="w-full h-full block border-0"
             frameborder="0"
@@ -834,6 +837,10 @@
 </div>
 
 <script>
+  // ===================== 카카오 SDK 초기화 =====================
+  Kakao.init('4a840ca14ad4c41bce73a60d0bd51203');
+  console.log('카카오 SDK 초기화 여부:', Kakao.isInitialized());
+
   // 모바일 메뉴 토글
   const menuToggle = document.getElementById('menu-toggle');
   const mobileMenu = document.getElementById('mobile-menu');
@@ -901,9 +908,30 @@
   // 패널 내부 클릭은 닫힘으로 전파되지 않도록 방지
   loginModalPanel.addEventListener('click', (e) => e.stopPropagation());
 
-  // 카카오 로그인 버튼 (실제 OAuth 연동 예정 자리)
+  // 카카오 로그인 버튼
   document.getElementById('kakao-login-btn').addEventListener('click', () => {
-    alert('카카오 로그인 연동 예정 영역입니다. 실제 배포 시 카카오 OAuth 로그인으로 교체해 주세요.');
+    Kakao.Auth.login({
+      success: function (authObj) {
+        console.log('카카오 로그인 성공! 인증 정보:', authObj);
+
+        // 로그인 성공 직후, 액세스 토큰으로 사용자 정보(닉네임, 이메일 등) 요청
+        Kakao.API.request({
+          url: '/v2/user/me',
+          success: function (res) {
+            console.log('사용자 정보:', res);
+            console.log('닉네임:', res.kakao_account?.profile?.nickname);
+            console.log('이메일:', res.kakao_account?.email);
+            alert('로그인 성공!');
+          },
+          fail: function (error) {
+            console.error('사용자 정보 요청 실패:', error);
+          },
+        });
+      },
+      fail: function (err) {
+        console.error('카카오 로그인 실패:', err);
+      },
+    });
   });
 
   // 학생 코드 확인 (실제 인증 로직 연동 예정 자리)
