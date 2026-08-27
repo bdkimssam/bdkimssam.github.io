@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>학부모 마이페이지 | 봉덕김쌤수학학원</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', 'Noto Sans KR', sans-serif;
+    background: #f5f5f5;
+    color: #111;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 480px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+  }
+  .badge.ok { background: #111; color: #fff; }
+  .badge.no { background: #fee; color: #c00; }
+  h1 {
+    font-size: 20px;
+    font-weight: 900;
+    margin: 0 0 6px;
+  }
+  .sub {
+    font-size: 13.5px;
+    color: #666;
+    margin: 0 0 24px;
+    line-height: 1.5;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid #eee;
+    font-size: 14px;
+  }
+  .row:first-of-type { border-top: 1px solid #eee; }
+  .row .label { color: #888; font-weight: 600; white-space: nowrap; }
+  .row .value { text-align: right; font-weight: 700; word-break: break-all; }
+  .empty-value { color: #bbb; font-weight: 500; }
+  .actions {
+    margin-top: 24px;
+    display: flex;
+    gap: 10px;
+  }
+  button, a.btn {
+    flex: 1;
+    text-align: center;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .btn-primary { background: #111; color: #fff; }
+  .btn-secondary { background: #f0f0f0; color: #111; border: 1px solid #ddd; }
+  .raw {
+    margin-top: 24px;
+    background: #0a0a0a;
+    color: #9be29b;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 12px;
+    padding: 14px;
+    border-radius: 10px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.6;
+  }
+  .note {
+    margin-top: 16px;
+    font-size: 12px;
+    color: #999;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+  <div class="card" id="card">
+    <!-- JS로 로그인 상태에 따라 내용이 채워집니다 -->
+  </div>
+
+<script>
+  const card = document.getElementById('card');
+
+  const isLoggedIn  = sessionStorage.getItem('isLoggedIn');
+  const studentCode = sessionStorage.getItem('studentCode');
+  const studentName = sessionStorage.getItem('studentName');
+  const kakaoEmail  = sessionStorage.getItem('kakaoEmail');
+
+  function renderValue(v) {
+    return v ? v : '<span class="empty-value">(없음)</span>';
+  }
+
+  if (isLoggedIn === 'true') {
+    // ✅ 로그인 성공 상태
+    card.innerHTML = `
+      <span class="badge ok">● 로그인 세션 확인됨</span>
+      <h1>${studentName ? studentName + '님, 환영합니다 👋' : '학부모 마이페이지'}</h1>
+      <p class="sub">Make 웹훅을 통해 학생 정보 인증이 정상적으로 완료되어, 세션(sessionStorage)에 로그인 상태가 저장되어 있습니다.</p>
+
+      <div class="row"><span class="label">로그인 상태</span><span class="value">isLoggedIn = true</span></div>
+      <div class="row"><span class="label">학생 이름</span><span class="value">${renderValue(studentName)}</span></div>
+      <div class="row"><span class="label">학생 코드</span><span class="value">${renderValue(studentCode)}</span></div>
+      <div class="row"><span class="label">카카오 이메일</span><span class="value">${renderValue(kakaoEmail)}</span></div>
+
+      <div class="actions">
+        <button class="btn-secondary" id="logout-btn">로그아웃</button>
+        <a class="btn btn-primary" href="index.html">홈으로</a>
+      </div>
+
+      <div class="raw" id="raw-json"></div>
+      <p class="note">※ 지금은 로그인 연동이 정상 작동하는지 확인하기 위한 임시 화면입니다. 디자인은 추후 학원 홈페이지 톤에 맞춰 다시 작업하겠습니다.</p>
+    `;
+
+    document.getElementById('raw-json').textContent = JSON.stringify(
+      { isLoggedIn, studentCode, studentName, kakaoEmail },
+      null,
+      2
+    );
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      sessionStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('studentCode');
+      sessionStorage.removeItem('studentName');
+      sessionStorage.removeItem('kakaoEmail');
+      window.location.href = 'index.html';
+    });
+
+  } else {
+    // ❌ 로그인 세션이 없는 상태 (직접 URL로 들어왔거나, 로그인 실패)
+    card.innerHTML = `
+      <span class="badge no">● 로그인 필요</span>
+      <h1>로그인 정보가 없습니다</h1>
+      <p class="sub">
+        세션에 저장된 로그인 정보를 찾을 수 없습니다. 홈페이지에서 '학부모 로그인'을 통해
+        카카오 로그인을 먼저 진행해 주세요.
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href="index.html" style="flex:1;">홈페이지로 이동</a>
+      </div>
+      <p class="note">※ sessionStorage에 isLoggedIn=true 값이 없어서 뜨는 화면입니다. index.html에서 로그인에 성공하면 이 페이지로 자동 이동하며 정상 정보가 표시됩니다.</p>
+    `;
+  }
+</script>
+
+</body>
+</html>
