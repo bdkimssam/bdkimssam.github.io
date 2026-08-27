@@ -911,46 +911,34 @@
   // ===================== 카카오 로그인 (Authorize + 인가코드 교환 방식) =====================
   const KAKAO_REST_API_KEY = '45345e0ebde1e78525c90c7b9067d4e7'; // 카카오디벨로퍼스 > 앱 키 > REST API 키
   const KAKAO_REDIRECT_URI = window.location.origin + window.location.pathname; // 지금 이 페이지 주소 (카카오디벨로퍼스 Redirect URI에 동일하게 등록 필요)
-  const MAKE_WEBHOOK_URL = 'https://hook.eu2.make.com/a8dkf5bned02qu9wqei4zofm1dpmdgem';
+  const MAKE_WEBHOOK_URL = 'https://hook.eu2.make.com/11djidpnno8t3bdmu7ho577v3n1mj912';
 
-  // Make(Integromat) 웹훅으로 이메일을 전송하고, 응답에 따라 세션을 저장/이동시키는 함수
+  // Make(Integromat) 웹훅으로 이메일을 전송하고, 200 OK를 받으면 대시보드로 이동시키는 함수
   async function verifyStudentWithMake(kakao_email) {
     try {
+      // 2) 이메일 데이터를 JSON 형식으로 POST 전송
       const response = await fetch(MAKE_WEBHOOK_URL, {
         method: 'POST',
-        // Content-Type을 application/json으로 명시해야 Make 쪽에서 JSON으로 정상 파싱됩니다.
-        // (Make 웹훅은 대부분 CORS를 허용하지만, 만약 프리플라이트 관련 CORS 에러가 나면
-        //  Make 시나리오의 웹훅 모듈 설정에서 응답 헤더에 Access-Control-Allow-Origin을 추가해야 합니다.)
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email: kakao_email }),
       });
 
-      if (!response.ok) {
-        throw new Error(`서버 응답 오류 (status: ${response.status})`);
-      }
-
-      const data = await response.json();
-      console.log('Make 웹훅 응답:', data);
-
-      if (data.status === 'success') {
-        // 인증 성공: 세션에 로그인 정보 저장
+      // 3) 통신 성공(200 OK) → 학부모 대시보드로 리다이렉트
+      if (response.ok) {
+        // 대시보드 화면에서 참고할 수 있도록 이메일만 최소한으로 세션에 저장
         sessionStorage.setItem('isLoggedIn', 'true');
-        sessionStorage.setItem('studentCode', data.studentCode || '');
-        sessionStorage.setItem('studentName', data.studentName || '');
         sessionStorage.setItem('kakaoEmail', kakao_email);
 
-        // 학부모 대시보드로 이동
         window.location.href = 'dashboard.html';
       } else {
-        // Make가 200으로는 응답했지만 처리 결과가 실패인 경우 (예: 등록되지 않은 학생)
-        alert(data.message || '등록된 학생 정보를 찾을 수 없습니다. 학원으로 문의해 주세요.');
+        throw new Error(`서버 응답 오류 (status: ${response.status})`);
       }
     } catch (error) {
-      // 네트워크 오류, 웹훅 서버 오류 등 예외 상황
+      // 4) 통신 실패/에러 시 콘솔 출력 + 안내 알림
       console.error('Make 웹훅 전송 실패:', error);
-      alert('로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+      alert('로그인 처리 중 문제가 발생했습니다.');
     }
   }
 
