@@ -989,29 +989,34 @@
       }
       console.log('액세스 토큰 발급 성공:', tokenData);
 
-      // 2-2) 발급받은 토큰을 SDK에 등록하고, 사용자 정보(닉네임, 이메일) 조회
-      Kakao.Auth.setAccessToken(tokenData.access_token);
-      Kakao.API.request({
-        url: '/v2/user/me',
-        success: function (res) {
-          console.log('사용자 정보:', res);
-          const kakao_email = res.kakao_account?.email;
-          console.log('닉네임:', res.kakao_account?.profile?.nickname);
-          console.log('이메일:', kakao_email);
-
-          if (!kakao_email) {
-            alert('이메일 정보를 가져올 수 없습니다. 카카오 계정에서 이메일 제공에 동의해 주세요.');
-            return;
-          }
-
-          // 이메일 추출 성공 직후, Make 웹훅으로 전송해 인증 세션 유지 절차 진행
-          verifyStudentWithMake(kakao_email);
-        },
-        fail: function (error) {
-          console.error('사용자 정보 요청 실패:', error);
-          alert('사용자 정보를 가져오는 데 실패했습니다.');
+      // 2-2) 발급받은 토큰으로 카카오 사용자 정보 API에 직접 요청
+      // (Kakao.Auth.setAccessToken / Kakao.API.request는 보안 정책으로 폐기되어 사용하지 않고,
+      //  fetch로 카카오 REST API를 직접 호출합니다.)
+      const userRes = await fetch('https://kapi.kakao.com/v2/user/me', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
         },
       });
+      const res = await userRes.json();
+
+      if (!userRes.ok) {
+        throw new Error('사용자 정보 요청 실패: ' + JSON.stringify(res));
+      }
+
+      console.log('사용자 정보:', res);
+      const kakao_email = res.kakao_account?.email;
+      console.log('닉네임:', res.kakao_account?.profile?.nickname);
+      console.log('이메일:', kakao_email);
+
+      if (!kakao_email) {
+        alert('이메일 정보를 가져올 수 없습니다. 카카오 계정에서 이메일 제공에 동의해 주세요.');
+        return;
+      }
+
+      // 이메일 추출 성공 직후, Make 웹훅으로 전송해 인증 세션 유지 절차 진행
+      await verifyStudentWithMake(kakao_email);
     } catch (err) {
       console.error('카카오 로그인 처리 중 오류:', err);
       alert('카카오 로그인 처리 중 오류가 발생했습니다.');
