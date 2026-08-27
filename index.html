@@ -908,31 +908,115 @@
   // 패널 내부 클릭은 닫힘으로 전파되지 않도록 방지
   loginModalPanel.addEventListener('click', (e) => e.stopPropagation());
 
-  // 카카오 로그인 버튼
-  document.getElementById('kakao-login-btn').addEventListener('click', () => {
-    Kakao.Auth.login({
-      success: function (authObj) {
-        console.log('카카오 로그인 성공! 인증 정보:', authObj);
+  // ===================== 카카오 로그인 (Authorize + 인가코드 교환 방식) =====================
+  const KAKAO_REST_API_KEY = '45345e0ebde1e78525c90c7b9067d4e7'; // 카카오디벨로퍼스 > 앱 키 > REST API 키
+  const KAKAO_REDIRECT_URI = window.location.origin + window.location.pathname; // 지금 이 페이지 주소 (카카오디벨로퍼스 Redirect URI에 동일하게 등록 필요)
+  const MAKE_WEBHOOK_URL = 'https://hook.eu2.make.com/a8dkf5bned02qu9wqei4zofm1dpmdgem';
 
-        // 로그인 성공 직후, 액세스 토큰으로 사용자 정보(닉네임, 이메일 등) 요청
-        Kakao.API.request({
-          url: '/v2/user/me',
-          success: function (res) {
-            console.log('사용자 정보:', res);
-            console.log('닉네임:', res.kakao_account?.profile?.nickname);
-            console.log('이메일:', res.kakao_account?.email);
-            alert('로그인 성공!');
-          },
-          fail: function (error) {
-            console.error('사용자 정보 요청 실패:', error);
-          },
-        });
-      },
-      fail: function (err) {
-        console.error('카카오 로그인 실패:', err);
-      },
+  // Make(Integromat) 웹훅으로 이메일을 전송하고, 응답에 따라 세션을 저장/이동시키는 함수
+  async function verifyStudentWithMake(kakao_email) {
+    try {
+      const response = await fetch(MAKE_WEBHOOK_URL, {
+        method: 'POST',
+        // Content-Type을 application/json으로 명시해야 Make 쪽에서 JSON으로 정상 파싱됩니다.
+        // (Make 웹훅은 대부분 CORS를 허용하지만, 만약 프리플라이트 관련 CORS 에러가 나면
+        //  Make 시나리오의 웹훅 모듈 설정에서 응답 헤더에 Access-Control-Allow-Origin을 추가해야 합니다.)
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: kakao_email }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`서버 응답 오류 (status: ${response.status})`);
+      }
+
+      const data = await response.json();
+      console.log('Make 웹훅 응답:', data);
+
+      if (data.status === 'success') {
+        // 인증 성공: 세션에 로그인 정보 저장
+        sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('studentCode', data.studentCode || '');
+        sessionStorage.setItem('studentName', data.studentName || '');
+        sessionStorage.setItem('kakaoEmail', kakao_email);
+
+        // 학부모 대시보드로 이동
+        window.location.href = 'dashboard.html';
+      } else {
+        // Make가 200으로는 응답했지만 처리 결과가 실패인 경우 (예: 등록되지 않은 학생)
+        alert(data.message || '등록된 학생 정보를 찾을 수 없습니다. 학원으로 문의해 주세요.');
+      }
+    } catch (error) {
+      // 네트워크 오류, 웹훅 서버 오류 등 예외 상황
+      console.error('Make 웹훅 전송 실패:', error);
+      alert('로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+
+  // 1) 버튼 클릭 → 카카오 로그인 페이지로 이동 (팝업이 아니라 페이지 전체가 이동합니다)
+  document.getElementById('kakao-login-btn').addEventListener('click', () => {
+    Kakao.Auth.authorize({
+      redirectUri: KAKAO_REDIRECT_URI,
     });
   });
+
+  // 2) 카카오 로그인을 마치고 이 페이지로 다시 돌아왔을 때(?code=... 붙어서 옴) 처리
+  (async function handleKakaoRedirect() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (!code) return; // 카카오 인증 후 돌아온 상황이 아니면 아무것도 하지 않고 종료
+
+    // 새로고침해도 이 로직이 중복 실행되지 않도록 주소창에서 ?code= 부분을 바로 제거
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    try {
+      // 2-1) 인가 코드(code)를 액세스 토큰으로 교환 (카카오 인증 서버에 직접 요청)
+      const tokenRes = await fetch('https://kauth.kakao.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: KAKAO_REST_API_KEY,
+          redirect_uri: KAKAO_REDIRECT_URI,
+          code: code,
+        }),
+      });
+      const tokenData = await tokenRes.json();
+
+      if (!tokenData.access_token) {
+        throw new Error('액세스 토큰 발급 실패: ' + JSON.stringify(tokenData));
+      }
+      console.log('액세스 토큰 발급 성공:', tokenData);
+
+      // 2-2) 발급받은 토큰을 SDK에 등록하고, 사용자 정보(닉네임, 이메일) 조회
+      Kakao.Auth.setAccessToken(tokenData.access_token);
+      Kakao.API.request({
+        url: '/v2/user/me',
+        success: function (res) {
+          console.log('사용자 정보:', res);
+          const kakao_email = res.kakao_account?.email;
+          console.log('닉네임:', res.kakao_account?.profile?.nickname);
+          console.log('이메일:', kakao_email);
+
+          if (!kakao_email) {
+            alert('이메일 정보를 가져올 수 없습니다. 카카오 계정에서 이메일 제공에 동의해 주세요.');
+            return;
+          }
+
+          // 이메일 추출 성공 직후, Make 웹훅으로 전송해 인증 세션 유지 절차 진행
+          verifyStudentWithMake(kakao_email);
+        },
+        fail: function (error) {
+          console.error('사용자 정보 요청 실패:', error);
+          alert('사용자 정보를 가져오는 데 실패했습니다.');
+        },
+      });
+    } catch (err) {
+      console.error('카카오 로그인 처리 중 오류:', err);
+      alert('카카오 로그인 처리 중 오류가 발생했습니다.');
+    }
+  })();
 
   // 학생 코드 확인 (실제 인증 로직 연동 예정 자리)
   document.getElementById('student-code-form').addEventListener('submit', (e) => {
