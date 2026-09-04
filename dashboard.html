@@ -4,169 +4,846 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>학부모 마이페이지 | 봉덕김쌤수학학원</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
 <style>
+  :root {
+    --navy-950: #070C16;
+    --navy-900: #0B1220;
+    --navy-800: #121B31;
+    --navy-700: #16233B;
+    --navy-500: #2A3E64;
+    --white: #FFFFFF;
+    --gray-50: #F5F6F8;
+    --gray-100: #EDEFF3;
+    --gray-200: #E4E7EC;
+    --ink: #12172B;
+    --muted: #6B7280;
+    --faint: #98A1B3;
+  }
+
   * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', 'Noto Sans KR', sans-serif;
-    background: #f5f5f5;
-    color: #111;
-    min-height: 100vh;
+    font-family: 'Pretendard', 'Noto Sans KR', -apple-system, sans-serif;
+    background: var(--gray-50);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+
+  /* 메인 사이트와 동일한 모눈종이(그래프 용지) 텍스처 - 같은 브랜드 시그니처 재사용 */
+  .grid-paper {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* ===== 상단 헤더 ===== */
+  .topbar {
+    background: var(--navy-950);
+    color: var(--white);
+  }
+  .topbar-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 15px;
+  }
+  .brand .mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--navy-950);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    font-weight: 900;
+    font-size: 13px;
   }
-  .card {
-    width: 100%;
-    max-width: 480px;
-    background: #fff;
-    border-radius: 16px;
-    padding: 32px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  .brand .sub {
+    color: rgba(255,255,255,0.45);
+    font-weight: 600;
+    font-size: 12px;
   }
-  .badge {
+  .logout-btn {
+    appearance: none;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.85);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .logout-btn:hover {
+    border-color: rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.06);
+  }
+
+  /* ===== 웰컴 배너 ===== */
+  .welcome {
+    background: var(--navy-900);
+    color: var(--white);
+    position: relative;
+    overflow: hidden;
+  }
+  .welcome-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 40px 20px 52px;
+    position: relative;
+    z-index: 1;
+  }
+  .welcome-eyebrow {
     font-size: 12.5px;
     font-weight: 700;
-    padding: 5px 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin: 0 0 10px;
+  }
+  .welcome-title {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    line-height: 1.35;
+  }
+  .welcome-title .name {
+    display: inline-block;
+    padding: 0 4px;
+  }
+  .welcome-sub {
+    font-size: 13.5px;
+    color: rgba(255,255,255,0.55);
+    margin: 0;
+  }
+  .welcome-code {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 18px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.65);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 6px 12px;
     border-radius: 999px;
+  }
+
+  /* ===== 메인 컨텐츠 ===== */
+  .main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 20px 64px;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+    margin-top: -36px;
+    position: relative;
+    z-index: 2;
+  }
+
+  @media (max-width: 700px) {
+    .card-grid { grid-template-columns: 1fr; margin-top: -24px; }
+  }
+
+  .card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 22px 22px 20px;
+    box-shadow: 0 12px 32px rgba(11,18,32,0.06);
+    display: flex;
+    flex-direction: column;
+    min-height: 220px;
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 16px;
   }
-  .badge.ok { background: #111; color: #fff; }
-  .badge.no { background: #fee; color: #c00; }
-  h1 {
-    font-size: 20px;
-    font-weight: 900;
-    margin: 0 0 6px;
-  }
-  .sub {
-    font-size: 13.5px;
-    color: #666;
-    margin: 0 0 24px;
-    line-height: 1.5;
-  }
-  .row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 0;
-    border-top: 1px solid #eee;
-    font-size: 14px;
-  }
-  .row:first-of-type { border-top: 1px solid #eee; }
-  .row .label { color: #888; font-weight: 600; white-space: nowrap; }
-  .row .value { text-align: right; font-weight: 700; word-break: break-all; }
-  .empty-value { color: #bbb; font-weight: 500; }
-  .actions {
-    margin-top: 24px;
-    display: flex;
-    gap: 10px;
-  }
-  button, a.btn {
-    flex: 1;
-    text-align: center;
-    padding: 12px 16px;
+  .card-icon {
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
+    background: var(--navy-900);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+  }
+  .card-title {
+    font-size: 15.5px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .card-tag {
+    font-size: 11px;
     font-weight: 700;
-    font-size: 14px;
-    cursor: pointer;
-    border: none;
-    text-decoration: none;
-    display: inline-block;
+    color: var(--muted);
+    background: var(--gray-100);
+    padding: 4px 9px;
+    border-radius: 999px;
   }
-  .btn-primary { background: #111; color: #fff; }
-  .btn-secondary { background: #f0f0f0; color: #111; border: 1px solid #ddd; }
-  .raw {
-    margin-top: 24px;
-    background: #0a0a0a;
-    color: #9be29b;
-    font-family: 'SFMono-Regular', Consolas, monospace;
-    font-size: 12px;
-    padding: 14px;
-    border-radius: 10px;
-    white-space: pre-wrap;
-    word-break: break-all;
+
+  .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .state-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--faint);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--gray-200);
+    border-top-color: var(--navy-500);
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .state-empty {
+    color: var(--faint);
+    font-size: 13.5px;
     line-height: 1.6;
   }
-  .note {
-    margin-top: 16px;
+  .state-empty .big {
+    font-size: 13.5px;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .data-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-top: 1px solid var(--gray-100);
+    font-size: 13.5px;
+  }
+  .data-row:first-child { border-top: none; }
+  .data-row .k { color: var(--muted); font-weight: 600; }
+  .data-row .v { color: var(--ink); font-weight: 800; }
+
+  .notice-item {
+    padding: 10px 0;
+    border-top: 1px solid var(--gray-100);
+  }
+  .notice-item:first-child { border-top: none; }
+  .notice-item .t { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+  .notice-item .d { font-size: 12px; color: var(--faint); margin-top: 2px; }
+
+  .progress-track {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--gray-100);
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--navy-900);
+  }
+  .progress-percent {
     font-size: 12px;
-    color: #999;
+    font-weight: 700;
+    color: var(--muted);
+    margin-top: 6px;
+    text-align: right;
+  }
+
+  .feedback-item {
+    padding: 10px 0;
+    border-top: 1px solid var(--gray-100);
+  }
+  .feedback-item:first-child { border-top: none; }
+  .feedback-item .teacher {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--navy-700);
+  }
+  .feedback-item .date { font-size: 11.5px; color: var(--faint); font-weight: 600; }
+  .feedback-item .comment {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.55;
+    margin-top: 4px;
+  }
+
+  /* ---- 상점(포인트/스탬프) & 경고 카드 공용 스타일 ---- */
+  .stat-chip-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .stat-chip {
+    flex: 1;
+    border-radius: 12px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .stat-chip .num { font-size: 20px; font-weight: 900; line-height: 1.2; }
+  .stat-chip .lbl { font-size: 11.5px; font-weight: 700; margin-top: 2px; }
+  .stat-chip.point { background: #FFF7E0; }
+  .stat-chip.point .num, .stat-chip.point .lbl { color: #9A6B00; }
+  .stat-chip.stamp { background: #EEF2FF; }
+  .stat-chip.stamp .num, .stat-chip.stamp .lbl { color: #3D4FA0; }
+  .stat-chip.warning { background: #FDECEC; }
+  .stat-chip.warning .num, .stat-chip.warning .lbl { color: #B3261E; }
+
+  .log-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 0;
+    border-top: 1px solid var(--gray-100);
+  }
+  .log-item:first-child { border-top: none; }
+  .log-badge {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 3px 7px;
+    border-radius: 6px;
+    margin-top: 1px;
+    white-space: nowrap;
+  }
+  .log-badge.point { background: #FFF1C2; color: #8A5D00; }
+  .log-badge.stamp { background: #E0E7FF; color: #364293; }
+  .log-badge.warning { background: #FBD5D5; color: #9A241C; }
+  .log-item .reason { font-size: 13px; color: var(--ink); font-weight: 600; line-height: 1.5; }
+  .log-item .date { font-size: 11px; color: var(--faint); margin-top: 1px; }
+
+  .footnote {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 20px 40px;
+    font-size: 12px;
+    color: var(--faint);
     line-height: 1.6;
   }
 </style>
 </head>
 <body>
 
-  <div class="card" id="card">
-    <!-- JS로 로그인 상태에 따라 내용이 채워집니다 -->
+<!-- ============================================================
+  인증 가드: localStorage에 student_code가 없으면 즉시 로그인 페이지로 이동
+  (본문이 렌더링되기 전, body 최상단에서 바로 실행되도록 배치)
+============================================================= -->
+<script>
+  if (!localStorage.getItem('student_code')) {
+    window.location.href = 'index.html';
+  }
+</script>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="mark">봉</span>
+      <span>
+        봉덕김쌤수학학원
+        <span class="sub">학부모 마이페이지</span>
+      </span>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button type="button" class="logout-btn" id="switch-child-btn">
+        <i class="fa-solid fa-user-group"></i> 다른 자녀 선택
+      </button>
+      <button type="button" class="logout-btn" id="logout-btn">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i> 로그아웃
+      </button>
+    </div>
   </div>
+</header>
+
+<section class="welcome grid-paper">
+  <div class="welcome-inner">
+    <p class="welcome-eyebrow">Parent Dashboard</p>
+    <h1 class="welcome-title"><span class="name" id="welcome-name">학생</span>님의 대시보드입니다</h1>
+    <p class="welcome-sub">공지사항, 성적, 진도, 선생님 피드백을 이곳에서 한눈에 확인하세요.</p>
+    <span class="welcome-code"><i class="fa-solid fa-id-badge"></i> 학생코드 <span id="welcome-code-value">-</span></span>
+  </div>
+</section>
+
+<main class="main">
+  <div class="card-grid">
+
+    <!-- 공지사항 -->
+    <div class="card" id="card-notices">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon"><i class="fa-solid fa-bullhorn"></i></span>
+          <span class="card-title">공지사항</span>
+        </div>
+        <span class="card-tag">최근 소식</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 월간평가 성적 -->
+    <div class="card" id="card-grades">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="card-title">월간평가 성적</span>
+        </div>
+        <span class="card-tag">이번 달</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 현재 진도 -->
+    <div class="card" id="card-progress">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon"><i class="fa-solid fa-route"></i></span>
+          <span class="card-title">현재 진도</span>
+        </div>
+        <span class="card-tag">진행 중</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 담당 선생님 피드백 -->
+    <div class="card" id="card-feedback">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon"><i class="fa-solid fa-comment-dots"></i></span>
+          <span class="card-title">담당 선생님 피드백</span>
+        </div>
+        <span class="card-tag">최근 코멘트</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 상점 (포인트 · 스탬프) -->
+    <div class="card" id="card-rewards">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon"><i class="fa-solid fa-star"></i></span>
+          <span class="card-title">상점</span>
+        </div>
+        <span class="card-tag">포인트 · 스탬프</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 경고 -->
+    <div class="card" id="card-warnings">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+          <span class="card-title">경고</span>
+        </div>
+        <span class="card-tag">학습 태도</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<p class="footnote">
+  ※ 지금은 UI 뼈대와 연동 구조만 구성된 상태입니다. 각 카드는 아래 <code>API_ENDPOINTS</code>에
+  실제 Make 웹훅 주소를 채워 넣으면 자동으로 노션 데이터를 불러와 표시합니다.
+</p>
 
 <script>
-  const card = document.getElementById('card');
+  // =====================================================================
+  // 1) 로그인 정보 바인딩 (localStorage → 화면)
+  // =====================================================================
+  const studentCode = localStorage.getItem('student_code');
+  const studentName = localStorage.getItem('student_name');
 
-  const isLoggedIn  = sessionStorage.getItem('isLoggedIn');
-  const studentCode = sessionStorage.getItem('studentCode');
-  const studentName = sessionStorage.getItem('studentName');
-  const kakaoEmail  = sessionStorage.getItem('kakaoEmail');
-
-  function renderValue(v) {
-    return v ? v : '<span class="empty-value">(없음)</span>';
+  // 위쪽 인증 가드에서 이미 리다이렉트 처리하지만, 혹시 모를 상황에 대비해 한 번 더 체크
+  if (!studentCode) {
+    window.location.href = 'index.html';
   }
 
-  if (isLoggedIn === 'true') {
-    // ✅ 로그인 성공 상태
-    card.innerHTML = `
-      <span class="badge ok">● 로그인 세션 확인됨</span>
-      <h1>${studentName ? studentName + '님, 환영합니다 👋' : '학부모 마이페이지'}</h1>
-      <p class="sub">Make 웹훅을 통해 학생 정보 인증이 정상적으로 완료되어, 세션(sessionStorage)에 로그인 상태가 저장되어 있습니다.</p>
+  document.getElementById('welcome-name').textContent = studentName || '학생';
+  document.getElementById('welcome-code-value').textContent = studentCode || '-';
 
-      <div class="row"><span class="label">로그인 상태</span><span class="value">isLoggedIn = true</span></div>
-      <div class="row"><span class="label">학생 이름</span><span class="value">${renderValue(studentName)}</span></div>
-      <div class="row"><span class="label">학생 코드</span><span class="value">${renderValue(studentCode)}</span></div>
-      <div class="row"><span class="label">카카오 이메일</span><span class="value">${renderValue(kakaoEmail)}</span></div>
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('student_name');
+    localStorage.removeItem('student_code');
+    localStorage.removeItem('kakao_email');
+    localStorage.removeItem('family_students');
+    window.location.href = 'index.html';
+  });
 
-      <div class="actions">
-        <button class="btn-secondary" id="logout-btn">로그아웃</button>
-        <a class="btn btn-primary" href="index.html">홈으로</a>
+  // ---- 다른 자녀 선택 ----
+  document.getElementById('switch-child-btn').addEventListener('click', () => {
+    let students = [];
+    try {
+      students = JSON.parse(localStorage.getItem('family_students') || '[]');
+    } catch (e) {
+      students = [];
+    }
+
+    if (!Array.isArray(students) || students.length < 2) {
+      alert('등록된 다른 자녀 정보가 없습니다.');
+      return;
+    }
+
+    openChildSelectModal(students);
+  });
+
+  // 다자녀 학부모용 '조회할 자녀를 선택해 주세요' 모달을 동적으로 생성해서 띄움
+  function openChildSelectModal(students) {
+    const overlay = document.createElement('div');
+    overlay.id = 'child-select-modal';
+    overlay.style.cssText =
+      'position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; padding:20px;';
+    overlay.innerHTML = `
+      <div style="position:absolute; inset:0; background:rgba(7,12,22,0.7); backdrop-filter:blur(2px);"></div>
+      <div style="position:relative; width:100%; max-width:380px; background:#fff; border-radius:16px; border:1px solid var(--gray-200); box-shadow:0 20px 60px rgba(11,18,32,0.35); padding:26px;">
+        <div style="width:42px; height:42px; border-radius:10px; background:var(--navy-900); color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:14px;">
+          <i class="fa-solid fa-user-group"></i>
+        </div>
+        <h2 style="font-size:17px; font-weight:900; color:var(--ink); margin:0 0 6px;">조회할 자녀를 선택해 주세요</h2>
+        <p style="font-size:13px; color:var(--muted); line-height:1.6; margin:0 0 18px;">등록된 자녀 중 확인하실 자녀를 선택해 주세요.</p>
+        <div id="child-select-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <button type="button" id="child-select-cancel" style="margin-top:16px; width:100%; text-align:center; background:var(--gray-50); border:1px solid var(--gray-200); color:var(--muted); font-weight:700; font-size:13px; padding:10px; border-radius:10px; cursor:pointer;">취소</button>
       </div>
-
-      <div class="raw" id="raw-json"></div>
-      <p class="note">※ 지금은 로그인 연동이 정상 작동하는지 확인하기 위한 임시 화면입니다. 디자인은 추후 학원 홈페이지 톤에 맞춰 다시 작업하겠습니다.</p>
     `;
+    document.body.appendChild(overlay);
 
-    document.getElementById('raw-json').textContent = JSON.stringify(
-      { isLoggedIn, studentCode, studentName, kakaoEmail },
-      null,
-      2
-    );
-
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      sessionStorage.removeItem('isLoggedIn');
-      sessionStorage.removeItem('studentCode');
-      sessionStorage.removeItem('studentName');
-      sessionStorage.removeItem('kakaoEmail');
-      window.location.href = 'index.html';
+    const list = overlay.querySelector('#child-select-list');
+    students.forEach((student) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.style.cssText =
+        'display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid var(--gray-200); border-radius:10px; padding:12px 14px; background:#fff; text-align:left; cursor:pointer;';
+      btn.innerHTML = `
+        <span>
+          <span style="display:block; font-weight:800; font-size:14.5px; color:var(--ink);">${student.student_name || '이름 미확인'}</span>
+          <span style="display:block; font-size:12px; color:var(--faint); margin-top:2px;">학생코드 ${student.student_code}</span>
+        </span>
+        <i class="fa-solid fa-chevron-right" style="color:var(--gray-200); font-size:12px;"></i>
+      `;
+      btn.addEventListener('mouseenter', () => (btn.style.borderColor = 'var(--navy-900)'));
+      btn.addEventListener('mouseleave', () => (btn.style.borderColor = 'var(--gray-200)'));
+      btn.addEventListener('click', () => {
+        localStorage.setItem('student_name', student.student_name || '');
+        localStorage.setItem('student_code', student.student_code);
+        overlay.remove();
+        window.location.reload();
+      });
+      list.appendChild(btn);
     });
 
-  } else {
-    // ❌ 로그인 세션이 없는 상태 (직접 URL로 들어왔거나, 로그인 실패)
-    card.innerHTML = `
-      <span class="badge no">● 로그인 필요</span>
-      <h1>로그인 정보가 없습니다</h1>
-      <p class="sub">
-        세션에 저장된 로그인 정보를 찾을 수 없습니다. 홈페이지에서 '학부모 로그인'을 통해
-        카카오 로그인을 먼저 진행해 주세요.
-      </p>
-      <div class="actions">
-        <a class="btn btn-primary" href="index.html" style="flex:1;">홈페이지로 이동</a>
-      </div>
-      <p class="note">※ sessionStorage에 isLoggedIn=true 값이 없어서 뜨는 화면입니다. index.html에서 로그인에 성공하면 이 페이지로 자동 이동하며 정상 정보가 표시됩니다.</p>
-    `;
+    overlay.querySelector('#child-select-cancel').addEventListener('click', () => overlay.remove());
   }
+
+  // =====================================================================
+  // 2) Notion 데이터 fetch 모듈 (공지/성적/진도/피드백 등 모든 카드가 공용으로 사용)
+  //    각 웹훅 URL은 아래 API_ENDPOINTS에 나중에 채워 넣으면 됩니다.
+  // =====================================================================
+  const API_ENDPOINTS = {
+    notices: 'https://hook.eu2.make.com/yn01m7knj857129x9y226e49en1d5jof', // 공지사항
+    grades: '',   // 예: 월간평가 성적을 돌려주는 Make 웹훅 주소
+    progress: '', // 예: 현재 진도를 돌려주는 Make 웹훅 주소
+    feedback: '', // 예: 담당 선생님 피드백을 돌려주는 Make 웹훅 주소
+    rewardsAndWarnings: '', // 예: 상점(포인트/스탬프)·경고를 함께 돌려주는 Make 웹훅 주소 (같은 DB 테이블, type으로 구분)
+  };
+
+  /**
+   * student_code를 파라미터로 담아 Make 웹훅(API)에서 데이터를 가져오는 공용 함수.
+   * @param {string} endpointUrl - 호출할 Make 웹훅 주소
+   * @param {string} code - 조회할 학생 코드
+   * @returns {Promise<any|null>} 성공 시 JSON 데이터, 실패/미설정 시 null
+   */
+  async function fetchStudentData(endpointUrl, code) {
+    if (!endpointUrl) {
+      console.warn('[fetchStudentData] 웹훅 URL이 아직 설정되지 않았습니다.');
+      return null;
+    }
+
+    try {
+      const url = new URL(endpointUrl);
+      url.searchParams.set('student_code', code);
+
+      const res = await fetch(url.toString(), { method: 'GET' });
+
+      if (!res.ok) {
+        throw new Error(`요청 실패 (status: ${res.status})`);
+      }
+
+      return await res.json();
+    } catch (error) {
+      console.error('[fetchStudentData] 데이터 조회 실패:', error);
+      return null;
+    }
+  }
+
+  // =====================================================================
+  // 3) 카드별 렌더링 함수 (각 카드의 data-state를 loading → data/empty로 전환)
+  // =====================================================================
+  function setCardState(cardId, html) {
+    const card = document.getElementById(cardId);
+    const body = card.querySelector('.card-body');
+    body.innerHTML = html;
+  }
+
+  function renderEmptyState(cardId, message) {
+    setCardState(
+      cardId,
+      `<div class="state-empty"><span class="big">아직 표시할 데이터가 없어요</span>${message}</div>`
+    );
+  }
+
+  // ---- 공지사항 ----
+  async function loadNotices() {
+    const data = await fetchStudentData(API_ENDPOINTS.notices, studentCode);
+    if (!data || !Array.isArray(data.items) || data.items.length === 0) {
+      renderEmptyState('card-notices', '새로운 공지사항이 등록되면 이곳에 표시됩니다.');
+      return;
+    }
+    // 예상 데이터 형태: { items: [{ title: '...', date: '2026-08-20' }, ...] }
+    setCardState(
+      'card-notices',
+      data.items
+        .slice(0, 3)
+        .map(
+          (item) => `
+          <div class="notice-item">
+            <div class="t">${item.title ?? ''}</div>
+            <div class="d">${item.date ?? ''}</div>
+          </div>
+        `
+        )
+        .join('')
+    );
+  }
+
+  // ---- 월간평가 성적 ----
+  async function loadGrades() {
+    const data = await fetchStudentData(API_ENDPOINTS.grades, studentCode);
+    if (!data) {
+      renderEmptyState('card-grades', '월간평가 결과가 등록되면 이곳에 표시됩니다.');
+      return;
+    }
+    // 예상 데이터 형태: { latest_score: 92, latest_test: '8월 월간평가', trend: '+4' }
+    setCardState(
+      'card-grades',
+      `
+      <div class="data-row"><span class="k">${data.latest_test ?? '최근 평가'}</span><span class="v">${data.latest_score ?? '-'}점</span></div>
+      <div class="data-row"><span class="k">지난 평가 대비</span><span class="v">${data.trend ?? '-'}</span></div>
+      `
+    );
+  }
+
+  // ---- 현재 진도 ----
+  async function loadProgress() {
+    const data = await fetchStudentData(API_ENDPOINTS.progress, studentCode);
+    if (!data) {
+      renderEmptyState('card-progress', '진도 정보가 등록되면 이곳에 표시됩니다.');
+      return;
+    }
+    // 예상 데이터 형태: { current_book: '유형서 Level 2', current_chapter: '이차방정식', progress_percent: 68 }
+    const percent = Math.max(0, Math.min(100, Number(data.progress_percent) || 0));
+    setCardState(
+      'card-progress',
+      `
+      <div class="data-row"><span class="k">교재</span><span class="v">${data.current_book ?? '-'}</span></div>
+      <div class="data-row"><span class="k">단원</span><span class="v">${data.current_chapter ?? '-'}</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${percent}%;"></div></div>
+      <div class="progress-percent">${percent}% 진행</div>
+      `
+    );
+  }
+
+  // ---- 담당 선생님 피드백 ----
+  async function loadFeedback() {
+    const data = await fetchStudentData(API_ENDPOINTS.feedback, studentCode);
+    if (!data || !Array.isArray(data.items) || data.items.length === 0) {
+      renderEmptyState('card-feedback', '선생님 피드백이 등록되면 이곳에 표시됩니다.');
+      return;
+    }
+    // 예상 데이터 형태: { items: [{ teacher: '김수영 원장', comment: '...', date: '2026-08-20' }, ...] }
+    setCardState(
+      'card-feedback',
+      data.items
+        .slice(0, 3)
+        .map(
+          (item) => `
+          <div class="feedback-item">
+            <div class="teacher">
+              <span>${item.teacher ?? '담당 선생님'}</span>
+              <span class="date">${item.date ?? ''}</span>
+            </div>
+            <div class="comment">${item.comment ?? ''}</div>
+          </div>
+        `
+        )
+        .join('')
+    );
+  }
+
+  // ---- 상점(포인트·스탬프) & 경고: 같은 DB 테이블에서 한 번에 조회해서 두 카드에 나눠 표시 ----
+  async function loadRewardsAndWarnings() {
+    const data = await fetchStudentData(API_ENDPOINTS.rewardsAndWarnings, studentCode);
+
+    if (!data || !Array.isArray(data.items)) {
+      renderEmptyState('card-rewards', '상점 내역이 등록되면 이곳에 표시됩니다.');
+      renderEmptyState('card-warnings', '경고 내역이 없습니다. 지금처럼 잘하고 있어요!');
+      return;
+    }
+
+    // 예상 데이터 형태 (하나의 테이블, type으로 포인트/스탬프/경고를 구분):
+    // { items: [
+    //     { type: 'point',   reason: '오늘 질문 많이 함',     amount: 3, date: '2026-08-20' },
+    //     { type: 'stamp',   reason: '숙제 3주 연속 완료',    amount: 1, date: '2026-08-18' },
+    //     { type: 'warning', reason: '무단 지각',              date: '2026-08-15' },
+    //   ] }
+    const items = data.items;
+    const pointItems = items.filter((i) => i.type === 'point');
+    const stampItems = items.filter((i) => i.type === 'stamp');
+    const warningItems = items.filter((i) => i.type === 'warning');
+
+    // 총점/개수는 Make가 미리 계산해서 내려주면 그 값을 쓰고, 없으면 items로부터 직접 계산
+    const totalPoints =
+      data.total_points ?? pointItems.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+    const totalStamps = data.total_stamps ?? stampItems.length;
+    const totalWarnings = data.total_count ?? warningItems.length;
+
+    // ---- 상점 카드 렌더링 ----
+    const rewardLogs = [...pointItems, ...stampItems].slice(0, 3);
+    const rewardLogsHtml = rewardLogs.length
+      ? rewardLogs
+          .map((item) => {
+            const isStamp = item.type === 'stamp';
+            const badgeClass = isStamp ? 'stamp' : 'point';
+            const badgeLabel = isStamp ? '스탬프' : '포인트';
+            const amountText = item.amount ? ` (+${item.amount})` : '';
+            return `
+              <div class="log-item">
+                <span class="log-badge ${badgeClass}">${badgeLabel}</span>
+                <div>
+                  <div class="reason">${item.reason ?? ''}${amountText}</div>
+                  <div class="date">${item.date ?? ''}</div>
+                </div>
+              </div>
+            `;
+          })
+          .join('')
+      : `<p class="state-empty" style="margin-top:2px;">아직 지급된 상점 내역이 없습니다.</p>`;
+
+    setCardState(
+      'card-rewards',
+      `
+      <div class="stat-chip-row">
+        <div class="stat-chip point">
+          <div class="num">${totalPoints}</div>
+          <div class="lbl">포인트</div>
+        </div>
+        <div class="stat-chip stamp">
+          <div class="num">${totalStamps}</div>
+          <div class="lbl">스탬프</div>
+        </div>
+      </div>
+      ${rewardLogsHtml}
+      `
+    );
+
+    // ---- 경고 카드 렌더링 ----
+    const warningLogsHtml = warningItems.length
+      ? warningItems
+          .slice(0, 3)
+          .map(
+            (item) => `
+            <div class="log-item">
+              <span class="log-badge warning">경고</span>
+              <div>
+                <div class="reason">${item.reason ?? ''}</div>
+                <div class="date">${item.date ?? ''}</div>
+              </div>
+            </div>
+          `
+          )
+          .join('')
+      : `<p class="state-empty" style="margin-top:2px;">경고 내역이 없습니다. 지금처럼 잘하고 있어요!</p>`;
+
+    setCardState(
+      'card-warnings',
+      `
+      <div class="stat-chip-row">
+        <div class="stat-chip warning" style="flex:none; width:100%;">
+          <div class="num">${totalWarnings}<span style="font-size:13px; font-weight:700;"> / 3회</span></div>
+          <div class="lbl">누적 경고 (3회 시 강제 퇴회)</div>
+        </div>
+      </div>
+      ${warningLogsHtml}
+      `
+    );
+  }
+
+  // =====================================================================
+  // 4) 페이지 로드 시 모든 카드 데이터 동시 요청
+  // =====================================================================
+  loadNotices();
+  loadGrades();
+  loadProgress();
+  loadFeedback();
+  loadRewardsAndWarnings();
 </script>
 
 </body>
