@@ -765,35 +765,11 @@
 
       <!-- 카카오 로그인 버튼 -->
       <button type="button" id="kakao-login-btn" class="mt-6 w-full flex items-center justify-center gap-2 bg-[#FEE500] hover:brightness-95 transition-[filter] text-black font-bold text-[15px] px-5 py-3.5 rounded-xl">
-        <i class="fa-solid fa-comment text-black"></i> 카카오로 1초 만에 시작하기
+        <i class="fa-solid fa-comment text-black"></i> 카카오 로그인
       </button>
 
-      <div class="flex items-center gap-3 my-6">
-        <span class="h-px flex-1 bg-black/10"></span>
-        <span class="text-black/35 text-xs font-medium">최초 1회 인증</span>
-        <span class="h-px flex-1 bg-black/10"></span>
-      </div>
-
-      <!-- 학생 코드 입력 -->
-      <label for="student-code" class="block text-[13.5px] font-semibold text-navy-900 mb-2">
-        최초 1회 학생 코드를 입력해 주세요.
-      </label>
-      <form id="student-code-form" class="flex items-center gap-2">
-        <input
-          type="text"
-          id="student-code"
-          name="student-code"
-          placeholder="예) BD-2026-0001"
-          class="flex-1 min-w-0 border border-black/15 focus:border-black outline-none rounded-lg px-3.5 py-2.5 text-[14px] text-black placeholder:text-black/30 transition-colors"
-        />
-        <button type="submit" class="shrink-0 bg-black hover:bg-navy-800 transition-colors text-white font-semibold text-[14px] px-5 py-2.5 rounded-lg">
-          확인
-        </button>
-      </form>
-      <p id="student-code-message" class="text-[12.5px] mt-2.5 hidden"></p>
-
       <p class="text-black/35 text-[11.5px] leading-relaxed mt-6 text-center">
-        학생 코드는 최초 등록 시 원비 안내와 함께 문자로 발송됩니다.
+        카카오 로그인 후 등록된 학생 정보로 자동으로 연결됩니다.
       </p>
     </div>
   </div>
@@ -880,7 +856,6 @@
     document.body.classList.add('overflow-hidden');
     // 모바일 메뉴가 열려 있으면 함께 닫기
     mobileMenu.classList.add('hidden');
-    setTimeout(() => document.getElementById('student-code')?.blur(), 0);
     loginModalClose.focus();
   }
 
@@ -925,21 +900,85 @@
         body: JSON.stringify({ email: kakao_email }),
       });
 
-      // 3) 통신 성공(200 OK) → 학부모 대시보드로 리다이렉트
-      if (response.ok) {
-        // 대시보드 화면에서 참고할 수 있도록 이메일만 최소한으로 세션에 저장
-        sessionStorage.setItem('isLoggedIn', 'true');
-        sessionStorage.setItem('kakaoEmail', kakao_email);
-
-        window.location.href = 'dashboard.html';
-      } else {
+      if (!response.ok) {
         throw new Error(`서버 응답 오류 (status: ${response.status})`);
+      }
+
+      // 3) Make(노션 DB 조회 결과)가 돌려주는 학생 정보를 파싱
+      const data = await response.json();
+      console.log('Make 웹훅 응답:', data);
+
+      // Make가 단일 객체({...})로 주든 배열([{...}])로 주든 항상 배열로 통일해서 처리
+      const students = Array.isArray(data) ? data : [data];
+
+      if (students.length === 0 || !students[0]?.student_code) {
+        throw new Error('등록된 학생 정보를 찾을 수 없습니다: ' + JSON.stringify(data));
+      }
+
+      // 형제자매 전체 목록을 저장해두면, 대시보드의 '다른 자녀 선택'에서 다시 활용할 수 있음
+      localStorage.setItem('family_students', JSON.stringify(students));
+      localStorage.setItem('kakao_email', kakao_email);
+
+      if (students.length === 1) {
+        // 자녀가 1명이면 바로 선택 처리 후 대시보드로 이동
+        selectStudentAndGo(students[0]);
+      } else {
+        // 자녀가 2명 이상이면 선택 모달을 띄워서 학부모가 직접 고르게 함
+        openChildSelectModal(students);
       }
     } catch (error) {
       // 4) 통신 실패/에러 시 콘솔 출력 + 안내 알림
       console.error('Make 웹훅 전송 실패:', error);
       alert('로그인 처리 중 문제가 발생했습니다.');
     }
+  }
+
+  // 선택된 학생 정보를 localStorage에 최종 저장하고 대시보드로 이동
+  function selectStudentAndGo(student) {
+    localStorage.setItem('student_name', student.student_name || '');
+    localStorage.setItem('student_code', student.student_code);
+    window.location.href = 'dashboard.html';
+  }
+
+  // 다자녀 학부모용 '조회할 자녀를 선택해 주세요' 모달을 동적으로 생성해서 띄움
+  function openChildSelectModal(students) {
+    const overlay = document.createElement('div');
+    overlay.id = 'child-select-modal';
+    overlay.className = 'fixed inset-0 z-[110] flex items-center justify-center p-5';
+    overlay.innerHTML = `
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+      <div class="relative w-full max-w-sm bg-white rounded-2xl border border-black/10 shadow-2xl shadow-black/30 p-7">
+        <div class="w-11 h-11 rounded-xl bg-black text-white flex items-center justify-center text-base mb-4">
+          <i class="fa-solid fa-user-group"></i>
+        </div>
+        <h2 class="text-navy-900 font-black text-lg leading-tight mb-1.5">조회할 자녀를 선택해 주세요</h2>
+        <p class="text-muted text-[13.5px] leading-relaxed mb-5">등록된 자녀가 여러 명 확인되었습니다. 확인하실 자녀를 선택해 주세요.</p>
+        <div class="space-y-2" id="child-select-list"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add('overflow-hidden');
+
+    const list = overlay.querySelector('#child-select-list');
+    students.forEach((student) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className =
+        'w-full flex items-center justify-between gap-3 border border-black/10 hover:border-black hover:bg-black/[0.03] transition-colors rounded-xl px-4 py-3.5 text-left';
+      btn.innerHTML = `
+        <span>
+          <span class="block font-bold text-navy-900 text-[15px]">${student.student_name || '이름 미확인'}</span>
+          <span class="block text-muted text-[12.5px] mt-0.5">학생코드 ${student.student_code}</span>
+        </span>
+        <i class="fa-solid fa-chevron-right text-black/25 text-[13px]"></i>
+      `;
+      btn.addEventListener('click', () => {
+        document.body.classList.remove('overflow-hidden');
+        overlay.remove();
+        selectStudentAndGo(student);
+      });
+      list.appendChild(btn);
+    });
   }
 
   // 1) 버튼 클릭 → 카카오 로그인 페이지로 이동 (팝업이 아니라 페이지 전체가 이동합니다)
@@ -1010,24 +1049,6 @@
       alert('카카오 로그인 처리 중 오류가 발생했습니다.');
     }
   })();
-
-  // 학생 코드 확인 (실제 인증 로직 연동 예정 자리)
-  document.getElementById('student-code-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const input = document.getElementById('student-code');
-    const msg = document.getElementById('student-code-message');
-    const code = input.value.trim();
-
-    msg.classList.remove('hidden');
-    if (!code) {
-      msg.textContent = '학생 코드를 입력해 주세요.';
-      msg.className = 'text-[12.5px] mt-2.5 text-black font-semibold';
-      input.focus();
-      return;
-    }
-    msg.textContent = `'${code}' 코드 확인을 진행합니다. (실제 인증 로직 연동 예정)`;
-    msg.className = 'text-[12.5px] mt-2.5 text-muted';
-  });
 
   // ===================== 상담 신청 모달 (로그인 모달과 완전히 분리된 ID/변수 사용) =====================
   const consultModal = document.getElementById('consult-modal');
