@@ -600,8 +600,7 @@
   const API_ENDPOINTS = {
     notices: 'https://hook.eu2.make.com/yn01m7knj857129x9y226e49en1d5jof', // 공지사항
     grades: 'https://hook.eu2.make.com/ndbxil34gcwhp9hwp3iqzxotrk09bvaw', // 월간평가 성적
-    progress: '', // 예: 현재 진도를 돌려주는 Make 웹훅 주소
-    feedback: '', // 예: 담당 선생님 피드백을 돌려주는 Make 웹훅 주소
+    progressAndFeedback: 'https://hook.eu2.make.com/vequ7ixpqxlc77eyr3z4ytx3r6eytskn', // 현재 진도·담당 선생님 피드백
     rewardsAndWarnings: '', // 예: 상점(포인트/스탬프)·경고를 함께 돌려주는 Make 웹훅 주소 (같은 DB 테이블, type으로 구분)
   };
 
@@ -647,6 +646,7 @@
     if (typeof value === 'object') {
       if ('plain_text' in value) return value.plain_text ?? '';
       if ('start' in value) return value.start ?? ''; // Notion 날짜 속성
+      if ('name' in value) return value.name ?? ''; // Notion 단일 선택(select) 속성 (예: 별점)
     }
     return String(value);
   }
@@ -749,45 +749,53 @@
   }
 
   // ---- 현재 진도 ----
-  async function loadProgress() {
-    const data = await fetchStudentData(API_ENDPOINTS.progress, studentCode);
-    if (!data) {
-      renderEmptyState('card-progress', '진도 정보가 등록되면 이곳에 표시됩니다.');
-      return;
-    }
-    // 예상 데이터 형태: { current_book: '유형서 Level 2', current_chapter: '이차방정식', progress_percent: 68 }
-    const percent = Math.max(0, Math.min(100, Number(data.progress_percent) || 0));
-    setCardState(
-      'card-progress',
-      `
-      <div class="data-row"><span class="k">교재</span><span class="v">${data.current_book ?? '-'}</span></div>
-      <div class="data-row"><span class="k">단원</span><span class="v">${data.current_chapter ?? '-'}</span></div>
-      <div class="progress-track"><div class="progress-fill" style="width:${percent}%;"></div></div>
-      <div class="progress-percent">${percent}% 진행</div>
-      `
-    );
-  }
+  // ---- 현재 진도 & 담당 선생님 피드백: 같은 DB 테이블에서 한 번에 조회해서 두 카드에 나눠 표시 ----
+  async function loadProgressAndFeedback() {
+    const data = await fetchStudentData(API_ENDPOINTS.progressAndFeedback, studentCode);
+    const rawItems = toRawItemArray(data);
 
-  // ---- 담당 선생님 피드백 ----
-  async function loadFeedback() {
-    const data = await fetchStudentData(API_ENDPOINTS.feedback, studentCode);
-    if (!data || !Array.isArray(data.items) || data.items.length === 0) {
+    if (rawItems.length === 0) {
+      renderEmptyState('card-progress', '진도 정보가 등록되면 이곳에 표시됩니다.');
       renderEmptyState('card-feedback', '선생님 피드백이 등록되면 이곳에 표시됩니다.');
       return;
     }
-    // 예상 데이터 형태: { items: [{ teacher: '김수영 원장', comment: '...', date: '2026-08-20' }, ...] }
+
+    // 노션 원본(properties_value) 구조를 정리 (일부 필드가 비어있어도 안전하게 '' 처리됨)
+    const items = rawItems.map((raw) =>
+      normalizeNotionItem(raw, {
+        bookProgress: '진도책 진도',
+        homeworkProgress: '숙제책 진도',
+        comment: '담당선생님 코멘트',
+        homeworkScore: '과제 수행',
+        attitude: '수업태도',
+        date: '작성일',
+      })
+    );
+
+    // ---- 현재 진도: 가장 최근 기록(맨 앞) 기준 ----
+    const latest = items[0];
+    setCardState(
+      'card-progress',
+      `
+      <div class="data-row"><span class="k">진도책 진도</span><span class="v">${latest.bookProgress || '기록 없음'}</span></div>
+      <div class="data-row"><span class="k">숙제책 진도</span><span class="v">${latest.homeworkProgress || '기록 없음'}</span></div>
+      <div class="data-row"><span class="k">최근 업데이트</span><span class="v">${latest.date || '-'}</span></div>
+      `
+    );
+
+    // ---- 담당 선생님 피드백: 최근 3건 ----
     setCardState(
       'card-feedback',
-      data.items
+      items
         .slice(0, 3)
         .map(
           (item) => `
           <div class="feedback-item">
             <div class="teacher">
-              <span>${item.teacher ?? '담당 선생님'}</span>
-              <span class="date">${item.date ?? ''}</span>
+              <span>과제수행 ${item.homeworkScore || '-'} · 수업태도 ${item.attitude || '-'}</span>
+              <span class="date">${item.date || ''}</span>
             </div>
-            <div class="comment">${item.comment ?? ''}</div>
+            <div class="comment">${item.comment || '코멘트가 없습니다.'}</div>
           </div>
         `
         )
@@ -898,8 +906,7 @@
   // =====================================================================
   loadNotices();
   loadGrades();
-  loadProgress();
-  loadFeedback();
+  loadProgressAndFeedback();
   loadRewardsAndWarnings();
 </script>
 
