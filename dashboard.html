@@ -601,7 +601,7 @@
     notices: 'https://hook.eu2.make.com/yn01m7knj857129x9y226e49en1d5jof', // 공지사항
     grades: 'https://hook.eu2.make.com/ndbxil34gcwhp9hwp3iqzxotrk09bvaw', // 월간평가 성적
     progressAndFeedback: 'https://hook.eu2.make.com/vequ7ixpqxlc77eyr3z4ytx3r6eytskn', // 현재 진도·담당 선생님 피드백
-    rewardsAndWarnings: '', // 예: 상점(포인트/스탬프)·경고를 함께 돌려주는 Make 웹훅 주소 (같은 DB 테이블, type으로 구분)
+    rewardsAndWarnings: 'https://hook.eu2.make.com/fhhql59e27um0qtwteuh9fn9wckh8wtm', // 상점(포인트/스탬프)·경고
   };
 
   /**
@@ -806,29 +806,45 @@
   // ---- 상점(포인트·스탬프) & 경고: 같은 DB 테이블에서 한 번에 조회해서 두 카드에 나눠 표시 ----
   async function loadRewardsAndWarnings() {
     const data = await fetchStudentData(API_ENDPOINTS.rewardsAndWarnings, studentCode);
+    const rawItems = toRawItemArray(data);
 
-    if (!data || !Array.isArray(data.items)) {
+    if (rawItems.length === 0) {
       renderEmptyState('card-rewards', '상점 내역이 등록되면 이곳에 표시됩니다.');
       renderEmptyState('card-warnings', '경고 내역이 없습니다. 지금처럼 잘하고 있어요!');
       return;
     }
 
-    // 예상 데이터 형태 (하나의 테이블, type으로 포인트/스탬프/경고를 구분):
-    // { items: [
-    //     { type: 'point',   reason: '오늘 질문 많이 함',     amount: 3, date: '2026-08-20' },
-    //     { type: 'stamp',   reason: '숙제 3주 연속 완료',    amount: 1, date: '2026-08-18' },
-    //     { type: 'warning', reason: '무단 지각',              date: '2026-08-15' },
-    //   ] }
-    const items = data.items;
+    // 노션 테이블 구조: 한 행이 상점(상점 종류/상점 이유) 또는 경고(경고/경고이유) 중 하나만 채워짐
+    const parsed = rawItems.map((raw) =>
+      normalizeNotionItem(raw, {
+        rewardType: '상점 종류', // '포인트' | '스탬프' | ''
+        rewardReason: '상점 이유',
+        warningFlag: '경고', // '경고' | ''
+        warningReason: '경고이유',
+        date: '작성일',
+      })
+    );
+
+    // 채워진 쪽을 보고 상점/경고로 분류
+    const items = parsed
+      .map((row) => {
+        if (row.rewardType) {
+          return {
+            type: row.rewardType === '스탬프' ? 'stamp' : 'point',
+            reason: row.rewardReason,
+            date: row.date,
+          };
+        }
+        if (row.warningFlag) {
+          return { type: 'warning', reason: row.warningReason, date: row.date };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
     const pointItems = items.filter((i) => i.type === 'point');
     const stampItems = items.filter((i) => i.type === 'stamp');
     const warningItems = items.filter((i) => i.type === 'warning');
-
-    // 총점/개수는 Make가 미리 계산해서 내려주면 그 값을 쓰고, 없으면 items로부터 직접 계산
-    const totalPoints =
-      data.total_points ?? pointItems.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
-    const totalStamps = data.total_stamps ?? stampItems.length;
-    const totalWarnings = data.total_count ?? warningItems.length;
 
     // ---- 상점 카드 렌더링 ----
     const rewardLogs = [...pointItems, ...stampItems].slice(0, 3);
@@ -838,13 +854,12 @@
             const isStamp = item.type === 'stamp';
             const badgeClass = isStamp ? 'stamp' : 'point';
             const badgeLabel = isStamp ? '스탬프' : '포인트';
-            const amountText = item.amount ? ` (+${item.amount})` : '';
             return `
               <div class="log-item">
                 <span class="log-badge ${badgeClass}">${badgeLabel}</span>
                 <div>
-                  <div class="reason">${item.reason ?? ''}${amountText}</div>
-                  <div class="date">${item.date ?? ''}</div>
+                  <div class="reason">${item.reason || ''}</div>
+                  <div class="date">${item.date || ''}</div>
                 </div>
               </div>
             `;
@@ -857,11 +872,11 @@
       `
       <div class="stat-chip-row">
         <div class="stat-chip point">
-          <div class="num">${totalPoints}</div>
+          <div class="num">${pointItems.length}</div>
           <div class="lbl">포인트</div>
         </div>
         <div class="stat-chip stamp">
-          <div class="num">${totalStamps}</div>
+          <div class="num">${stampItems.length}</div>
           <div class="lbl">스탬프</div>
         </div>
       </div>
@@ -878,8 +893,8 @@
             <div class="log-item">
               <span class="log-badge warning">경고</span>
               <div>
-                <div class="reason">${item.reason ?? ''}</div>
-                <div class="date">${item.date ?? ''}</div>
+                <div class="reason">${item.reason || ''}</div>
+                <div class="date">${item.date || ''}</div>
               </div>
             </div>
           `
@@ -892,7 +907,7 @@
       `
       <div class="stat-chip-row">
         <div class="stat-chip warning" style="flex:none; width:100%;">
-          <div class="num">${totalWarnings}<span style="font-size:13px; font-weight:700;"> / 3회</span></div>
+          <div class="num">${warningItems.length}<span style="font-size:13px; font-weight:700;"> / 3회</span></div>
           <div class="lbl">누적 경고 (3회 시 강제 퇴회)</div>
         </div>
       </div>
