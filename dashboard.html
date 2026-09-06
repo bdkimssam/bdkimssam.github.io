@@ -599,7 +599,7 @@
   // =====================================================================
   const API_ENDPOINTS = {
     notices: 'https://hook.eu2.make.com/yn01m7knj857129x9y226e49en1d5jof', // 공지사항
-    grades: '',   // 예: 월간평가 성적을 돌려주는 Make 웹훅 주소
+    grades: 'https://hook.eu2.make.com/ndbxil34gcwhp9hwp3iqzxotrk09bvaw', // 월간평가 성적
     progress: '', // 예: 현재 진도를 돌려주는 Make 웹훅 주소
     feedback: '', // 예: 담당 선생님 피드백을 돌려주는 Make 웹훅 주소
     rewardsAndWarnings: '', // 예: 상점(포인트/스탬프)·경고를 함께 돌려주는 Make 웹훅 주소 (같은 DB 테이블, type으로 구분)
@@ -719,17 +719,32 @@
   // ---- 월간평가 성적 ----
   async function loadGrades() {
     const data = await fetchStudentData(API_ENDPOINTS.grades, studentCode);
-    if (!data) {
+    const rawItems = toRawItemArray(data);
+
+    if (rawItems.length === 0) {
       renderEmptyState('card-grades', '월간평가 결과가 등록되면 이곳에 표시됩니다.');
       return;
     }
-    // 예상 데이터 형태: { latest_score: 92, latest_test: '8월 월간평가', trend: '+4' }
+
+    // 노션 원본(properties_value) 구조를 { year, month, score }로 정리
+    // (Make에서 이미 연도→월 내림차순으로 정렬해서 최신순으로 보내줌)
+    const items = rawItems.map((raw) =>
+      normalizeNotionItem(raw, { year: '연도', month: '월', score: '점수' })
+    );
+
     setCardState(
       'card-grades',
-      `
-      <div class="data-row"><span class="k">${data.latest_test ?? '최근 평가'}</span><span class="v">${data.latest_score ?? '-'}점</span></div>
-      <div class="data-row"><span class="k">지난 평가 대비</span><span class="v">${data.trend ?? '-'}</span></div>
-      `
+      items
+        .slice(0, 6)
+        .map(
+          (item) => `
+          <div class="data-row">
+            <span class="k">${item.year}년 ${item.month}월</span>
+            <span class="v">${item.score || '-'}점</span>
+          </div>
+        `
+        )
+        .join('')
     );
   }
 
