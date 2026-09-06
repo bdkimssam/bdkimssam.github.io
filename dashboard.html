@@ -634,6 +634,41 @@
     }
   }
 
+  // 노션 속성값을 안전하게 일반 값(문자열)으로 풀어내는 공용 함수.
+  // - rich_text/title: [{ plain_text: '...' }, ...] 배열
+  // - date: { start: '2026-08-20', end: null, ... }
+  // - email/number 등 단순 타입: 그냥 값 그대로
+  function extractNotionValue(value) {
+    if (value == null) return '';
+    if (typeof value === 'string' || typeof value === 'number') return value;
+    if (Array.isArray(value)) {
+      return value.map((segment) => segment?.plain_text ?? '').join('');
+    }
+    if (typeof value === 'object') {
+      if ('plain_text' in value) return value.plain_text ?? '';
+      if ('start' in value) return value.start ?? ''; // Notion 날짜 속성
+    }
+    return String(value);
+  }
+
+  // Make가 { items: [...] } 형태로 주든, 아니면 배열([...])을 그대로 주든 항상 배열로 통일
+  function toRawItemArray(data) {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
+  }
+
+  // 노션 원본 구조(properties_value로 감싸진 형태)에서 실제 컬럼값만 뽑아내는 함수.
+  // fieldMap 예: { title: '공지사항 내용', date: '작성일' }
+  function normalizeNotionItem(raw, fieldMap) {
+    const props = raw?.properties_value ?? raw ?? {};
+    const result = {};
+    for (const [key, notionColumn] of Object.entries(fieldMap)) {
+      result[key] = extractNotionValue(props[notionColumn]);
+    }
+    return result;
+  }
+
   // =====================================================================
   // 3) 카드별 렌더링 함수 (각 카드의 data-state를 loading → data/empty로 전환)
   // =====================================================================
@@ -653,20 +688,27 @@
   // ---- 공지사항 ----
   async function loadNotices() {
     const data = await fetchStudentData(API_ENDPOINTS.notices, studentCode);
-    if (!data || !Array.isArray(data.items) || data.items.length === 0) {
+    const rawItems = toRawItemArray(data);
+
+    if (rawItems.length === 0) {
       renderEmptyState('card-notices', '새로운 공지사항이 등록되면 이곳에 표시됩니다.');
       return;
     }
-    // 예상 데이터 형태: { items: [{ title: '...', date: '2026-08-20' }, ...] }
+
+    // 노션 원본(properties_value) 구조를 { title, date }로 정리
+    const items = rawItems.map((raw) =>
+      normalizeNotionItem(raw, { title: '공지사항 내용', date: '작성일' })
+    );
+
     setCardState(
       'card-notices',
-      data.items
+      items
         .slice(0, 3)
         .map(
           (item) => `
           <div class="notice-item">
-            <div class="t">${item.title ?? ''}</div>
-            <div class="d">${item.date ?? ''}</div>
+            <div class="t">${item.title || '(제목 없음)'}</div>
+            <div class="d">${item.date || ''}</div>
           </div>
         `
         )
