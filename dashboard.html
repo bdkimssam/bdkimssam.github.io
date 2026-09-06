@@ -182,11 +182,12 @@
     box-shadow: 0 12px 32px rgba(11,18,32,0.06);
     display: flex;
     flex-direction: column;
-    min-height: 220px;
+    height: 300px;
   }
 
   .card-head {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
@@ -218,8 +219,14 @@
 
   .card-body {
     flex: 1;
+    min-height: 0; /* flex 자식이 부모 높이를 넘어가지 않도록 */
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
+    overflow-y: auto;
+  }
+  .card-body[data-state="loading"],
+  .card-body[data-state="empty"] {
     justify-content: center;
   }
 
@@ -314,6 +321,25 @@
     color: var(--ink);
     line-height: 1.55;
     margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .feedback-item .comment.expanded {
+    -webkit-line-clamp: unset;
+    overflow: visible;
+  }
+  .feedback-more-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 4px 0 0;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--navy-500);
+    cursor: pointer;
   }
 
   /* ---- 상점(포인트/스탬프) & 경고 카드 공용 스타일 ---- */
@@ -334,8 +360,8 @@
   .stat-chip.point .num, .stat-chip.point .lbl { color: #9A6B00; }
   .stat-chip.stamp { background: #EEF2FF; }
   .stat-chip.stamp .num, .stat-chip.stamp .lbl { color: #3D4FA0; }
-  .stat-chip.warning { background: #FDECEC; }
-  .stat-chip.warning .num, .stat-chip.warning .lbl { color: #B3261E; }
+  .stat-chip.warning { background: #FFF3E0; }
+  .stat-chip.warning .num, .stat-chip.warning .lbl { color: #B5651D; }
 
   .log-item {
     display: flex;
@@ -356,7 +382,7 @@
   }
   .log-badge.point { background: #FFF1C2; color: #8A5D00; }
   .log-badge.stamp { background: #E0E7FF; color: #364293; }
-  .log-badge.warning { background: #FBD5D5; color: #9A241C; }
+  .log-badge.warning { background: #FDECC8; color: #8A5400; }
   .log-item .reason { font-size: 13px; color: var(--ink); font-weight: 600; line-height: 1.5; }
   .log-item .date { font-size: 11px; color: var(--faint); margin-top: 1px; }
 
@@ -484,14 +510,14 @@
       </div>
     </div>
 
-    <!-- 경고 -->
+    <!-- 학습 태도 관리 -->
     <div class="card" id="card-warnings">
       <div class="card-head">
         <div style="display:flex; align-items:center; gap:10px;">
-          <span class="card-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
-          <span class="card-title">경고</span>
+          <span class="card-icon" style="background: #D97706;"><i class="fa-solid fa-circle-info"></i></span>
+          <span class="card-title">학습 태도 관리</span>
         </div>
-        <span class="card-tag">학습 태도</span>
+        <span class="card-tag">관리 안내</span>
       </div>
       <div class="card-body" data-state="loading">
         <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
@@ -667,16 +693,18 @@
   // =====================================================================
   // 3) 카드별 렌더링 함수 (각 카드의 data-state를 loading → data/empty로 전환)
   // =====================================================================
-  function setCardState(cardId, html) {
+  function setCardState(cardId, html, state = 'loaded') {
     const card = document.getElementById(cardId);
     const body = card.querySelector('.card-body');
     body.innerHTML = html;
+    body.setAttribute('data-state', state);
   }
 
   function renderEmptyState(cardId, message) {
     setCardState(
       cardId,
-      `<div class="state-empty"><span class="big">아직 표시할 데이터가 없어요</span>${message}</div>`
+      `<div class="state-empty"><span class="big">아직 표시할 데이터가 없어요</span>${message}</div>`,
+      'empty'
     );
   }
 
@@ -764,17 +792,30 @@
         homeworkScore: '과제 수행',
         attitude: '수업태도',
         date: '작성일자',
+        progressPercent: '진도율', // 선택 항목: 노션에 0~100 숫자 컬럼을 추가하면 진행률 바가 자동으로 표시됨
       })
     );
 
     // ---- 현재 진도: 가장 최근 기록(맨 앞) 기준 ----
     const latest = items[0];
+    const rawPercent = Number(latest.progressPercent);
+    const hasPercent = Number.isFinite(rawPercent) && latest.progressPercent !== '';
+    const percent = hasPercent ? Math.max(0, Math.min(100, rawPercent)) : null;
+
     setCardState(
       'card-progress',
       `
       <div class="data-row"><span class="k">진도책 진도</span><span class="v">${latest.bookProgress || '기록 없음'}</span></div>
       <div class="data-row"><span class="k">숙제책 진도</span><span class="v">${latest.homeworkProgress || '기록 없음'}</span></div>
       <div class="data-row"><span class="k">최근 업데이트</span><span class="v">${latest.date || '-'}</span></div>
+      ${
+        percent !== null
+          ? `
+        <div class="progress-track"><div class="progress-fill" style="width:${percent}%;"></div></div>
+        <div class="progress-percent">${percent}% 진행</div>
+      `
+          : ''
+      }
       `
     );
 
@@ -783,17 +824,29 @@
       'card-feedback',
       items
         .slice(0, 3)
-        .map(
-          (item) => `
+        .map((item) => {
+          const commentText = item.comment || '코멘트가 없습니다.';
+          // 대략 3줄(약 60자) 넘는 긴 코멘트만 '더보기' 버튼 표시
+          const needsMoreBtn = commentText.length > 60;
+          return `
           <div class="feedback-item">
             <div class="teacher">
               <span>과제수행 ${item.homeworkScore || '-'} · 수업태도 ${item.attitude || '-'}</span>
               <span class="date">${item.date || ''}</span>
             </div>
-            <div class="comment">${item.comment || '코멘트가 없습니다.'}</div>
+            <div class="comment">${commentText}</div>
+            ${
+              needsMoreBtn
+                ? `<button type="button" class="feedback-more-btn" onclick="
+                    const c = this.previousElementSibling;
+                    const isOpen = c.classList.toggle('expanded');
+                    this.textContent = isOpen ? '접기' : '더보기';
+                  ">더보기</button>`
+                : ''
+            }
           </div>
-        `
-        )
+        `;
+        })
         .join('')
     );
   }
@@ -805,7 +858,7 @@
 
     if (rawItems.length === 0) {
       renderEmptyState('card-rewards', '상점 내역이 등록되면 이곳에 표시됩니다.');
-      renderEmptyState('card-warnings', '경고 내역이 없습니다. 지금처럼 잘하고 있어요!');
+      renderEmptyState('card-warnings', '아직 안내 사항이 없습니다. 지금처럼 잘하고 있어요!');
       return;
     }
 
@@ -879,14 +932,14 @@
       `
     );
 
-    // ---- 경고 카드 렌더링 ----
+    // ---- 학습 태도 관리 카드 렌더링 ----
     const warningLogsHtml = warningItems.length
       ? warningItems
           .slice(0, 3)
           .map(
             (item) => `
             <div class="log-item">
-              <span class="log-badge warning">경고</span>
+              <span class="log-badge warning">안내</span>
               <div>
                 <div class="reason">${item.reason || ''}</div>
                 <div class="date">${item.date || ''}</div>
@@ -895,7 +948,7 @@
           `
           )
           .join('')
-      : `<p class="state-empty" style="margin-top:2px;">경고 내역이 없습니다. 지금처럼 잘하고 있어요!</p>`;
+      : `<p class="state-empty" style="margin-top:2px;">아직 안내 사항이 없습니다. 지금처럼 잘하고 있어요!</p>`;
 
     setCardState(
       'card-warnings',
@@ -903,7 +956,7 @@
       <div class="stat-chip-row">
         <div class="stat-chip warning" style="flex:none; width:100%;">
           <div class="num">${warningItems.length}<span style="font-size:13px; font-weight:700;"> / 3회</span></div>
-          <div class="lbl">누적 경고 (3회 시 강제 퇴회)</div>
+          <div class="lbl">누적 안내 횟수 · 3회 누적 시 학부모님과 상담을 진행해요</div>
         </div>
       </div>
       ${warningLogsHtml}
