@@ -889,6 +889,28 @@
   const MAKE_WEBHOOK_URL = 'https://hook.eu2.make.com/11djidpnno8t3bdmu7ho577v3n1mj912';
 
   // Make(Integromat) 웹훅으로 이메일을 전송하고, 200 OK를 받으면 대시보드로 이동시키는 함수
+  // 노션 rich_text/title 속성은 [{ plain_text: '...' }, ...] 형태의 배열로 오거나,
+  // 단순 타입(이메일 등)은 그냥 문자열로 옵니다. 두 경우 모두 안전하게 텍스트만 뽑아냅니다.
+  function extractNotionPlainText(value) {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) {
+      return value.map((segment) => segment?.plain_text ?? '').join('');
+    }
+    if (typeof value === 'object' && 'plain_text' in value) return value.plain_text ?? '';
+    return String(value);
+  }
+
+  // Make가 그대로 넘겨주는 노션 원본 구조(properties_value로 감싸진 형태)를
+  // 우리가 쓰는 { student_code, student_name } 형태로 정리합니다.
+  function normalizeStudentRecord(raw) {
+    const props = raw?.properties_value ?? raw ?? {};
+    return {
+      student_code: extractNotionPlainText(props['학생코드']).trim(),
+      student_name: extractNotionPlainText(props['학생명']).trim(),
+    };
+  }
+
   async function verifyStudentWithMake(kakao_email) {
     try {
       // 2) 이메일 데이터를 JSON 형식으로 POST 전송
@@ -909,9 +931,16 @@
       console.log('Make 웹훅 응답:', data);
 
       // Make가 단일 객체({...})로 주든 배열([{...}])로 주든 항상 배열로 통일해서 처리
-      const students = Array.isArray(data) ? data : [data];
+      const rawRecords = Array.isArray(data) ? data : [data];
 
-      if (students.length === 0 || !students[0]?.student_code) {
+      // 노션 원본 구조(properties_value 등)를 { student_code, student_name }으로 정리
+      const students = rawRecords
+        .map(normalizeStudentRecord)
+        .filter((s) => s.student_code); // 학생코드가 비어있는 항목은 제외
+
+      console.log('정리된 학생 목록:', students);
+
+      if (students.length === 0) {
         throw new Error('등록된 학생 정보를 찾을 수 없습니다: ' + JSON.stringify(data));
       }
 
