@@ -629,19 +629,15 @@
             </li>
           </ul>
 
-          <!-- 사진 갤러리: 학원 사진 3장 삽입 예정 (실제 사진으로 교체) -->
-          <div class="grid grid-cols-2 grid-rows-2 gap-3 min-h-[220px] md:min-h-[260px]">
-            <div class="row-span-2 rounded-xl bg-gray-100 border border-dashed border-black/15 flex flex-col items-center justify-center gap-2 text-black/30">
+          <!-- 사진 갤러리: 학원 사진 2장 삽입 예정 (실제 사진으로 교체) -->
+          <div class="grid grid-cols-2 gap-3 min-h-[220px] md:min-h-[260px]">
+            <div class="rounded-xl bg-gray-100 border border-dashed border-black/15 flex flex-col items-center justify-center gap-2 text-black/30">
               <i class="fa-solid fa-image text-2xl"></i>
-              <span class="text-[11px] font-medium">학원 사진 1</span>
+              <span class="text-[11px] font-medium">자습실 사진</span>
             </div>
             <div class="rounded-xl bg-gray-100 border border-dashed border-black/15 flex flex-col items-center justify-center gap-2 text-black/30">
-              <i class="fa-solid fa-image text-xl"></i>
-              <span class="text-[11px] font-medium">학원 사진 2</span>
-            </div>
-            <div class="rounded-xl bg-gray-100 border border-dashed border-black/15 flex flex-col items-center justify-center gap-2 text-black/30">
-              <i class="fa-solid fa-image text-xl"></i>
-              <span class="text-[11px] font-medium">학원 사진 3</span>
+              <i class="fa-solid fa-image text-2xl"></i>
+              <span class="text-[11px] font-medium">마음충전소 사진</span>
             </div>
           </div>
         </div>
@@ -941,7 +937,11 @@
       console.log('정리된 학생 목록:', students);
 
       if (students.length === 0) {
-        throw new Error('등록된 학생 정보를 찾을 수 없습니다: ' + JSON.stringify(data));
+        // 아직 노션에 이 이메일이 등록되지 않은 경우: 기술적 에러가 아니라 '승인 대기중' 안내로 처리
+        console.warn('등록된 학생 정보를 찾을 수 없음(승인 전):', data);
+        alert('아직 승인 전입니다.\n학부모님 정보가 등록되면 이용하실 수 있어요. 잠시만 기다려 주세요!');
+        window.location.href = 'index.html';
+        return;
       }
 
       // 형제자매 전체 목록을 저장해두면, 대시보드의 '다른 자녀 선택'에서 다시 활용할 수 있음

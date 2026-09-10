@@ -174,6 +174,10 @@
     .card-grid { grid-template-columns: 1fr; margin-top: -24px; }
   }
 
+  #card-tlp {
+    grid-column: 1 / -1;
+  }
+
   .card {
     background: var(--white);
     border: 1px solid var(--gray-200);
@@ -524,6 +528,20 @@
       </div>
     </div>
 
+    <!-- TLP 학습심리검사 -->
+    <div class="card" id="card-tlp">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon"><i class="fa-solid fa-brain"></i></span>
+          <span class="card-title">TLP 학습심리검사</span>
+        </div>
+        <span class="card-tag">검사 결과</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
   </div>
 </main>
 
@@ -623,6 +641,7 @@
     grades: 'https://hook.eu2.make.com/ndbxil34gcwhp9hwp3iqzxotrk09bvaw', // 월간평가 성적
     progressAndFeedback: 'https://hook.eu2.make.com/vequ7ixpqxlc77eyr3z4ytx3r6eytskn', // 현재 진도·담당 선생님 피드백
     rewardsAndWarnings: 'https://hook.eu2.make.com/fhhql59e27um0qtwteuh9fn9wckh8wtm', // 상점(포인트/스탬프)·경고
+    tlp: '', // 예: TLP 학습심리검사 결과를 돌려주는 Make 웹훅 주소
   };
 
   /**
@@ -964,6 +983,46 @@
     );
   }
 
+  // ---- TLP 학습심리검사 ----
+  async function loadTlp() {
+    const data = await fetchStudentData(API_ENDPOINTS.tlp, studentCode);
+    const rawItems = toRawItemArray(data);
+
+    if (rawItems.length === 0) {
+      renderEmptyState('card-tlp', 'TLP 학습심리검사 결과가 등록되면 이곳에 표시됩니다.');
+      return;
+    }
+
+    // 노션 원본(properties_value) 구조를 정리 (컬럼명은 추후 실제 노션 구성에 맞게 조정 가능)
+    const items = rawItems.map((raw) => normalizeNotionItem(raw, { comment: '코멘트' }));
+
+    // 가장 최근 검사 결과 기준
+    const latest = items[0];
+    const commentText = latest.comment || '아직 작성된 코멘트가 없습니다.';
+    const needsMoreBtn = commentText.length > 60;
+
+    setCardState(
+      'card-tlp',
+      `
+      <div class="feedback-item">
+        <div class="teacher">
+          <span>검사 결과 코멘트</span>
+        </div>
+        <div class="comment">${commentText}</div>
+        ${
+          needsMoreBtn
+            ? `<button type="button" class="feedback-more-btn" onclick="
+                const c = this.previousElementSibling;
+                const isOpen = c.classList.toggle('expanded');
+                this.textContent = isOpen ? '접기' : '더보기';
+              ">더보기</button>`
+            : ''
+        }
+      </div>
+      `
+    );
+  }
+
   // =====================================================================
   // 4) 페이지 로드 시 모든 카드 데이터 동시 요청
   // =====================================================================
@@ -971,6 +1030,7 @@
   loadGrades();
   loadProgressAndFeedback();
   loadRewardsAndWarnings();
+  loadTlp();
 </script>
 
 </body>
