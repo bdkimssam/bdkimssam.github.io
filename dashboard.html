@@ -33,6 +33,8 @@
     background: var(--gray-50);
     color: var(--ink);
     -webkit-font-smoothing: antialiased;
+    word-break: keep-all;      /* 한글 단어 중간에서 끊어지는 것 방지 */
+    overflow-wrap: break-word; /* 그래도 넘치면 그때만 강제 줄바꿈 */
   }
 
   a { color: inherit; }
@@ -168,23 +170,6 @@
     margin-top: -36px;
     position: relative;
     z-index: 2;
-  }
-
-  @media (max-width: 700px) {
-    .card-grid { gap: 10px; margin-top: -24px; }
-    .card { padding: 14px 13px 12px; height: 260px; border-radius: 13px; }
-    .card-icon { width: 30px; height: 30px; border-radius: 8px; font-size: 12px; }
-    .card-title { font-size: 12.5px; line-height: 1.3; }
-    .card-tag { font-size: 9.5px; padding: 3px 7px; }
-    .card-head { margin-bottom: 10px; gap: 6px !important; }
-    .card-body { font-size: 12px; }
-    .data-row { font-size: 11.5px; padding: 7px 0; }
-    .notice-item, .feedback-item, .log-item { padding: 7px 0; }
-    .notice-item .t, .feedback-item .comment, .log-item .reason { font-size: 11.5px; }
-    .notice-item .d, .feedback-item .date, .log-item .date { font-size: 10px; }
-    .stat-chip .num { font-size: 16px; }
-    .stat-chip .lbl { font-size: 10px; }
-    .stat-chip { padding: 9px 8px; }
   }
 
   #card-tlp {
@@ -410,6 +395,79 @@
     font-size: 12px;
     color: var(--faint);
     line-height: 1.6;
+  }
+
+  /* =====================================================================
+     반응형: 2열 카드 그리드는 항상 유지하고, 폭이 좁아질수록
+     내부 여백/폰트/줄바꿈만 조정합니다.
+  ===================================================================== */
+
+  /* 태블릿 정도의 폭(701~900px)에서만 카드를 살짝 컴팩트하게 */
+  @media (max-width: 900px) {
+    .card-grid { gap: 14px; }
+    .card { padding: 18px 18px 16px; }
+  }
+
+  /* 폰 화면(접은 Z폴드 커버 화면 포함)에서도 2열 그리드는 유지하되,
+     내부 텍스트가 좁은 폭에 맞춰 자연스럽게 줄바꿈되도록 조정 */
+  @media (max-width: 700px) {
+    .card-grid { gap: 10px; margin-top: -24px; }
+    .card {
+      padding: 14px 13px 12px;
+      height: auto;      /* 고정 높이 대신 내용에 맞춰 자동으로 늘어남 (내용 잘림/스크롤 방지) */
+      min-height: 230px;
+      border-radius: 13px;
+    }
+    .card-body { overflow-y: visible; font-size: 12px; }
+
+    .card-icon { width: 30px; height: 30px; border-radius: 8px; font-size: 12px; }
+    .card-title { font-size: 12.5px; line-height: 1.3; }
+    .card-tag { font-size: 9.5px; padding: 3px 7px; }
+    .card-head { margin-bottom: 10px; gap: 6px !important; }
+
+    /* 라벨/값이 한 줄에서 서로 밀어내며 글자 단위로 끊기던 것을
+       라벨은 위, 값은 아래로 분리 → 폭이 좁아도 단어 단위로만 줄바꿈됨 */
+    .data-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      font-size: 11.5px;
+      padding: 7px 0;
+    }
+    .data-row .v { font-size: 13px; }
+
+    .notice-item, .feedback-item, .log-item { padding: 7px 0; }
+    .notice-item .t, .feedback-item .comment, .log-item .reason { font-size: 11.5px; }
+    .notice-item .d, .feedback-item .date, .log-item .date { font-size: 10px; }
+    .stat-chip .num { font-size: 16px; }
+    .stat-chip .lbl { font-size: 10px; }
+    .stat-chip { padding: 9px 8px; }
+
+    /* 과제수행/수업태도 + 날짜도 같은 이유로 위·아래 분리 */
+    .feedback-item .teacher {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+    }
+
+    /* 상단 헤더: 브랜드명+버튼이 눌리지 않도록 줄바꿈 허용 */
+    .topbar-inner { flex-wrap: wrap; row-gap: 8px; column-gap: 10px; }
+    .brand { font-size: 13px; }
+    .brand .sub { font-size: 10.5px; }
+    .logout-btn { font-size: 11.5px; padding: 6px 10px; }
+
+    .welcome-title { font-size: 19px; }
+    .welcome-sub { font-size: 12.5px; }
+    .welcome-eyebrow { font-size: 11px; }
+  }
+
+  /* 아주 좁은 화면(접은 Z폴드5 커버 화면 등, ~360px 이하)은 여백만 한 번 더 줄임 */
+  @media (max-width: 380px) {
+    .main { padding: 24px 10px 56px; }
+    .welcome-inner { padding: 32px 14px 44px; }
+    .topbar-inner { padding: 14px 12px; }
+    .card-grid { gap: 8px; }
+    .card { padding: 12px 11px 10px; }
   }
 </style>
 </head>
