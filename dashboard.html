@@ -488,7 +488,7 @@
 ============================================================= -->
 <script>
   if (!localStorage.getItem('student_code')) {
-    window.location.href = 'index.html';
+    window.location.href = '/';
   }
 </script>
 
@@ -634,7 +634,7 @@
 
   // 위쪽 인증 가드에서 이미 리다이렉트 처리하지만, 혹시 모를 상황에 대비해 한 번 더 체크
   if (!studentCode) {
-    window.location.href = 'index.html';
+    window.location.href = '/';
   }
 
   document.getElementById('welcome-name').textContent = studentName || '학생';
@@ -645,7 +645,7 @@
     localStorage.removeItem('student_code');
     localStorage.removeItem('kakao_email');
     localStorage.removeItem('family_students');
-    window.location.href = 'index.html';
+    window.location.href = '/'; // 'index.html'이 아니라 루트로 이동해야 카카오 Redirect URI와 계속 일치함
   });
 
   // ---- 다른 자녀 선택 ----
