@@ -275,6 +275,7 @@
   .data-row .k { color: var(--muted); font-weight: 600; }
   .data-row .v { color: var(--ink); font-weight: 800; }
   .data-row .k-month { margin-left: 4px; } /* 넓은 화면: "2026년 05월" 처럼 한 줄에 붙어 보이도록 */
+  .data-row .k-year-small { font-size: 0.82em; color: var(--faint); font-weight: 700; } /* 중간고사 등에서 연도를 작게 표시 */
 
   .notice-item {
     padding: 10px 0;
@@ -864,7 +865,7 @@
           const isMonthlyEval = !item.category || item.category === '월간평가';
           const label = isMonthlyEval
             ? `<span class="k-year">${item.year}년</span><span class="k-month">${item.month}월</span>`
-            : `${item.month}월 ${item.category}`;
+            : `<span class="k-year-small">${item.year}</span> · ${item.month}월 ${item.category}`;
 
           return `
           <div class="data-row">
