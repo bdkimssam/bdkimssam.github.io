@@ -848,24 +848,31 @@
       return;
     }
 
-    // 노션 원본(properties_value) 구조를 { year, month, score }로 정리
+    // 노션 원본(properties_value) 구조를 { year, month, score, category }로 정리
     // (Make에서 이미 연도→월 내림차순으로 정렬해서 최신순으로 보내줌)
     const items = rawItems.map((raw) =>
-      normalizeNotionItem(raw, { year: '연도', month: '월', score: '점수' })
+      normalizeNotionItem(raw, { year: '연도', month: '월', score: '점수', category: '구분' })
     );
 
     setCardState(
       'card-grades',
       items
         .slice(0, 6)
-        .map(
-          (item) => `
+        .map((item) => {
+          // '구분'이 비어있거나 '월간평가'인 경우(기존 데이터 포함) → 기존처럼 "연도/월" 형식
+          // 그 외(중간고사·기말고사·모의고사 등) → "월 + 구분" 형식으로 표시 (연도 생략)
+          const isMonthlyEval = !item.category || item.category === '월간평가';
+          const label = isMonthlyEval
+            ? `<span class="k-year">${item.year}년</span><span class="k-month">${item.month}월</span>`
+            : `${item.month}월 ${item.category}`;
+
+          return `
           <div class="data-row">
-            <span class="k"><span class="k-year">${item.year}년</span><span class="k-month">${item.month}월</span></span>
+            <span class="k">${label}</span>
             <span class="v">${item.score || '-'}점</span>
           </div>
-        `
-        )
+        `;
+        })
         .join('')
     );
   }
