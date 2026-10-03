@@ -990,10 +990,55 @@
   }
 
   // ---- TLP 학습심리검사 ----
-  // TLP는 아직 Supabase 테이블/RPC가 준비되지 않아, 당분간은 "준비 중" 상태만 표시합니다.
-  // (나중에 tlp_results 테이블 + rpc_get_tlp 함수를 추가하면 여기도 다른 카드와 동일한 패턴으로 연결하면 됩니다.)
   async function loadTlp() {
-    renderEmptyState('card-tlp', '검사 결과가 등록되면 이곳에 표시됩니다.');
+    const { data, error } = await sb.rpc('rpc_get_tlp_result', { p_student_code: studentCode });
+    const result = (!error && data && data.length) ? data[0] : null;
+
+    if (!result) {
+      renderEmptyState('card-tlp', '검사 결과가 등록되면 이곳에 표시됩니다.');
+      return;
+    }
+
+    const labelMap = {
+      self_efficacy: '자기효능감', self_regulation: '자기조절지수', learning_interest: '학습흥미',
+      learning_habit: '학습습관', cognitive_strategy: '인지학습전략', test_anxiety: '시험불안',
+      parent_child_comm: '부모자녀 의사소통', hagwon_dependency: '학원의존도',
+    };
+
+    const rows = Object.keys(labelMap)
+      .filter((k) => result[k])
+      .map((k) => `<div class="data-row"><span class="k">${labelMap[k]}</span><span class="v">${result[k]}</span></div>`)
+      .join('');
+
+    const commentText = result.comment || '';
+    const needsMoreBtn = commentText.length > 60;
+
+    setCardState(
+      'card-tlp',
+      `
+      ${result.test_date ? `<div class="d" style="margin-bottom:6px;">검사일 ${result.test_date}</div>` : ''}
+      ${rows}
+      ${
+        commentText
+          ? `
+        <div class="feedback-item" style="border-top:1px solid var(--gray-100); margin-top:8px; padding-top:8px;">
+          <div class="teacher"><span>원장님 코멘트</span></div>
+          <div class="comment">${commentText}</div>
+          ${
+            needsMoreBtn
+              ? `<button type="button" class="feedback-more-btn" onclick="
+                  const c = this.previousElementSibling;
+                  const isOpen = c.classList.toggle('expanded');
+                  this.textContent = isOpen ? '접기' : '더보기';
+                ">더보기</button>`
+              : ''
+          }
+        </div>
+      `
+          : ''
+      }
+      `
+    );
   }
 
   // =====================================================================

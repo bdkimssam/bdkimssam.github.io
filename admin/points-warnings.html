@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상벌점 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 20px; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:24px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom: 28px; }
+  label { display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+  select, input, textarea {
+    width:100%; font-size:14.5px; padding:11px 13px; border-radius:10px; border:1px solid var(--gray-200);
+    margin-bottom:16px; font-family:inherit; background:#fff;
+  }
+  select:focus, input:focus, textarea:focus { outline:none; border-color: var(--navy-900); }
+  .search-wrap { position: relative; margin-bottom: 16px; }
+  .search-wrap input { margin-bottom: 0; }
+  #student-results {
+    position:absolute; top: calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid var(--gray-200);
+    border-radius:10px; max-height: 220px; overflow-y:auto; box-shadow: 0 10px 28px rgba(11,18,32,0.12); z-index: 10; display:none;
+  }
+  #student-results .opt { padding: 10px 13px; cursor:pointer; font-size: 13.5px; display:flex; justify-content:space-between; }
+  #student-results .opt:hover { background: var(--gray-50); }
+  #student-results .opt .code { color: var(--muted); font-size: 12px; }
+  .selected-chip {
+    display:none; align-items:center; justify-content:space-between; background:#EEF2FF; border-radius:10px;
+    padding: 10px 13px; font-size: 13.5px; font-weight:700; color:#364293; margin-bottom:16px;
+  }
+  .selected-chip button { background:none; border:none; color:#364293; cursor:pointer; font-size:12.5px; }
+  .kind-tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .kind-tabs button {
+    flex:1; border:1px solid var(--gray-200); background:#fff; border-radius:10px; padding:10px; font-size:13px; font-weight:700; color:var(--muted); cursor:pointer;
+  }
+  .kind-tabs button.active[data-kind="point"] { background:#FFF7E0; border-color:#F5D98A; color:#9A6B00; }
+  .kind-tabs button.active[data-kind="stamp"] { background:#EEF2FF; border-color:#C5CAE9; color:#364293; }
+  .kind-tabs button.active[data-kind="warning"] { background:#FFF3E0; border-color:#FFCC80; color:#B5651D; }
+  button.submit { width:100%; padding:12px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:14.5px; cursor:pointer; }
+  button.submit:hover { background:#000; }
+  button.submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .log-item { display:flex; align-items:flex-start; gap:8px; padding: 11px 0; border-top: 1px solid var(--gray-200); }
+  .log-item:first-child { border-top:none; }
+  .log-badge { flex-shrink:0; font-size: 10.5px; font-weight: 800; padding: 3px 7px; border-radius: 6px; margin-top: 1px; white-space: nowrap; }
+  .log-badge.point { background: #FFF1C2; color: #8A5D00; }
+  .log-badge.stamp { background: #E0E7FF; color: #364293; }
+  .log-badge.warning { background: #FDECC8; color: #8A5400; }
+  .log-item .name { font-size:13.5px; font-weight:800; }
+  .log-item .reason { font-size: 13px; color: var(--ink); margin-top:1px; }
+  .log-item .meta { font-size: 11px; color: var(--faint, #98A1B3); margin-top:2px; }
+  .loading { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">상벌점</span>
+</header>
+
+<main>
+  <div class="panel">
+    <h1>상점 · 경고 등록</h1>
+
+    <label for="student-search">학생 검색 (이름)</label>
+    <div class="search-wrap">
+      <input type="text" id="student-search" placeholder="이름을 입력하세요" autocomplete="off">
+      <div id="student-results"></div>
+    </div>
+    <div class="selected-chip" id="selected-chip">
+      <span id="selected-chip-text"></span>
+      <button type="button" id="clear-selected">변경</button>
+    </div>
+
+    <form id="pw-form">
+      <input type="hidden" id="selected-code">
+      <input type="hidden" id="selected-name">
+      <input type="hidden" id="kind" value="point">
+
+      <label>종류</label>
+      <div class="kind-tabs">
+        <button type="button" class="active" data-kind="point">포인트</button>
+        <button type="button" data-kind="stamp">스탬프</button>
+        <button type="button" data-kind="warning">경고</button>
+      </div>
+
+      <label for="reason">사유</label>
+      <textarea id="reason" placeholder="예: 숙제 100% 완료" required></textarea>
+
+      <button type="submit" class="submit" id="submit-btn" disabled>학생을 먼저 선택하세요</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div style="font-size:14px; font-weight:800; margin-bottom:12px;">최근 내역</div>
+    <div id="pw-list"><div class="loading">불러오는 중...</div></div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireAdminAuth();
+
+  let allStudents = [];
+  async function loadStudents() {
+    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: ADMIN_PASSWORD });
+    if (error) { console.error(error); return; }
+    allStudents = data || [];
+  }
+  loadStudents();
+
+  const searchInput = document.getElementById('student-search');
+  const resultsBox = document.getElementById('student-results');
+  const selectedChip = document.getElementById('selected-chip');
+  const selectedChipText = document.getElementById('selected-chip-text');
+  const submitBtn = document.getElementById('submit-btn');
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim();
+    if (!q) { resultsBox.style.display = 'none'; return; }
+    const matches = allStudents.filter((s) => s.student_name && s.student_name.includes(q)).slice(0, 8);
+    resultsBox.innerHTML = matches.length
+      ? matches.map((s) => `
+          <div class="opt" data-code="${s.student_code}" data-name="${s.student_name}">
+            <span>${s.student_name}</span><span class="code">${s.grade || ''} · ${s.student_code}</span>
+          </div>
+        `).join('')
+      : '<div class="opt" style="color:#98A1B3;">일치하는 학생이 없습니다</div>';
+    resultsBox.style.display = 'block';
+    resultsBox.querySelectorAll('.opt[data-code]').forEach((opt) => {
+      opt.addEventListener('click', () => selectStudent(opt.dataset.code, opt.dataset.name));
+    });
+  });
+
+  function selectStudent(code, name) {
+    document.getElementById('selected-code').value = code;
+    document.getElementById('selected-name').value = name;
+    selectedChipText.textContent = name + ' (' + code + ')';
+    selectedChip.style.display = 'flex';
+    searchInput.style.display = 'none';
+    resultsBox.style.display = 'none';
+    searchInput.value = '';
+    submitBtn.disabled = false;
+    submitBtn.textContent = '등록하기';
+  }
+
+  document.getElementById('clear-selected').addEventListener('click', () => {
+    document.getElementById('selected-code').value = '';
+    selectedChip.style.display = 'none';
+    searchInput.style.display = 'block';
+    searchInput.focus();
+    submitBtn.disabled = true;
+    submitBtn.textContent = '학생을 먼저 선택하세요';
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrap')) resultsBox.style.display = 'none';
+  });
+
+  document.querySelectorAll('.kind-tabs button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.kind-tabs button').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('kind').value = btn.dataset.kind;
+    });
+  });
+
+  async function loadList() {
+    const listEl = document.getElementById('pw-list');
+    const { data, error } = await sb.rpc('rpc_admin_list_points_warnings', { p_password: ADMIN_PASSWORD });
+    if (error) { console.error(error); listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>'; return; }
+    if (!data || data.length === 0) { listEl.innerHTML = '<div class="loading">등록된 내역이 없습니다.</div>'; return; }
+
+    listEl.innerHTML = data.map((row) => {
+      let badgeClass = 'warning', badgeLabel = '경고', reason = row.warning_reason;
+      if (row.point_type) {
+        badgeClass = row.point_type === '스탬프' ? 'stamp' : 'point';
+        badgeLabel = row.point_type;
+        reason = row.point_reason;
+      }
+      const date = row.created_at ? row.created_at.slice(0, 10) : '';
+      return `
+        <div class="log-item">
+          <span class="log-badge ${badgeClass}">${badgeLabel}</span>
+          <div>
+            <div class="name">${row.student_name || ''}</div>
+            <div class="reason">${reason || ''}</div>
+            <div class="meta">${date}${row.given_by ? ' · ' + row.given_by : ''}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('pw-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = document.getElementById('selected-code').value;
+    if (!code) { alert('학생을 먼저 검색해서 선택해 주세요.'); return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '등록 중...';
+
+    const { error } = await sb.rpc('rpc_admin_add_point_warning', {
+      p_password: ADMIN_PASSWORD,
+      p_student_code: code,
+      p_student_name: document.getElementById('selected-name').value,
+      p_kind: document.getElementById('kind').value,
+      p_reason: document.getElementById('reason').value.trim(),
+      p_given_by: getAdminClassroom(),
+    });
+
+    if (error) {
+      alert('등록 실패: ' + error.message);
+      submitBtn.disabled = false;
+      submitBtn.textContent = '등록하기';
+      return;
+    }
+
+    document.getElementById('clear-selected').click();
+    document.getElementById('reason').value = '';
+    loadList();
+  });
+
+  loadList();
+</script>
+
+</body>
+</html>
