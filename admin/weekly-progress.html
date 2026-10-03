@@ -31,10 +31,6 @@
   .hint { font-size: 11.5px; color: #98A1B3; margin: -12px 0 16px; }
   .book-block { border:1px solid var(--gray-200); border-radius:12px; padding:14px 14px 2px; margin-bottom:16px; }
   .book-block .book-title { font-size:13px; font-weight:800; margin-bottom:10px; }
-  .star-picker { display:flex; gap:6px; margin-bottom:16px; }
-  .star-picker i { font-size:22px; color:#D7DAE0; cursor:pointer; -webkit-text-stroke: 0; }
-  .star-picker[data-theme="black"] i.filled { color:#1A1A1A; }
-  .star-picker[data-theme="white"] i.filled { color:#fff; -webkit-text-stroke: 1.3px var(--ink); }
 </style>
 </head>
 <body>
@@ -103,26 +99,26 @@
 
       <div class="row2">
         <div>
-          <label>과제 수행 <span style="font-weight:400; color:#98A1B3;">(검정 별, 클릭해서 선택)</span></label>
-          <div class="star-picker" id="homework-completion-stars" data-theme="black">
-            <i class="fa-solid fa-star" data-index="1"></i>
-            <i class="fa-solid fa-star" data-index="2"></i>
-            <i class="fa-solid fa-star" data-index="3"></i>
-            <i class="fa-solid fa-star" data-index="4"></i>
-            <i class="fa-solid fa-star" data-index="5"></i>
-          </div>
-          <input type="hidden" id="homework-completion">
+          <label for="homework-completion">과제 수행</label>
+          <select id="homework-completion">
+            <option value="">선택 안함</option>
+            <option value="★★★★★">★★★★★ (5/5)</option>
+            <option value="★★★★">★★★★ (4/5)</option>
+            <option value="★★★">★★★ (3/5)</option>
+            <option value="★★">★★ (2/5)</option>
+            <option value="★">★ (1/5)</option>
+          </select>
         </div>
         <div>
-          <label>수업태도 <span style="font-weight:400; color:#98A1B3;">(흰 별, 클릭해서 선택)</span></label>
-          <div class="star-picker" id="attitude-stars" data-theme="white">
-            <i class="fa-solid fa-star" data-index="1"></i>
-            <i class="fa-solid fa-star" data-index="2"></i>
-            <i class="fa-solid fa-star" data-index="3"></i>
-            <i class="fa-solid fa-star" data-index="4"></i>
-            <i class="fa-solid fa-star" data-index="5"></i>
-          </div>
-          <input type="hidden" id="attitude">
+          <label for="attitude">수업태도</label>
+          <select id="attitude">
+            <option value="">선택 안함</option>
+            <option value="☆☆☆☆☆">☆☆☆☆☆ (5/5)</option>
+            <option value="☆☆☆☆">☆☆☆☆ (4/5)</option>
+            <option value="☆☆☆">☆☆☆ (3/5)</option>
+            <option value="☆☆">☆☆ (2/5)</option>
+            <option value="☆">☆ (1/5)</option>
+          </select>
         </div>
       </div>
 
@@ -277,34 +273,6 @@
     resetRangeSelect(rangeId, '교재를 먼저 선택하세요');
   }
 
-  // ---- 과제수행/수업태도 5단계 별점 선택 ----
-  function wireStarPicker(containerId, hiddenInputId) {
-    const container = document.getElementById(containerId);
-    const hiddenInput = document.getElementById(hiddenInputId);
-    const stars = Array.from(container.querySelectorAll('i'));
-
-    function render(rating) {
-      stars.forEach((star) => {
-        const idx = parseInt(star.dataset.index, 10);
-        star.classList.toggle('filled', idx <= rating);
-      });
-      hiddenInput.value = rating > 0 ? '★'.repeat(rating) + '☆'.repeat(5 - rating) : '';
-    }
-
-    stars.forEach((star) => {
-      star.addEventListener('click', () => {
-        const idx = parseInt(star.dataset.index, 10);
-        const current = (hiddenInput.value.match(/★/g) || []).length;
-        render(idx === current ? 0 : idx); // 같은 별 다시 누르면 선택 해제
-      });
-    });
-
-    render(0);
-    return render;
-  }
-  const renderHomeworkStars = wireStarPicker('homework-completion-stars', 'homework-completion');
-  const renderAttitudeStars = wireStarPicker('attitude-stars', 'attitude');
-
   document.getElementById('progress-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const code = document.getElementById('selected-code').value;
@@ -342,8 +310,8 @@
     submitBtn.textContent = '학생을 먼저 선택하세요';
     resetBookSelector('progress-grade-semester', 'progress-textbook-name', 'progress-range');
     resetBookSelector('homework-grade-semester', 'homework-textbook-name', 'homework-range');
-    renderHomeworkStars(0);
-    renderAttitudeStars(0);
+    document.getElementById('homework-completion').value = '';
+    document.getElementById('attitude').value = '';
     document.getElementById('teacher-comment').value = '';
   });
 </script>
