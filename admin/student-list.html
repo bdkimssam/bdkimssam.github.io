@@ -34,7 +34,11 @@
     padding:7px 10px; border-radius:8px; border:1px solid var(--gray-200); background:#fff;
     font-size:13px; font-family:inherit; color: var(--ink); cursor:pointer;
   }
-  select.classroom-select.saving { opacity:0.5; }
+  select.classroom-select.saving, input.attend-date.saving { opacity:0.5; }
+  input.attend-date {
+    padding:6px 8px; border-radius:8px; border:1px solid var(--gray-200); background:#fff;
+    font-size:12.5px; font-family:inherit; color: var(--ink); width:128px;
+  }
   .loading, .empty { color: var(--muted); font-size: 13px; padding: 30px 6px; text-align:center; }
   .count-badge { font-size:12px; color: var(--muted); font-weight:700; }
   .issue-panel {
@@ -116,7 +120,7 @@
   <div class="panel">
     <table id="student-table" style="display:none;">
       <thead>
-        <tr><th>강의실</th><th>이름</th><th>학생코드</th><th>학년</th><th></th></tr>
+        <tr><th>강의실</th><th>이름</th><th>학생코드</th><th>학년</th><th>첫 등원일</th><th></th></tr>
       </thead>
       <tbody id="student-tbody"></tbody>
     </table>
@@ -216,12 +220,35 @@
         <td class="code">${s.student_code || ''}</td>
         <td>${s.grade || '-'}</td>
         <td>
+          <input type="date" class="attend-date" data-code="${s.student_code}" value="${s.first_attend_date || ''}" ${s.withdrawn ? 'disabled' : ''}>
+        </td>
+        <td>
           <button type="button" class="withdraw-btn ${s.withdrawn ? 'is-restore' : ''}" data-code="${s.student_code}" data-withdrawn="${s.withdrawn ? 'true' : 'false'}">
             ${s.withdrawn ? '복귀' : '퇴원'}
           </button>
         </td>
       </tr>
     `).join('');
+
+    tbody.querySelectorAll('.attend-date').forEach((inp) => {
+      inp.addEventListener('change', async () => {
+        inp.classList.add('saving');
+        inp.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_set_first_attend_date', {
+          p_password: getAdminPassword(),
+          p_student_code: inp.dataset.code,
+          p_date: inp.value || null,
+        });
+        inp.disabled = false;
+        inp.classList.remove('saving');
+        if (error) {
+          alert('첫 등원일 저장 실패: ' + error.message);
+          return;
+        }
+        const target = allStudents.find((s) => s.student_code === inp.dataset.code);
+        if (target) target.first_attend_date = inp.value || null;
+      });
+    });
 
     tbody.querySelectorAll('.withdraw-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
