@@ -71,6 +71,36 @@
   }
   button.withdraw-btn.is-restore { color: var(--navy-900); }
   button.withdraw-btn:hover { background: var(--gray-50); }
+  button.edit-btn {
+    padding:6px 10px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; color: var(--ink);
+    font-size:12px; font-weight:700; cursor:pointer; margin-right:6px;
+  }
+  button.edit-btn:hover { background: var(--gray-50); }
+
+  .modal-overlay {
+    display:none; position:fixed; inset:0; background:rgba(7,12,22,0.55); z-index:50;
+    align-items:flex-start; justify-content:center; padding: 40px 16px; overflow-y:auto;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal-box {
+    background:#fff; border-radius:16px; padding:26px 24px; width:100%; max-width:440px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+  }
+  .modal-box h2 { font-size:17px; font-weight:900; margin:0 0 18px; }
+  .modal-box .field { margin-bottom:13px; }
+  .modal-box label { display:block; font-size:12px; font-weight:700; color: var(--muted); margin-bottom:5px; }
+  .modal-box input[type="text"], .modal-box input[type="email"], .modal-box input[type="tel"], .modal-box select {
+    width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--gray-200);
+    font-size:13.5px; font-family:inherit; color: var(--ink); background:#fff;
+  }
+  .modal-box .consent-row { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; }
+  .modal-box .btn-row { display:flex; gap:8px; margin-top:20px; }
+  .modal-box .btn-row button {
+    flex:1; padding:11px; border-radius:10px; border:none; font-weight:800; font-size:14px; cursor:pointer;
+  }
+  .modal-box .save-btn { background: var(--navy-900); color:#fff; }
+  .modal-box .save-btn:hover { background:#000; }
+  .modal-box .cancel-btn { background: var(--gray-50); color: var(--ink); border:1px solid var(--gray-200) !important; }
 </style>
 </head>
 <body>
@@ -127,6 +157,35 @@
     <div class="loading" id="status-area">불러오는 중...</div>
   </div>
 </main>
+
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <h2>학생 정보 수정 — <span id="edit-modal-code"></span></h2>
+    <input type="hidden" id="edit-student-code">
+    <div class="field"><label>이름</label><input type="text" id="edit-name"></div>
+    <div class="field"><label>학년</label>
+      <select id="edit-grade">
+        <option value="">선택 안 함</option>
+        <option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option>
+        <option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option>
+        <option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option>
+        <option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option>
+        <option value="졸업">졸업</option>
+      </select>
+    </div>
+    <div class="field"><label>학교</label><input type="text" id="edit-school"></div>
+    <div class="field"><label>학생 연락처</label><input type="tel" id="edit-student-phone"></div>
+    <div class="field"><label>부모 연락처</label><input type="tel" id="edit-parent-phone"></div>
+    <div class="field"><label>부모 이메일 (카카오 로그인용)</label><input type="email" id="edit-parent-email"></div>
+    <div class="field"><label>학생 생년월일 (예: 20150321)</label><input type="text" id="edit-birth-date"></div>
+    <div class="field"><label>주소</label><input type="text" id="edit-address"></div>
+    <div class="field consent-row"><input type="checkbox" id="edit-privacy-consent"> <label style="margin:0;" for="edit-privacy-consent">개인정보보호 동의</label></div>
+    <div class="btn-row">
+      <button type="button" class="cancel-btn" id="edit-cancel-btn">취소</button>
+      <button type="button" class="save-btn" id="edit-save-btn">저장</button>
+    </div>
+  </div>
+</div>
 
 <script src="../assets/js/supabase-client.js"></script>
 <script>
@@ -222,7 +281,8 @@
         <td>
           <input type="date" class="attend-date" data-code="${s.student_code}" value="${s.first_attend_date || ''}" ${s.withdrawn ? 'disabled' : ''}>
         </td>
-        <td>
+        <td style="white-space:nowrap;">
+          <button type="button" class="edit-btn" data-code="${s.student_code}">수정</button>
           <button type="button" class="withdraw-btn ${s.withdrawn ? 'is-restore' : ''}" data-code="${s.student_code}" data-withdrawn="${s.withdrawn ? 'true' : 'false'}">
             ${s.withdrawn ? '복귀' : '퇴원'}
           </button>
@@ -270,6 +330,10 @@
       });
     });
 
+    tbody.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openEditModal(btn.dataset.code));
+    });
+
     tbody.querySelectorAll('.classroom-select').forEach((sel) => {
       sel.addEventListener('change', async () => {
         sel.classList.add('saving');
@@ -291,6 +355,80 @@
       });
     });
   }
+
+  // ---- 학생 정보 수정 모달 ----
+  const editModal = document.getElementById('edit-modal');
+
+  async function openEditModal(code) {
+    document.getElementById('edit-modal-code').textContent = code;
+    document.getElementById('edit-student-code').value = code;
+    // 불러오는 동안 일단 빈 값으로 열어두고, 로딩되면 채움
+    ['edit-name', 'edit-school', 'edit-student-phone', 'edit-parent-phone', 'edit-parent-email', 'edit-birth-date', 'edit-address'].forEach((id) => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('edit-grade').value = '';
+    document.getElementById('edit-privacy-consent').checked = false;
+    editModal.classList.add('open');
+
+    const { data, error } = await sb.rpc('rpc_admin_get_student_detail', {
+      p_password: getAdminPassword(),
+      p_student_code: code,
+    });
+    if (error) {
+      alert('학생 정보를 불러오지 못했습니다: ' + error.message);
+      return;
+    }
+    const detail = (data && data[0]) || {};
+    document.getElementById('edit-name').value = detail.student_name || '';
+    document.getElementById('edit-grade').value = detail.grade || '';
+    document.getElementById('edit-school').value = detail.school || '';
+    document.getElementById('edit-student-phone').value = detail.student_phone || '';
+    document.getElementById('edit-parent-phone').value = detail.parent_phone || '';
+    document.getElementById('edit-parent-email').value = detail.parent_email || '';
+    document.getElementById('edit-birth-date').value = detail.birth_date || '';
+    document.getElementById('edit-address').value = detail.address || '';
+    document.getElementById('edit-privacy-consent').checked = !!detail.privacy_consent;
+  }
+
+  function closeEditModal() {
+    editModal.classList.remove('open');
+  }
+
+  document.getElementById('edit-cancel-btn').addEventListener('click', closeEditModal);
+  editModal.addEventListener('click', (e) => {
+    if (e.target === editModal) closeEditModal();
+  });
+
+  document.getElementById('edit-save-btn').addEventListener('click', async () => {
+    const saveBtn = document.getElementById('edit-save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = '저장 중...';
+
+    const code = document.getElementById('edit-student-code').value;
+    const { error } = await sb.rpc('rpc_admin_update_student_detail', {
+      p_password: getAdminPassword(),
+      p_student_code: code,
+      p_student_name: document.getElementById('edit-name').value || null,
+      p_grade: document.getElementById('edit-grade').value || null,
+      p_school: document.getElementById('edit-school').value || null,
+      p_student_phone: document.getElementById('edit-student-phone').value || null,
+      p_parent_phone: document.getElementById('edit-parent-phone').value || null,
+      p_parent_email: document.getElementById('edit-parent-email').value || null,
+      p_birth_date: document.getElementById('edit-birth-date').value || null,
+      p_address: document.getElementById('edit-address').value || null,
+      p_privacy_consent: document.getElementById('edit-privacy-consent').checked,
+    });
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = '저장';
+
+    if (error) {
+      alert('저장 실패: ' + error.message);
+      return;
+    }
+    closeEditModal();
+    loadStudents();
+  });
 </script>
 
 </body>
