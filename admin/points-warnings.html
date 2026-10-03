@@ -23,20 +23,6 @@
     margin-bottom:16px; font-family:inherit; background:#fff;
   }
   select:focus, input:focus, textarea:focus { outline:none; border-color: var(--navy-900); }
-  .search-wrap { position: relative; margin-bottom: 16px; }
-  .search-wrap input { margin-bottom: 0; }
-  #student-results {
-    position:absolute; top: calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid var(--gray-200);
-    border-radius:10px; max-height: 220px; overflow-y:auto; box-shadow: 0 10px 28px rgba(11,18,32,0.12); z-index: 10; display:none;
-  }
-  #student-results .opt { padding: 10px 13px; cursor:pointer; font-size: 13.5px; display:flex; justify-content:space-between; }
-  #student-results .opt:hover { background: var(--gray-50); }
-  #student-results .opt .code { color: var(--muted); font-size: 12px; }
-  .selected-chip {
-    display:none; align-items:center; justify-content:space-between; background:#EEF2FF; border-radius:10px;
-    padding: 10px 13px; font-size: 13.5px; font-weight:700; color:#364293; margin-bottom:16px;
-  }
-  .selected-chip button { background:none; border:none; color:#364293; cursor:pointer; font-size:12.5px; }
   .kind-tabs { display:flex; gap:8px; margin-bottom:16px; }
   .kind-tabs button {
     flex:1; border:1px solid var(--gray-200); background:#fff; border-radius:10px; padding:10px; font-size:13px; font-weight:700; color:var(--muted); cursor:pointer;
@@ -70,15 +56,10 @@
   <div class="panel">
     <h1>상점 · 경고 등록</h1>
 
-    <label for="student-search">학생 검색 (이름)</label>
-    <div class="search-wrap">
-      <input type="text" id="student-search" placeholder="이름을 입력하세요" autocomplete="off">
-      <div id="student-results"></div>
-    </div>
-    <div class="selected-chip" id="selected-chip">
-      <span id="selected-chip-text"></span>
-      <button type="button" id="clear-selected">변경</button>
-    </div>
+    <label for="student-select">학생 선택</label>
+    <select id="student-select">
+      <option value="">학생을 선택하세요</option>
+    </select>
 
     <form id="pw-form">
       <input type="hidden" id="selected-code">
@@ -110,59 +91,49 @@
   requireAdminAuth();
 
   let allStudents = [];
+  const studentSelect = document.getElementById('student-select');
+  const submitBtn = document.getElementById('submit-btn');
+
   async function loadStudents() {
     const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
     if (error) { console.error(error); return; }
-    allStudents = data || [];
+    allStudents = (data || []).slice().sort((a, b) => {
+      const g = (a.grade || '').localeCompare(b.grade || '');
+      if (g !== 0) return g;
+      return (a.student_name || '').localeCompare(b.student_name || '');
+    });
+    renderStudentOptions();
   }
   loadStudents();
 
-  const searchInput = document.getElementById('student-search');
-  const resultsBox = document.getElementById('student-results');
-  const selectedChip = document.getElementById('selected-chip');
-  const selectedChipText = document.getElementById('selected-chip-text');
-  const submitBtn = document.getElementById('submit-btn');
-
-  searchInput.addEventListener('input', () => {
-    const q = searchInput.value.trim();
-    if (!q) { resultsBox.style.display = 'none'; return; }
-    const matches = allStudents.filter((s) => s.student_name && s.student_name.includes(q)).slice(0, 8);
-    resultsBox.innerHTML = matches.length
-      ? matches.map((s) => `
-          <div class="opt" data-code="${s.student_code}" data-name="${s.student_name}">
-            <span>${s.student_name}</span><span class="code">${s.grade || ''} · ${s.student_code}</span>
-          </div>
-        `).join('')
-      : '<div class="opt" style="color:#98A1B3;">일치하는 학생이 없습니다</div>';
-    resultsBox.style.display = 'block';
-    resultsBox.querySelectorAll('.opt[data-code]').forEach((opt) => {
-      opt.addEventListener('click', () => selectStudent(opt.dataset.code, opt.dataset.name));
+  function renderStudentOptions() {
+    const groups = {};
+    allStudents.forEach((s) => {
+      const g = s.grade || '학년 미지정';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(s);
     });
-  });
-
-  function selectStudent(code, name) {
-    document.getElementById('selected-code').value = code;
-    document.getElementById('selected-name').value = name;
-    selectedChipText.textContent = name + ' (' + code + ')';
-    selectedChip.style.display = 'flex';
-    searchInput.style.display = 'none';
-    resultsBox.style.display = 'none';
-    searchInput.value = '';
-    submitBtn.disabled = false;
-    submitBtn.textContent = '등록하기';
+    const optgroups = Object.keys(groups).map((g) => `
+      <optgroup label="${g}">
+        ${groups[g].map((s) => `<option value="${s.student_code}" data-name="${s.student_name}">${s.student_name} (${s.student_code})</option>`).join('')}
+      </optgroup>
+    `).join('');
+    studentSelect.innerHTML = '<option value="">학생을 선택하세요</option>' + optgroups;
   }
 
-  document.getElementById('clear-selected').addEventListener('click', () => {
-    document.getElementById('selected-code').value = '';
-    selectedChip.style.display = 'none';
-    searchInput.style.display = 'block';
-    searchInput.focus();
-    submitBtn.disabled = true;
-    submitBtn.textContent = '학생을 먼저 선택하세요';
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search-wrap')) resultsBox.style.display = 'none';
+  studentSelect.addEventListener('change', () => {
+    const code = studentSelect.value;
+    if (!code) {
+      document.getElementById('selected-code').value = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = '학생을 먼저 선택하세요';
+      return;
+    }
+    const opt = studentSelect.selectedOptions[0];
+    document.getElementById('selected-code').value = code;
+    document.getElementById('selected-name').value = opt.dataset.name;
+    submitBtn.disabled = false;
+    submitBtn.textContent = '등록하기';
   });
 
   document.querySelectorAll('.kind-tabs button').forEach((btn) => {
@@ -224,7 +195,11 @@
       return;
     }
 
-    document.getElementById('clear-selected').click();
+    studentSelect.value = '';
+    document.getElementById('selected-code').value = '';
+    document.getElementById('selected-name').value = '';
+    submitBtn.disabled = true;
+    submitBtn.textContent = '학생을 먼저 선택하세요';
     document.getElementById('reason').value = '';
     loadList();
   });
