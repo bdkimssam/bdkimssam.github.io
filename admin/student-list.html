@@ -37,6 +37,28 @@
   select.classroom-select.saving { opacity:0.5; }
   .loading, .empty { color: var(--muted); font-size: 13px; padding: 30px 6px; text-align:center; }
   .count-badge { font-size:12px; color: var(--muted); font-weight:700; }
+  .issue-panel {
+    background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding: 18px 20px;
+    box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom:18px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .issue-panel .label { font-weight:800; font-size:13.5px; margin-right:4px; }
+  select.level-select {
+    padding:10px 12px; border-radius:10px; border:1px solid var(--gray-200); background:#fff;
+    font-size:14px; font-family:inherit; color: var(--ink);
+  }
+  button.issue-btn {
+    padding:10px 16px; border-radius:10px; border:none; background:var(--navy-900); color:#fff;
+    font-weight:800; font-size:13.5px; cursor:pointer;
+  }
+  button.issue-btn:hover { background:#000; }
+  button.issue-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .issued-code {
+    display:flex; align-items:center; gap:8px; font-size:15px; font-weight:900;
+    background: var(--gray-50); border:1px solid var(--gray-200); border-radius:10px; padding:9px 14px;
+  }
+  .issued-code button {
+    border:none; background:transparent; color: var(--navy-900); font-size:12.5px; font-weight:700; cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -49,6 +71,17 @@
 <main>
   <h1>학생 목록</h1>
   <p class="sub">학년별로 학생을 확인하고, 강의실이 잘못 지정된 경우 바로 고칠 수 있습니다.</p>
+
+  <div class="issue-panel">
+    <span class="label">신규 학생코드 발급</span>
+    <select class="level-select" id="level-select">
+      <option value="초">초등</option>
+      <option value="중">중등</option>
+      <option value="고">고등</option>
+    </select>
+    <button type="button" class="issue-btn" id="issue-btn">코드 받기</button>
+    <span id="issued-area"></span>
+  </div>
 
   <div class="toolbar">
     <label for="grade-filter">학년</label>
@@ -92,6 +125,34 @@
   loadStudents();
 
   document.getElementById('grade-filter').addEventListener('change', render);
+
+  document.getElementById('issue-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('issue-btn');
+    const issuedArea = document.getElementById('issued-area');
+    const level = document.getElementById('level-select').value;
+    btn.disabled = true;
+    btn.textContent = '발급 중...';
+    const { data, error } = await sb.rpc('rpc_admin_issue_student_code', {
+      p_password: getAdminPassword(),
+      p_level: level,
+    });
+    btn.disabled = false;
+    btn.textContent = '코드 받기';
+    if (error) {
+      alert('코드 발급 실패: ' + error.message);
+      return;
+    }
+    issuedArea.innerHTML = `
+      <span class="issued-code">
+        ${data}
+        <button type="button" id="copy-code-btn">복사</button>
+      </span>
+    `;
+    document.getElementById('copy-code-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(data);
+    });
+    loadStudents();
+  });
 
   async function loadStudents() {
     const statusArea = document.getElementById('status-area');
