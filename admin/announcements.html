@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공지 작성 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 20px; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:24px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom: 28px; }
+  label { display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+  select, input, textarea {
+    width:100%; font-size:14.5px; padding:11px 13px; border-radius:10px; border:1px solid var(--gray-200);
+    margin-bottom:16px; font-family:inherit; background:#fff;
+  }
+  textarea { resize: vertical; min-height: 110px; }
+  select:focus, input:focus, textarea:focus { outline:none; border-color: var(--navy-900); }
+  button.submit { width:100%; padding:12px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:14.5px; cursor:pointer; }
+  button.submit:hover { background:#000; }
+  .list-title { font-size: 14px; font-weight: 800; margin: 0 0 12px; }
+  .notice-row { display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; padding: 14px 0; border-top: 1px solid var(--gray-200); }
+  .notice-row:first-child { border-top:none; }
+  .notice-row .tag { display:inline-block; font-size:11px; font-weight:800; color:#3D4FA0; background:#EEF2FF; padding:2px 8px; border-radius: 999px; margin-bottom: 4px; }
+  .notice-row .t { font-weight:700; font-size: 14px; }
+  .notice-row .c { font-size: 12.5px; color: var(--muted); margin-top: 3px; white-space: pre-line; }
+  .notice-row .d { font-size: 11.5px; color: #98A1B3; margin-top: 4px; }
+  .del-btn { flex-shrink:0; background:none; border:none; color:#C0392B; font-size:13px; cursor:pointer; padding: 4px 6px; }
+  .loading { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">공지 작성</span>
+</header>
+
+<main>
+  <div class="panel">
+    <h1>새 공지 등록</h1>
+    <form id="notice-form">
+      <label for="target-grade">대상 학년</label>
+      <select id="target-grade">
+        <option value="전체">전체</option>
+        <option value="초등">초등 전체</option>
+        <option value="중등">중등 전체</option>
+        <option value="고등">고등 전체</option>
+        <option value="중고등">중고등 전체</option>
+        <option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option>
+        <option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option>
+        <option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option>
+        <option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option>
+      </select>
+
+      <label for="title">제목</label>
+      <input type="text" id="title" placeholder="예: 내신 대비 보강 안내" required>
+      <div style="font-size:11.5px; color:#98A1B3; margin:-12px 0 16px;">학부모 화면 목록에는 "[대상학년] 제목" 형태로 자동 표시됩니다. 제목에 직접 [ ] 안 넣으셔도 돼요.</div>
+
+      <label for="content">내용</label>
+      <textarea id="content" placeholder="공지 내용을 입력하세요" required></textarea>
+
+      <label for="posted-date">작성일</label>
+      <input type="date" id="posted-date" required>
+
+      <button type="submit" class="submit">등록하기</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="list-title">등록된 공지 목록</div>
+    <div id="notice-list"><div class="loading">불러오는 중...</div></div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireDirector();
+
+  document.getElementById('posted-date').valueAsDate = new Date();
+
+  function gradeLabel(g) {
+    if (!g || g === '전체') return '전체';
+    return g;
+  }
+
+  async function loadList() {
+    const listEl = document.getElementById('notice-list');
+    listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
+
+    const { data, error } = await sb.rpc('rpc_admin_list_announcements', { p_password: ADMIN_PASSWORD });
+    if (error) {
+      console.error(error);
+      listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>';
+      return;
+    }
+    if (!data || data.length === 0) {
+      listEl.innerHTML = '<div class="loading">등록된 공지가 없습니다.</div>';
+      return;
+    }
+
+    listEl.innerHTML = data.map((item) => `
+      <div class="notice-row">
+        <div>
+          <span class="tag">[${gradeLabel(item.target_grade)}]</span>
+          <div class="t">${item.title}</div>
+          <div class="c">${(item.content || '').slice(0, 80)}${(item.content || '').length > 80 ? '…' : ''}</div>
+          <div class="d">${item.posted_date || ''}</div>
+        </div>
+        <button class="del-btn" data-id="${item.id}"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.del-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 공지를 삭제할까요?')) return;
+        const { error: delErr } = await sb.rpc('rpc_admin_delete_announcement', {
+          p_password: ADMIN_PASSWORD, p_id: btn.dataset.id,
+        });
+        if (delErr) { alert('삭제 실패: ' + delErr.message); return; }
+        loadList();
+      });
+    });
+  }
+
+  document.getElementById('notice-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '등록 중...';
+
+    const { error } = await sb.rpc('rpc_admin_add_announcement', {
+      p_password: ADMIN_PASSWORD,
+      p_title: document.getElementById('title').value.trim(),
+      p_content: document.getElementById('content').value.trim(),
+      p_target_grade: document.getElementById('target-grade').value,
+      p_posted_date: document.getElementById('posted-date').value,
+    });
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = '등록하기';
+
+    if (error) {
+      alert('등록 실패: ' + error.message);
+      return;
+    }
+
+    e.target.reset();
+    document.getElementById('posted-date').valueAsDate = new Date();
+    loadList();
+  });
+
+  loadList();
+</script>
+
+</body>
+</html>

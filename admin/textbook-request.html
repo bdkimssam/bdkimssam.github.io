@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>교재 요청 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 20px; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:24px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom: 28px; }
+  label { display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+  select, input, textarea {
+    width:100%; font-size:14.5px; padding:11px 13px; border-radius:10px; border:1px solid var(--gray-200);
+    margin-bottom:16px; font-family:inherit; background:#fff;
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  select:focus, input:focus, textarea:focus { outline:none; border-color: var(--navy-900); }
+  .row2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  button.submit { width:100%; padding:12px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:14.5px; cursor:pointer; }
+  button.submit:hover { background:#000; }
+  .filter-tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .filter-tabs button {
+    border:1px solid var(--gray-200); background:#fff; border-radius:999px; padding:7px 14px; font-size:12.5px; font-weight:700; color:var(--muted); cursor:pointer;
+  }
+  .filter-tabs button.active { background: var(--navy-900); color:#fff; border-color: var(--navy-900); }
+  .req-row { padding: 14px 0; border-top: 1px solid var(--gray-200); display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .req-row:first-child { border-top:none; }
+  .req-row .t { font-weight:700; font-size:14px; }
+  .req-row .meta { font-size:12px; color:var(--muted); margin-top:3px; }
+  .req-row .note { font-size: 12px; color: var(--muted); margin-top:3px; white-space:pre-line; }
+  .done-btn { flex-shrink:0; border:none; border-radius:10px; padding:8px 12px; font-size:12.5px; font-weight:800; cursor:pointer; background:#FFF3E0; color:#B5651D; }
+  .done-btn.completed { background:#E8F5E9; color:#2E7D32; cursor:default; }
+  .loading { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">교재 제작 요청</span>
+</header>
+
+<main>
+  <div class="panel">
+    <h1>새 요청 등록</h1>
+    <form id="request-form">
+      <label for="student-name">학생명</label>
+      <input type="text" id="student-name" placeholder="예: 김민준 (여러 명이면 쉼표로 구분)" required>
+
+      <div class="row3">
+        <div>
+          <label for="grade">학년</label>
+          <input type="text" id="grade" placeholder="예: 중2">
+        </div>
+        <div>
+          <label for="semester">학습 학기</label>
+          <input type="text" id="semester" placeholder="예: 중2-1">
+        </div>
+        <div>
+          <label for="classroom">강의실</label>
+          <select id="classroom"></select>
+        </div>
+      </div>
+
+      <label for="requested-textbook">요청교재</label>
+      <input type="text" id="requested-textbook" placeholder="요청하는 교재명">
+
+      <div class="row2">
+        <div>
+          <label for="copies">제작 부수</label>
+          <input type="number" id="copies" min="1" value="1">
+        </div>
+        <div>
+          <label for="deadline">제작 기한</label>
+          <input type="text" id="deadline" placeholder="예: 10/10까지">
+        </div>
+      </div>
+
+      <label for="notes">참고</label>
+      <textarea id="notes" placeholder="추가로 전달할 내용이 있으면 입력하세요"></textarea>
+
+      <button type="submit" class="submit">요청 등록</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="filter-tabs">
+      <button type="button" class="active" data-filter="pending">미완료</button>
+      <button type="button" data-filter="completed">완료</button>
+      <button type="button" data-filter="all">전체</button>
+    </div>
+    <div id="req-list"><div class="loading">불러오는 중...</div></div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireAdminAuth();
+
+  const classroomSelect = document.getElementById('classroom');
+  CLASSROOMS.forEach((c) => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    classroomSelect.appendChild(opt);
+  });
+  classroomSelect.value = getAdminClassroom() || CLASSROOMS[0];
+
+  let allReqs = [];
+  let currentFilter = 'pending';
+
+  async function loadList() {
+    const listEl = document.getElementById('req-list');
+    listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
+
+    const { data, error } = await sb.rpc('rpc_admin_list_textbook_requests', { p_password: ADMIN_PASSWORD });
+    if (error) {
+      console.error(error);
+      listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>';
+      return;
+    }
+    allReqs = data || [];
+    render();
+  }
+
+  function render() {
+    const listEl = document.getElementById('req-list');
+    const items = allReqs.filter((r) => {
+      if (currentFilter === 'pending') return !r.completed;
+      if (currentFilter === 'completed') return r.completed;
+      return true;
+    });
+
+    if (items.length === 0) {
+      listEl.innerHTML = '<div class="loading">해당하는 요청이 없습니다.</div>';
+      return;
+    }
+
+    listEl.innerHTML = items.map((r) => `
+      <div class="req-row">
+        <div>
+          <div class="t">${r.requested_textbook || '(교재명 미입력)'}</div>
+          <div class="meta">${r.student_name || ''} · ${r.grade || ''} ${r.semester ? '(' + r.semester + ')' : ''} · ${r.classroom || ''} · ${r.copies || 1}부${r.deadline ? ' · 기한 ' + r.deadline : ''}</div>
+          ${r.notes ? `<div class="note">${r.notes}</div>` : ''}
+        </div>
+        <button class="done-btn ${r.completed ? 'completed' : ''}" data-id="${r.id}" ${r.completed ? 'disabled' : ''}>
+          ${r.completed ? '완료됨' : '완료 처리'}
+        </button>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.done-btn:not(.completed)').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = '처리 중...';
+        const { error } = await sb.rpc('rpc_admin_complete_textbook_request', {
+          p_password: ADMIN_PASSWORD, p_id: btn.dataset.id,
+        });
+        if (error) {
+          alert('처리 실패: ' + error.message);
+          btn.disabled = false;
+          btn.textContent = '완료 처리';
+          return;
+        }
+        loadList();
+      });
+    });
+  }
+
+  document.querySelectorAll('.filter-tabs button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tabs button').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  document.getElementById('request-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '등록 중...';
+
+    const { error } = await sb.rpc('rpc_admin_add_textbook_request', {
+      p_password: ADMIN_PASSWORD,
+      p_student_name: document.getElementById('student-name').value.trim(),
+      p_grade: document.getElementById('grade').value.trim(),
+      p_semester: document.getElementById('semester').value.trim(),
+      p_classroom: classroomSelect.value,
+      p_requested_textbook: document.getElementById('requested-textbook').value.trim(),
+      p_expected_textbook: '',
+      p_deadline: document.getElementById('deadline').value.trim(),
+      p_copies: parseInt(document.getElementById('copies').value || '1', 10),
+      p_notes: document.getElementById('notes').value.trim(),
+    });
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = '요청 등록';
+
+    if (error) {
+      alert('등록 실패: ' + error.message);
+      return;
+    }
+
+    e.target.reset();
+    document.getElementById('copies').value = 1;
+    classroomSelect.value = getAdminClassroom() || CLASSROOMS[0];
+    loadList();
+  });
+
+  loadList();
+</script>
+
+</body>
+</html>

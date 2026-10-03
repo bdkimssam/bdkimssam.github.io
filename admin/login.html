@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>관리자 로그인 | 봉덕김쌤수학학원</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --navy-950: #070C16; --navy-900: #0B1220; --ink: #12172B; --muted: #6B7280; --gray-50: #F5F6F8; --gray-200: #E4E7EC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: 'Pretendard', 'Noto Sans KR', sans-serif; background: var(--navy-950); color: var(--ink);
+    padding: 20px;
+  }
+  .panel {
+    width: 100%; max-width: 380px; background: #fff; border-radius: 18px; padding: 32px 28px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+  }
+  .mark {
+    width: 42px; height: 42px; border-radius: 10px; background: var(--navy-900); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 17px; margin-bottom: 16px;
+  }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 24px; }
+  label { display: block; font-size: 12.5px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+  select, input {
+    width: 100%; font-size: 14.5px; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--gray-200);
+    margin-bottom: 16px; font-family: inherit; background: #fff;
+  }
+  select:focus, input:focus { outline: none; border-color: var(--navy-900); }
+  button {
+    width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--navy-900); color: #fff;
+    font-weight: 800; font-size: 14.5px; cursor: pointer;
+  }
+  button:hover { background: #000; }
+  .err { color: #C0392B; font-size: 12.5px; margin: -8px 0 14px; display: none; }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="mark">봉</div>
+  <h1>관리자 로그인</h1>
+  <p class="sub">공지 작성 · 주간진도표 · 숙제인증 · 출석체크</p>
+
+  <form id="login-form">
+    <label for="classroom">강의실</label>
+    <select id="classroom" required></select>
+
+    <label for="password">비밀번호</label>
+    <input type="password" id="password" placeholder="비밀번호 입력" required>
+
+    <div class="err" id="err-msg">비밀번호가 올바르지 않습니다.</div>
+
+    <button type="submit">로그인</button>
+  </form>
+</div>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  const classroomSelect = document.getElementById('classroom');
+  CLASSROOMS.forEach((c) => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    classroomSelect.appendChild(opt);
+  });
+
+  // 이미 로그인되어 있으면 바로 관리자 홈으로
+  if (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true') {
+    window.location.href = 'index.html';
+  }
+
+  document.getElementById('login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const pw = document.getElementById('password').value;
+    const errMsg = document.getElementById('err-msg');
+
+    if (pw !== ADMIN_PASSWORD) {
+      errMsg.style.display = 'block';
+      return;
+    }
+    errMsg.style.display = 'none';
+
+    sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    sessionStorage.setItem(ADMIN_CLASSROOM_KEY, classroomSelect.value);
+    window.location.href = 'index.html';
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>관리자 홈 | 봉덕김쌤수학학원</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:space-between; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:800; font-size:15px; }
+  .brand .mark { width:30px; height:30px; border-radius:8px; background:#fff; color:var(--navy-950); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; }
+  .brand .sub { color: rgba(255,255,255,0.5); font-size:12px; font-weight:600; margin-left:6px; }
+  .logout-btn { appearance:none; background:transparent; border:1px solid rgba(255,255,255,0.25); color:rgba(255,255,255,0.85); font-weight:600; font-size:13px; padding:8px 14px; border-radius:999px; cursor:pointer; }
+  .logout-btn:hover { border-color: rgba(255,255,255,0.55); }
+  main { max-width: 760px; margin: 0 auto; padding: 36px 20px 60px; }
+  h1 { font-size: 20px; font-weight: 900; margin: 0 0 24px; }
+  .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    display:block; background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px;
+    text-decoration:none; color: var(--ink); box-shadow: 0 8px 24px rgba(11,18,32,0.05); transition: transform .15s, box-shadow .15s;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(11,18,32,0.1); }
+  .card .icon { width:40px; height:40px; border-radius:10px; background:var(--navy-900); color:#fff; display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:14px; }
+  .card .title { font-weight:800; font-size:15.5px; margin-bottom:4px; }
+  .card .desc { font-size:12.5px; color: var(--muted); line-height:1.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="mark">봉</span>
+    <span>봉덕김쌤수학학원 <span class="sub">관리자</span></span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <span id="classroom-badge" style="color:rgba(255,255,255,0.7); font-size:12.5px; font-weight:700;"></span>
+    <button type="button" class="logout-btn" id="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> 로그아웃</button>
+  </div>
+</header>
+
+<main>
+  <h1>무엇을 하시겠어요?</h1>
+  <div class="grid">
+    <a class="card" href="announcements.html" data-director-only>
+      <div class="icon"><i class="fa-solid fa-bullhorn"></i></div>
+      <div class="title">공지 작성</div>
+      <div class="desc">학년별 공지 등록 · 목록 관리</div>
+    </a>
+    <a class="card" href="weekly-progress.html">
+      <div class="icon"><i class="fa-solid fa-route"></i></div>
+      <div class="title">주간진도표 입력</div>
+      <div class="desc">학생 검색으로 진도 · 피드백 기록</div>
+    </a>
+    <a class="card" href="textbook-request.html">
+      <div class="icon"><i class="fa-solid fa-book"></i></div>
+      <div class="title">교재 제작 요청</div>
+      <div class="desc">학생 교재 제작 요청 등록 · 완료 처리</div>
+    </a>
+    <a class="card" href="homework-review.html" data-director-only>
+      <div class="icon"><i class="fa-solid fa-camera"></i></div>
+      <div class="title">숙제인증 확인</div>
+      <div class="desc">학생이 올린 숙제 사진 확인</div>
+    </a>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireAdminAuth();
+  document.getElementById('classroom-badge').textContent = getAdminClassroom();
+
+  // 강사쌤 계정으로 들어왔으면 원장님 전용 카드(공지 작성/숙제인증 확인)는 숨김
+  if (!isAdminDirector()) {
+    document.querySelectorAll('[data-director-only]').forEach((el) => el.remove());
+  }
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    sessionStorage.removeItem(ADMIN_CLASSROOM_KEY);
+    window.location.href = 'login.html';
+  });
+</script>
+
+</body>
+</html>

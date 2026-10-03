@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>숙제인증 확인 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 18px; }
+  .filter-tabs { display:flex; gap:8px; margin-bottom:18px; }
+  .filter-tabs button {
+    border:1px solid var(--gray-200); background:#fff; border-radius:999px; padding:7px 14px; font-size:12.5px; font-weight:700; color:var(--muted); cursor:pointer;
+  }
+  .filter-tabs button.active { background: var(--navy-900); color:#fff; border-color: var(--navy-900); }
+  .item { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:18px; margin-bottom:14px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  .item .top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+  .item .name { font-weight:800; font-size:14.5px; }
+  .item .meta { font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .item img { width:100%; max-height:360px; object-fit:contain; background:var(--gray-50); border-radius:12px; margin-bottom:10px; }
+  .item .memo { font-size:13px; color:var(--ink); margin-bottom:10px; white-space:pre-line; }
+  .confirm-btn {
+    border:none; border-radius:10px; padding:9px 14px; font-size:13px; font-weight:800; cursor:pointer;
+  }
+  .confirm-btn.pending { background:#FFF3E0; color:#B5651D; }
+  .confirm-btn.confirmed { background:#E8F5E9; color:#2E7D32; cursor:default; }
+  .loading { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">숙제인증 확인</span>
+</header>
+
+<main>
+  <h1>고등부 숙제인증 사진</h1>
+  <div class="filter-tabs">
+    <button type="button" class="active" data-filter="all">전체</button>
+    <button type="button" data-filter="pending">확인대기</button>
+    <button type="button" data-filter="confirmed">확인완료</button>
+  </div>
+  <div id="list"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireDirector();
+
+  let allItems = [];
+  let currentFilter = 'all';
+
+  async function load() {
+    const listEl = document.getElementById('list');
+    listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
+
+    const { data, error } = await sb.rpc('rpc_admin_list_homework', { p_password: ADMIN_PASSWORD });
+    if (error) {
+      console.error(error);
+      listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>';
+      return;
+    }
+    allItems = data || [];
+    render();
+  }
+
+  function render() {
+    const listEl = document.getElementById('list');
+    const items = allItems.filter((it) => {
+      if (currentFilter === 'pending') return !it.confirmed;
+      if (currentFilter === 'confirmed') return it.confirmed;
+      return true;
+    });
+
+    if (items.length === 0) {
+      listEl.innerHTML = '<div class="loading">해당하는 제출 내역이 없습니다.</div>';
+      return;
+    }
+
+    listEl.innerHTML = items.map((it) => `
+      <div class="item">
+        <div class="top">
+          <div>
+            <div class="name">${it.student_name || '이름 미상'}</div>
+            <div class="meta">${it.student_code} · ${it.submitted_date}</div>
+          </div>
+          <button class="confirm-btn ${it.confirmed ? 'confirmed' : 'pending'}" data-id="${it.id}" ${it.confirmed ? 'disabled' : ''}>
+            ${it.confirmed ? '확인완료' : '확인하기'}
+          </button>
+        </div>
+        <img src="${it.photo_url}" alt="숙제 사진">
+        ${it.memo ? `<div class="memo">${it.memo}</div>` : ''}
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.confirm-btn.pending').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = '처리 중...';
+        const { error } = await sb.rpc('rpc_admin_confirm_homework', {
+          p_password: ADMIN_PASSWORD, p_id: btn.dataset.id,
+        });
+        if (error) {
+          alert('처리 실패: ' + error.message);
+          btn.disabled = false;
+          btn.textContent = '확인하기';
+          return;
+        }
+        load();
+      });
+    });
+  }
+
+  document.querySelectorAll('.filter-tabs button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tabs button').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  load();
+</script>
+
+</body>
+</html>

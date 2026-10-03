@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>출석체크 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 8px; }
+  .toolbar { display:flex; align-items:center; gap: 10px; margin-bottom: 18px; }
+  .toolbar input[type="date"] { font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--gray-200); }
+  .toolbar input[type="text"] { flex:1; font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--gray-200); }
+  .summary { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+  .student-row {
+    display:flex; align-items:center; justify-content:space-between; gap: 10px; background:#fff;
+    border:1px solid var(--gray-200); border-radius:12px; padding: 12px 14px; margin-bottom: 8px;
+  }
+  .student-row .name { font-weight: 800; font-size: 14px; }
+  .student-row .meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .status-btns { display:flex; gap: 6px; }
+  .status-btns button {
+    border: 1px solid var(--gray-200); background:#fff; border-radius: 999px; padding: 6px 12px;
+    font-size: 12px; font-weight: 700; cursor: pointer; color: var(--muted);
+  }
+  .status-btns button.active[data-status="출석"] { background:#E8F5E9; border-color:#A5D6A7; color:#2E7D32; }
+  .status-btns button.active[data-status="지각"] { background:#FFF3E0; border-color:#FFCC80; color:#B5651D; }
+  .status-btns button.active[data-status="결석"] { background:#FDECEC; border-color:#F5B7B1; color:#C0392B; }
+  .status-btns button.active[data-status="조퇴"] { background:#EEF2FF; border-color:#C5CAE9; color:#364293; }
+  .loading { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">출석체크</span>
+</header>
+
+<main>
+  <h1>출석체크</h1>
+  <div class="toolbar">
+    <input type="date" id="attendance-date">
+    <input type="text" id="search-box" placeholder="이름으로 찾기">
+  </div>
+  <div class="summary" id="summary"></div>
+  <div id="student-list"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireAdminAuth();
+
+  const dateInput = document.getElementById('attendance-date');
+  dateInput.valueAsDate = new Date();
+
+  let allStudents = [];
+  let statusMap = {}; // student_code -> status
+
+  async function loadStudents() {
+    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: ADMIN_PASSWORD });
+    if (error) { console.error(error); return []; }
+    return data || [];
+  }
+
+  async function loadAttendanceForDate(dateStr) {
+    const { data, error } = await sb.rpc('rpc_admin_list_attendance', {
+      p_password: ADMIN_PASSWORD, p_attendance_date: dateStr,
+    });
+    if (error) { console.error(error); return {}; }
+    const map = {};
+    (data || []).forEach((row) => { map[row.student_code] = row.status; });
+    return map;
+  }
+
+  function renderList() {
+    const q = document.getElementById('search-box').value.trim();
+    const listEl = document.getElementById('student-list');
+    const filtered = q ? allStudents.filter((s) => s.student_name && s.student_name.includes(q)) : allStudents;
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div class="loading">학생이 없습니다.</div>';
+      return;
+    }
+
+    listEl.innerHTML = filtered.map((s) => {
+      const current = statusMap[s.student_code] || '';
+      const statuses = ['출석', '지각', '조퇴', '결석'];
+      return `
+        <div class="student-row">
+          <div>
+            <div class="name">${s.student_name}</div>
+            <div class="meta">${s.grade || ''} · ${s.student_code}</div>
+          </div>
+          <div class="status-btns" data-code="${s.student_code}" data-name="${s.student_name}">
+            ${statuses.map((st) => `<button type="button" data-status="${st}" class="${current === st ? 'active' : ''}">${st}</button>`).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    updateSummary();
+
+    listEl.querySelectorAll('.status-btns').forEach((wrap) => {
+      wrap.querySelectorAll('button').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const code = wrap.dataset.code;
+          const name = wrap.dataset.name;
+          const status = btn.dataset.status;
+
+          wrap.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          statusMap[code] = status;
+          updateSummary();
+
+          const { error } = await sb.rpc('rpc_admin_mark_attendance', {
+            p_password: ADMIN_PASSWORD,
+            p_student_code: code,
+            p_student_name: name,
+            p_attendance_date: dateInput.value,
+            p_status: status,
+            p_checked_by: getAdminClassroom(),
+          });
+          if (error) {
+            alert('저장 실패: ' + error.message);
+          }
+        });
+      });
+    });
+  }
+
+  function updateSummary() {
+    const counts = { 출석: 0, 지각: 0, 조퇴: 0, 결석: 0 };
+    Object.values(statusMap).forEach((s) => { if (counts[s] !== undefined) counts[s]++; });
+    const total = allStudents.length;
+    const checked = Object.keys(statusMap).length;
+    document.getElementById('summary').textContent =
+      `전체 ${total}명 중 ${checked}명 체크 · 출석 ${counts.출석} · 지각 ${counts.지각} · 조퇴 ${counts.조퇴} · 결석 ${counts.결석}`;
+  }
+
+  async function refresh() {
+    document.getElementById('student-list').innerHTML = '<div class="loading">불러오는 중...</div>';
+    statusMap = await loadAttendanceForDate(dateInput.value);
+    renderList();
+  }
+
+  document.getElementById('search-box').addEventListener('input', renderList);
+  dateInput.addEventListener('change', refresh);
+
+  (async function init() {
+    allStudents = await loadStudents();
+    await refresh();
+  })();
+</script>
+
+</body>
+</html>

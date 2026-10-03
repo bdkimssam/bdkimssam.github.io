@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주간진도표 입력 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 20px; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:24px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  label { display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+  select, input, textarea {
+    width:100%; font-size:14.5px; padding:11px 13px; border-radius:10px; border:1px solid var(--gray-200);
+    margin-bottom:16px; font-family:inherit; background:#fff;
+  }
+  textarea { resize: vertical; min-height: 90px; }
+  select:focus, input:focus, textarea:focus { outline:none; border-color: var(--navy-900); }
+  .row2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .search-wrap { position: relative; margin-bottom: 16px; }
+  .search-wrap input { margin-bottom: 0; }
+  #student-results {
+    position:absolute; top: calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid var(--gray-200);
+    border-radius:10px; max-height: 220px; overflow-y:auto; box-shadow: 0 10px 28px rgba(11,18,32,0.12); z-index: 10; display:none;
+  }
+  #student-results .opt { padding: 10px 13px; cursor:pointer; font-size: 13.5px; display:flex; justify-content:space-between; }
+  #student-results .opt:hover { background: var(--gray-50); }
+  #student-results .opt .code { color: var(--muted); font-size: 12px; }
+  .selected-chip {
+    display:none; align-items:center; justify-content:space-between; background:#EEF2FF; border-radius:10px;
+    padding: 10px 13px; font-size: 13.5px; font-weight:700; color:#364293; margin-bottom:16px;
+  }
+  .selected-chip button { background:none; border:none; color:#364293; cursor:pointer; font-size:12.5px; }
+  button.submit { width:100%; padding:12px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:14.5px; cursor:pointer; }
+  button.submit:hover { background:#000; }
+  button.submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .hint { font-size: 11.5px; color: #98A1B3; margin: -12px 0 16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">주간진도표 입력</span>
+</header>
+
+<main>
+  <div class="panel">
+    <h1>학생 진도 기록</h1>
+
+    <label for="student-search">학생 검색 (이름)</label>
+    <div class="search-wrap">
+      <input type="text" id="student-search" placeholder="이름을 입력하세요" autocomplete="off">
+      <div id="student-results"></div>
+    </div>
+    <div class="selected-chip" id="selected-chip">
+      <span id="selected-chip-text"></span>
+      <button type="button" id="clear-selected">변경</button>
+    </div>
+    <div class="hint">학생코드를 직접 입력하지 않고, 이름으로 검색해서 선택하면 코드 오타를 방지할 수 있어요.</div>
+
+    <form id="progress-form">
+      <input type="hidden" id="selected-code">
+      <input type="hidden" id="selected-name">
+      <input type="hidden" id="selected-grade">
+
+      <div class="row2">
+        <div>
+          <label for="classroom">강의실</label>
+          <select id="classroom"></select>
+        </div>
+        <div>
+          <label for="recorded-date">작성일</label>
+          <input type="date" id="recorded-date" required>
+        </div>
+      </div>
+
+      <label for="textbook-progress">진도책 진도</label>
+      <input type="text" id="textbook-progress" placeholder="예: 쎈 수학 3-1 p.80~95">
+
+      <label for="homework-progress">숙제책 진도</label>
+      <input type="text" id="homework-progress" placeholder="예: 라이트쎈 p.40~55">
+
+      <div class="row2">
+        <div>
+          <label for="homework-completion">과제 수행</label>
+          <select id="homework-completion">
+            <option value="">선택 안함</option>
+            <option value="★★★">★★★ (우수)</option>
+            <option value="★★☆">★★☆ (양호)</option>
+            <option value="★☆☆">★☆☆ (미흡)</option>
+          </select>
+        </div>
+        <div>
+          <label for="attitude">수업태도</label>
+          <select id="attitude">
+            <option value="">선택 안함</option>
+            <option value="★★★">★★★ (우수)</option>
+            <option value="★★☆">★★☆ (양호)</option>
+            <option value="★☆☆">★☆☆ (미흡)</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="teacher-comment">담당선생님 코멘트</label>
+      <textarea id="teacher-comment" placeholder="학부모님께 전달할 코멘트를 입력하세요"></textarea>
+
+      <button type="submit" class="submit" id="submit-btn" disabled>학생을 먼저 선택하세요</button>
+    </form>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireAdminAuth();
+
+  document.getElementById('recorded-date').valueAsDate = new Date();
+
+  // 강의실 셀렉트 채우기 (로그인 시 고른 강의실을 기본값으로)
+  const classroomSelect = document.getElementById('classroom');
+  CLASSROOMS.forEach((c) => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    classroomSelect.appendChild(opt);
+  });
+  classroomSelect.value = getAdminClassroom() || CLASSROOMS[0];
+
+  let allStudents = [];
+
+  async function loadStudents() {
+    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: ADMIN_PASSWORD });
+    if (error) {
+      console.error(error);
+      return;
+    }
+    allStudents = data || [];
+  }
+  loadStudents();
+
+  const searchInput = document.getElementById('student-search');
+  const resultsBox = document.getElementById('student-results');
+  const selectedChip = document.getElementById('selected-chip');
+  const selectedChipText = document.getElementById('selected-chip-text');
+  const submitBtn = document.getElementById('submit-btn');
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim();
+    if (!q) { resultsBox.style.display = 'none'; return; }
+
+    const matches = allStudents.filter((s) => s.student_name && s.student_name.includes(q)).slice(0, 8);
+    if (matches.length === 0) {
+      resultsBox.innerHTML = '<div class="opt" style="color:#98A1B3;">일치하는 학생이 없습니다</div>';
+      resultsBox.style.display = 'block';
+      return;
+    }
+
+    resultsBox.innerHTML = matches.map((s) => `
+      <div class="opt" data-code="${s.student_code}" data-name="${s.student_name}" data-grade="${s.grade || ''}">
+        <span>${s.student_name}</span>
+        <span class="code">${s.grade || ''} · ${s.student_code}</span>
+      </div>
+    `).join('');
+    resultsBox.style.display = 'block';
+
+    resultsBox.querySelectorAll('.opt[data-code]').forEach((opt) => {
+      opt.addEventListener('click', () => {
+        selectStudent(opt.dataset.code, opt.dataset.name, opt.dataset.grade);
+      });
+    });
+  });
+
+  function selectStudent(code, name, grade) {
+    document.getElementById('selected-code').value = code;
+    document.getElementById('selected-name').value = name;
+    document.getElementById('selected-grade').value = grade;
+    selectedChipText.textContent = `${name} (${grade || '학년 미상'} · ${code})`;
+    selectedChip.style.display = 'flex';
+    searchInput.style.display = 'none';
+    resultsBox.style.display = 'none';
+    searchInput.value = '';
+    submitBtn.disabled = false;
+    submitBtn.textContent = '진도 기록 저장';
+  }
+
+  document.getElementById('clear-selected').addEventListener('click', () => {
+    document.getElementById('selected-code').value = '';
+    selectedChip.style.display = 'none';
+    searchInput.style.display = 'block';
+    searchInput.focus();
+    submitBtn.disabled = true;
+    submitBtn.textContent = '학생을 먼저 선택하세요';
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-wrap')) resultsBox.style.display = 'none';
+  });
+
+  document.getElementById('progress-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = document.getElementById('selected-code').value;
+    if (!code) { alert('학생을 먼저 검색해서 선택해 주세요.'); return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '저장 중...';
+
+    const { error } = await sb.rpc('rpc_admin_add_weekly_progress', {
+      p_password: ADMIN_PASSWORD,
+      p_student_code: code,
+      p_student_name: document.getElementById('selected-name').value,
+      p_grade: document.getElementById('selected-grade').value,
+      p_classroom: classroomSelect.value,
+      p_textbook_progress: document.getElementById('textbook-progress').value.trim(),
+      p_homework_progress: document.getElementById('homework-progress').value.trim(),
+      p_homework_completion: document.getElementById('homework-completion').value,
+      p_attitude: document.getElementById('attitude').value,
+      p_teacher_comment: document.getElementById('teacher-comment').value.trim(),
+      p_recorded_date: document.getElementById('recorded-date').value,
+    });
+
+    if (error) {
+      alert('저장 실패: ' + error.message);
+      submitBtn.disabled = false;
+      submitBtn.textContent = '진도 기록 저장';
+      return;
+    }
+
+    alert('저장되었습니다.');
+    // 같은 반 여러 명 연속 입력하기 편하도록, 학생 선택만 초기화하고 나머지는 유지
+    document.getElementById('clear-selected').click();
+    document.getElementById('textbook-progress').value = '';
+    document.getElementById('homework-progress').value = '';
+    document.getElementById('homework-completion').value = '';
+    document.getElementById('attitude').value = '';
+    document.getElementById('teacher-comment').value = '';
+  });
+</script>
+
+</body>
+</html>

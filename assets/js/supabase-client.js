@@ -18,8 +18,10 @@ window.sb = sb;
 // 비밀번호를 바꾸고 싶으면 아래 한 줄만 수정하면 전체 관리자 페이지에 바로 반영됩니다.
 const ADMIN_PASSWORD = 'bdkimssam2026'; // TODO: 원하시는 비밀번호로 바꾸세요
 
-// 강의실 목록 (관리자 로그인 시 선택). 실제 이름으로 바꾸고 싶으면 이 배열만 수정하면 됩니다.
-const CLASSROOMS = ['강의실 1', '강의실 2', '강의실 4', '강의실 5'];
+// 로그인 화면의 "강의실" 선택지. 맨 앞 "원장님"은 역할 구분용이고, 나머지는 강사쌤용 강의실입니다.
+// 실제 이름으로 바꾸고 싶으면 이 배열만 수정하면 됩니다.
+const CLASSROOMS = ['원장님', '강의실 1', '강의실 2', '강의실 4', '강의실 5'];
+const DIRECTOR_LABEL = '원장님';
 
 // admin/login.html 에서 로그인 성공 시 세션 저장에 사용하는 키 이름들
 const ADMIN_SESSION_KEY = 'admin_logged_in';
@@ -33,7 +35,21 @@ function requireAdminAuth() {
   }
 }
 
-// 현재 로그인한 선생님의 강의실 (화면 상단에 표시하거나, 입력 데이터에 자동으로 붙일 때 사용)
+// 현재 로그인한 선생님의 강의실/역할 (화면 상단에 표시하거나, 입력 데이터에 자동으로 붙일 때 사용)
 function getAdminClassroom() {
   return sessionStorage.getItem(ADMIN_CLASSROOM_KEY) || '';
+}
+
+// 원장님으로 로그인했는지 여부 (공지 작성·숙제인증 확인처럼 원장님 전용 화면에서 사용)
+function isAdminDirector() {
+  return getAdminClassroom() === DIRECTOR_LABEL;
+}
+
+// 원장님 전용 화면 맨 위에서 호출. 강사쌤 계정으로 들어오면 관리자 홈으로 돌려보냄.
+function requireDirector() {
+  requireAdminAuth();
+  if (!isAdminDirector()) {
+    alert('원장님 전용 화면입니다.');
+    window.location.href = 'index.html';
+  }
 }
