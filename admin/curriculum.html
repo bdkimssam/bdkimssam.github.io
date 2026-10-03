@@ -66,18 +66,33 @@
   <div class="panel">
     <h2>교재 등록</h2>
     <div class="field-row">
-      <div><label>교재 코드</label><input type="text" id="new-code" placeholder="예: E3-01"></div>
-      <div><label>학습 학년</label>
+      <div><label>교재 코드</label><input type="text" id="new-code" placeholder="예: E3-1-CORE1"></div>
+      <div><label>구분</label>
+        <select id="new-category">
+          <option value="개념서">개념서</option>
+          <option value="유형서">유형서</option>
+          <option value="심화서">심화서</option>
+          <option value="서술형">서술형</option>
+          <option value="내신대비">내신대비</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div><label>학년</label>
         <select id="new-grade">
-          <option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option>
-          <option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option>
+          <option value="초3">초3</option><option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option>
           <option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option>
-          <option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option>
+        </select>
+      </div>
+      <div><label>학기</label>
+        <select id="new-semester">
+          <option value="1">1학기</option>
+          <option value="2">2학기</option>
         </select>
       </div>
     </div>
     <div class="field-row wide">
-      <div><label>교재명</label><input type="text" id="new-name" placeholder="예: 쎈 수학 3-1"></div>
+      <div><label>교재명</label><input type="text" id="new-name" placeholder="예: CORE 레벨1"></div>
     </div>
     <button type="button" class="add-btn" id="add-textbook-btn">교재 추가</button>
   </div>
@@ -85,7 +100,7 @@
   <div class="panel">
     <h2>등록된 교재 목록</h2>
     <table id="textbook-table" style="display:none;">
-      <thead><tr><th>학년</th><th>교재명</th><th>단원수</th><th></th></tr></thead>
+      <thead><tr><th>학년학기</th><th>구분</th><th>교재명</th><th>단원수</th><th></th></tr></thead>
       <tbody id="textbook-tbody"></tbody>
     </table>
     <div class="loading" id="textbook-status">불러오는 중...</div>
@@ -124,7 +139,9 @@
 
   document.getElementById('add-textbook-btn').addEventListener('click', async () => {
     const code = document.getElementById('new-code').value.trim();
+    const category = document.getElementById('new-category').value;
     const grade = document.getElementById('new-grade').value;
+    const semester = parseInt(document.getElementById('new-semester').value, 10);
     const name = document.getElementById('new-name').value.trim();
     if (!code || !name) { alert('교재 코드와 교재명을 입력해주세요.'); return; }
 
@@ -132,7 +149,7 @@
     btn.disabled = true;
     const { error } = await sb.rpc('rpc_admin_add_textbook', {
       p_password: getAdminPassword(),
-      p_textbook_code: code, p_grade: grade, p_textbook_name: name,
+      p_textbook_code: code, p_category: category, p_grade: grade, p_semester: semester, p_textbook_name: name,
     });
     btn.disabled = false;
     if (error) {
@@ -165,7 +182,8 @@
     const tbody = document.getElementById('textbook-tbody');
     tbody.innerHTML = textbooks.map((t) => `
       <tr class="${t.textbook_code === selectedTextbookCode ? 'selected-row' : ''}">
-        <td>${t.grade}</td>
+        <td>${t.grade}${t.semester ? '-' + t.semester : ''}</td>
+        <td>${t.category || '-'}</td>
         <td class="name">${t.textbook_name}</td>
         <td>${t.unit_count}개</td>
         <td style="white-space:nowrap;">
