@@ -64,3 +64,23 @@ function requireDirector() {
     window.location.href = 'index.html';
   }
 }
+
+// ------------------------------------------------------------
+// 학년 정렬 — "초3" "중1" "고2" 처럼 생긴 학년 문자열을
+// 초 → 중 → 고 순서, 그리고 같은 단계 안에서는 숫자 순서로 정렬합니다.
+// (그냥 글자로 정렬하면 "중"이 "초"보다 먼저 나와버려서 이 함수가 필요함)
+// 여러 화면(학생 선택 드롭다운 등)에서 공통으로 사용합니다.
+// ------------------------------------------------------------
+function gradeSortKey(grade) {
+  if (!grade) return [9, 0]; // 학년 미지정은 맨 뒤로
+  const levelOrder = { '초': 1, '중': 2, '고': 3 };
+  const level = levelOrder[grade.charAt(0)] || 4;
+  const num = parseInt(grade.slice(1), 10);
+  return [level, isNaN(num) ? 0 : num];
+}
+function compareGrades(gradeA, gradeB) {
+  const [la, na] = gradeSortKey(gradeA);
+  const [lb, nb] = gradeSortKey(gradeB);
+  if (la !== lb) return la - lb;
+  return na - nb;
+}

@@ -31,6 +31,10 @@
   .hint { font-size: 11.5px; color: #98A1B3; margin: -12px 0 16px; }
   .book-block { border:1px solid var(--gray-200); border-radius:12px; padding:14px 14px 2px; margin-bottom:16px; }
   .book-block .book-title { font-size:13px; font-weight:800; margin-bottom:10px; }
+  .star-picker { display:flex; gap:6px; margin-bottom:16px; }
+  .star-picker i { font-size:22px; color:#D7DAE0; cursor:pointer; -webkit-text-stroke: 0; }
+  .star-picker[data-theme="black"] i.filled { color:#1A1A1A; }
+  .star-picker[data-theme="white"] i.filled { color:#fff; -webkit-text-stroke: 1.3px var(--ink); }
 </style>
 </head>
 <body>
@@ -77,8 +81,8 @@
             <select id="progress-textbook-name" disabled><option value="">학년학기 먼저 선택</option></select>
           </div>
         </div>
-        <label for="progress-range">진도 범위</label>
-        <input type="text" id="progress-range" placeholder="예: p.80~95 또는 2단원">
+        <label for="progress-range">진도 범위 (단원)</label>
+        <select id="progress-range" disabled><option value="">교재를 먼저 선택하세요</option></select>
       </div>
 
       <div class="book-block">
@@ -93,28 +97,32 @@
             <select id="homework-textbook-name" disabled><option value="">학년학기 먼저 선택</option></select>
           </div>
         </div>
-        <label for="homework-range">진도 범위</label>
-        <input type="text" id="homework-range" placeholder="예: p.40~55 또는 2단원">
+        <label for="homework-range">진도 범위 (단원)</label>
+        <select id="homework-range" disabled><option value="">교재를 먼저 선택하세요</option></select>
       </div>
 
       <div class="row2">
         <div>
-          <label for="homework-completion">과제 수행</label>
-          <select id="homework-completion">
-            <option value="">선택 안함</option>
-            <option value="★★★">★★★ (우수)</option>
-            <option value="★★☆">★★☆ (양호)</option>
-            <option value="★☆☆">★☆☆ (미흡)</option>
-          </select>
+          <label>과제 수행 <span style="font-weight:400; color:#98A1B3;">(검정 별, 클릭해서 선택)</span></label>
+          <div class="star-picker" id="homework-completion-stars" data-theme="black">
+            <i class="fa-solid fa-star" data-index="1"></i>
+            <i class="fa-solid fa-star" data-index="2"></i>
+            <i class="fa-solid fa-star" data-index="3"></i>
+            <i class="fa-solid fa-star" data-index="4"></i>
+            <i class="fa-solid fa-star" data-index="5"></i>
+          </div>
+          <input type="hidden" id="homework-completion">
         </div>
         <div>
-          <label for="attitude">수업태도</label>
-          <select id="attitude">
-            <option value="">선택 안함</option>
-            <option value="★★★">★★★ (우수)</option>
-            <option value="★★☆">★★☆ (양호)</option>
-            <option value="★☆☆">★☆☆ (미흡)</option>
-          </select>
+          <label>수업태도 <span style="font-weight:400; color:#98A1B3;">(흰 별, 클릭해서 선택)</span></label>
+          <div class="star-picker" id="attitude-stars" data-theme="white">
+            <i class="fa-solid fa-star" data-index="1"></i>
+            <i class="fa-solid fa-star" data-index="2"></i>
+            <i class="fa-solid fa-star" data-index="3"></i>
+            <i class="fa-solid fa-star" data-index="4"></i>
+            <i class="fa-solid fa-star" data-index="5"></i>
+          </div>
+          <input type="hidden" id="attitude">
         </div>
       </div>
 
@@ -149,7 +157,7 @@
     const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
     if (error) { console.error(error); return; }
     allStudents = (data || []).slice().sort((a, b) => {
-      const g = (a.grade || '').localeCompare(b.grade || '');
+      const g = compareGrades(a.grade, b.grade);
       if (g !== 0) return g;
       return (a.student_name || '').localeCompare(b.student_name || '');
     });
@@ -209,11 +217,13 @@
   }
   loadTextbookOptions();
 
-  function wireBookSelector(gsId, nameId) {
+  function wireBookSelector(gsId, nameId, rangeId) {
     const gsSelect = document.getElementById(gsId);
     const nameSelect = document.getElementById(nameId);
+    const rangeSelect = document.getElementById(rangeId);
     gsSelect.addEventListener('change', () => {
       const key = gsSelect.value;
+      resetRangeSelect(rangeId, '교재를 먼저 선택하세요');
       if (!key) {
         nameSelect.innerHTML = '<option value="">학년학기 먼저 선택</option>';
         nameSelect.disabled = true;
@@ -221,17 +231,40 @@
       }
       const books = gradeSemesterGroups[key] || [];
       nameSelect.innerHTML = '<option value="">교재명 선택</option>' +
-        books.map((t) => `<option value="${t.textbook_name}" data-category="${t.category || ''}">[${t.category || '-'}] ${t.textbook_name}</option>`).join('');
+        books.map((t) => `<option value="${t.textbook_code}" data-name="${t.textbook_name}" data-category="${t.category || ''}">[${t.category || '-'}] ${t.textbook_name}</option>`).join('');
       nameSelect.disabled = false;
     });
+    nameSelect.addEventListener('change', async () => {
+      const code = nameSelect.value;
+      if (!code) { resetRangeSelect(rangeId, '교재를 먼저 선택하세요'); return; }
+      rangeSelect.innerHTML = '<option value="">단원 불러오는 중...</option>';
+      rangeSelect.disabled = true;
+      const { data, error } = await sb.rpc('rpc_admin_list_curriculum_units', { p_password: getAdminPassword(), p_textbook_code: code });
+      if (error) { console.error(error); resetRangeSelect(rangeId, '단원을 불러오지 못했습니다'); return; }
+      const units = data || [];
+      if (units.length === 0) { resetRangeSelect(rangeId, '등록된 단원이 없습니다'); return; }
+      rangeSelect.innerHTML = '<option value="">단원 선택</option>' +
+        units.map((u) => {
+          const label = u.minor_unit ? `${u.major_unit} - ${u.minor_unit}` : u.major_unit;
+          return `<option value="${label}">${label}</option>`;
+        }).join('');
+      rangeSelect.disabled = false;
+    });
   }
-  wireBookSelector('progress-grade-semester', 'progress-textbook-name');
-  wireBookSelector('homework-grade-semester', 'homework-textbook-name');
+  wireBookSelector('progress-grade-semester', 'progress-textbook-name', 'progress-range');
+  wireBookSelector('homework-grade-semester', 'homework-textbook-name', 'homework-range');
+
+  function resetRangeSelect(rangeId, placeholder) {
+    const sel = document.getElementById(rangeId);
+    sel.innerHTML = `<option value="">${placeholder}</option>`;
+    sel.disabled = true;
+  }
 
   function composeBookText(gsId, nameId, rangeId) {
     const gs = document.getElementById(gsId).value;
-    const name = document.getElementById(nameId).value;
-    const range = document.getElementById(rangeId).value.trim();
+    const nameSelect = document.getElementById(nameId);
+    const name = nameSelect.value ? nameSelect.selectedOptions[0].dataset.name : '';
+    const range = document.getElementById(rangeId).value;
     if (!gs || !name) return '';
     return `[${gs}] ${name}${range ? ' ' + range : ''}`;
   }
@@ -241,8 +274,36 @@
     const nameSelect = document.getElementById(nameId);
     nameSelect.innerHTML = '<option value="">학년학기 먼저 선택</option>';
     nameSelect.disabled = true;
-    document.getElementById(rangeId).value = '';
+    resetRangeSelect(rangeId, '교재를 먼저 선택하세요');
   }
+
+  // ---- 과제수행/수업태도 5단계 별점 선택 ----
+  function wireStarPicker(containerId, hiddenInputId) {
+    const container = document.getElementById(containerId);
+    const hiddenInput = document.getElementById(hiddenInputId);
+    const stars = Array.from(container.querySelectorAll('i'));
+
+    function render(rating) {
+      stars.forEach((star) => {
+        const idx = parseInt(star.dataset.index, 10);
+        star.classList.toggle('filled', idx <= rating);
+      });
+      hiddenInput.value = rating > 0 ? '★'.repeat(rating) + '☆'.repeat(5 - rating) : '';
+    }
+
+    stars.forEach((star) => {
+      star.addEventListener('click', () => {
+        const idx = parseInt(star.dataset.index, 10);
+        const current = (hiddenInput.value.match(/★/g) || []).length;
+        render(idx === current ? 0 : idx); // 같은 별 다시 누르면 선택 해제
+      });
+    });
+
+    render(0);
+    return render;
+  }
+  const renderHomeworkStars = wireStarPicker('homework-completion-stars', 'homework-completion');
+  const renderAttitudeStars = wireStarPicker('attitude-stars', 'attitude');
 
   document.getElementById('progress-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -281,8 +342,8 @@
     submitBtn.textContent = '학생을 먼저 선택하세요';
     resetBookSelector('progress-grade-semester', 'progress-textbook-name', 'progress-range');
     resetBookSelector('homework-grade-semester', 'homework-textbook-name', 'homework-range');
-    document.getElementById('homework-completion').value = '';
-    document.getElementById('attitude').value = '';
+    renderHomeworkStars(0);
+    renderAttitudeStars(0);
     document.getElementById('teacher-comment').value = '';
   });
 </script>

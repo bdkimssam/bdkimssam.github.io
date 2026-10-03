@@ -125,7 +125,7 @@
     const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
     if (error) { console.error(error); return; }
     allStudents = (data || []).slice().sort((a, b) => {
-      const g = (a.grade || '').localeCompare(b.grade || '');
+      const g = compareGrades(a.grade, b.grade);
       if (g !== 0) return g;
       return (a.student_name || '').localeCompare(b.student_name || '');
     });
