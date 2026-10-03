@@ -29,6 +29,7 @@
   th { color: var(--muted); font-weight:700; font-size:12px; border-top:none; }
   tr:first-child td { border-top:none; }
   td.name { font-weight:700; }
+  td.code { color: var(--muted); font-family: 'SFMono-Regular', Consolas, monospace; font-size:12.5px; }
   select.classroom-select {
     padding:7px 10px; border-radius:8px; border:1px solid var(--gray-200); background:#fff;
     font-size:13px; font-family:inherit; color: var(--ink); cursor:pointer;
@@ -73,7 +74,7 @@
   <div class="panel">
     <table id="student-table" style="display:none;">
       <thead>
-        <tr><th>이름</th><th>학년</th><th>강의실</th></tr>
+        <tr><th>강의실</th><th>이름</th><th>학생코드</th><th>학년</th></tr>
       </thead>
       <tbody id="student-tbody"></tbody>
     </table>
@@ -105,7 +106,13 @@
 
   function render() {
     const grade = document.getElementById('grade-filter').value;
-    const filtered = grade ? allStudents.filter((s) => s.grade === grade) : allStudents;
+    const filtered = (grade ? allStudents.filter((s) => s.grade === grade) : allStudents.slice())
+      .sort((a, b) => {
+        const ca = a.classroom || '￿'; // 미지정은 맨 뒤로
+        const cb = b.classroom || '￿';
+        if (ca !== cb) return ca.localeCompare(cb, 'ko');
+        return (a.student_name || '').localeCompare(b.student_name || '', 'ko');
+      });
 
     const table = document.getElementById('student-table');
     const tbody = document.getElementById('student-tbody');
@@ -124,14 +131,15 @@
 
     tbody.innerHTML = filtered.map((s) => `
       <tr>
-        <td class="name">${s.student_name || ''}</td>
-        <td>${s.grade || '-'}</td>
         <td>
           <select class="classroom-select" data-code="${s.student_code}" data-name="${s.student_name || ''}">
             <option value="">미지정</option>
             ${TEACHER_CLASSROOMS.map((c) => `<option value="${c}" ${s.classroom === c ? 'selected' : ''}>${c}</option>`).join('')}
           </select>
         </td>
+        <td class="name">${s.student_name || ''}</td>
+        <td class="code">${s.student_code || ''}</td>
+        <td>${s.grade || '-'}</td>
       </tr>
     `).join('');
 
