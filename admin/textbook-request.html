@@ -54,26 +54,29 @@
   <div class="panel">
     <h1>새 요청 등록</h1>
     <form id="request-form">
-      <label for="student-name">학생명</label>
-      <input type="text" id="student-name" placeholder="예: 김민준 (여러 명이면 쉼표로 구분)" required>
+      <label for="student-select">학생 선택</label>
+      <select id="student-select">
+        <option value="">학생을 선택하세요</option>
+      </select>
 
-      <div class="row3">
+      <label for="classroom">강의실</label>
+      <select id="classroom"></select>
+
+      <label style="margin-bottom:4px;">요청 교재 <span style="font-weight:400; color:var(--muted);">(학생 학년과 달라도 괜찮아요 — 선행/보충용으로 다른 학년학기 교재도 선택 가능)</span></label>
+      <div class="row2">
         <div>
-          <label for="grade">학년</label>
-          <input type="text" id="grade" placeholder="예: 중2">
+          <label for="grade-semester">학년학기</label>
+          <select id="grade-semester">
+            <option value="">교재 목록 불러오는 중...</option>
+          </select>
         </div>
         <div>
-          <label for="semester">학습 학기</label>
-          <input type="text" id="semester" placeholder="예: 중2-1">
-        </div>
-        <div>
-          <label for="classroom">강의실</label>
-          <select id="classroom"></select>
+          <label for="textbook-name">교재명</label>
+          <select id="textbook-name" disabled>
+            <option value="">학년학기 먼저 선택</option>
+          </select>
         </div>
       </div>
-
-      <label for="requested-textbook">요청교재</label>
-      <input type="text" id="requested-textbook" placeholder="요청하는 교재명">
 
       <div class="row2">
         <div>
@@ -114,6 +117,71 @@
     classroomSelect.appendChild(opt);
   });
   classroomSelect.value = getAdminClassroom() || CLASSROOMS[0];
+
+  // ---- 학생 선택 (강의실 제한 + 학년별 그룹) ----
+  const studentSelect = document.getElementById('student-select');
+  let allStudents = [];
+  async function loadStudents() {
+    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
+    if (error) { console.error(error); return; }
+    allStudents = (data || []).slice().sort((a, b) => {
+      const g = (a.grade || '').localeCompare(b.grade || '');
+      if (g !== 0) return g;
+      return (a.student_name || '').localeCompare(b.student_name || '');
+    });
+    const groups = {};
+    allStudents.forEach((s) => {
+      const g = s.grade || '학년 미지정';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(s);
+    });
+    const optgroups = Object.keys(groups).map((g) => `
+      <optgroup label="${g}">
+        ${groups[g].map((s) => `<option value="${s.student_code}" data-name="${s.student_name}">${s.student_name} (${s.student_code})</option>`).join('')}
+      </optgroup>
+    `).join('');
+    studentSelect.innerHTML = '<option value="">학생을 선택하세요</option>' + optgroups;
+  }
+  loadStudents();
+
+  // ---- 교재 선택 (학년학기 → 교재명 2단계) ----
+  const gradeSemesterSelect = document.getElementById('grade-semester');
+  const textbookNameSelect = document.getElementById('textbook-name');
+  let allTextbooks = [];
+  let gradeSemesterGroups = {}; // key: "초3-1" -> [textbook rows]
+
+  async function loadTextbookOptions() {
+    const { data, error } = await sb.rpc('rpc_admin_list_textbooks', { p_password: getAdminPassword() });
+    if (error) {
+      console.error(error);
+      gradeSemesterSelect.innerHTML = '<option value="">교재 목록을 불러오지 못했습니다</option>';
+      return;
+    }
+    allTextbooks = data || [];
+    gradeSemesterGroups = {};
+    allTextbooks.forEach((t) => {
+      const key = t.grade + (t.semester ? '-' + t.semester : '');
+      if (!gradeSemesterGroups[key]) gradeSemesterGroups[key] = [];
+      gradeSemesterGroups[key].push(t);
+    });
+    const keys = Object.keys(gradeSemesterGroups);
+    gradeSemesterSelect.innerHTML = '<option value="">학년학기 선택</option>' +
+      keys.map((k) => `<option value="${k}">${k}</option>`).join('');
+  }
+  loadTextbookOptions();
+
+  gradeSemesterSelect.addEventListener('change', () => {
+    const key = gradeSemesterSelect.value;
+    if (!key) {
+      textbookNameSelect.innerHTML = '<option value="">학년학기 먼저 선택</option>';
+      textbookNameSelect.disabled = true;
+      return;
+    }
+    const books = gradeSemesterGroups[key] || [];
+    textbookNameSelect.innerHTML = '<option value="">교재명 선택</option>' +
+      books.map((t) => `<option value="${t.textbook_name}" data-category="${t.category || ''}">[${t.category || '-'}] ${t.textbook_name}</option>`).join('');
+    textbookNameSelect.disabled = false;
+  });
 
   let allReqs = [];
   let currentFilter = 'pending';
@@ -187,17 +255,28 @@
 
   document.getElementById('request-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    const studentCode = studentSelect.value;
+    if (!studentCode) { alert('학생을 선택해주세요.'); return; }
+    const studentName = studentSelect.selectedOptions[0].dataset.name;
+
+    const gradeSemester = gradeSemesterSelect.value;
+    const textbookName = textbookNameSelect.value;
+    if (!gradeSemester || !textbookName) { alert('학년학기와 교재명을 선택해주세요.'); return; }
+    const category = textbookNameSelect.selectedOptions[0].dataset.category;
+    const grade = gradeSemester.replace(/-\d+$/, '');
+
     const submitBtn = e.target.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = '등록 중...';
 
     const { error } = await sb.rpc('rpc_admin_add_textbook_request', {
       p_password: getAdminPassword(),
-      p_student_name: document.getElementById('student-name').value.trim(),
-      p_grade: document.getElementById('grade').value.trim(),
-      p_semester: document.getElementById('semester').value.trim(),
+      p_student_name: studentName,
+      p_grade: grade,
+      p_semester: gradeSemester,
       p_classroom: classroomSelect.value,
-      p_requested_textbook: document.getElementById('requested-textbook').value.trim(),
+      p_requested_textbook: `[${category}] ${textbookName}`,
       p_expected_textbook: '',
       p_deadline: document.getElementById('deadline').value.trim(),
       p_copies: parseInt(document.getElementById('copies').value || '1', 10),
@@ -215,6 +294,10 @@
     e.target.reset();
     document.getElementById('copies').value = 1;
     classroomSelect.value = getAdminClassroom() || CLASSROOMS[0];
+    studentSelect.value = '';
+    gradeSemesterSelect.value = '';
+    textbookNameSelect.innerHTML = '<option value="">학년학기 먼저 선택</option>';
+    textbookNameSelect.disabled = true;
     loadList();
   });
 
