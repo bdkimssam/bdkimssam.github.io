@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>학생 목록 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 8px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 20px; line-height:1.6; }
+  .toolbar { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .toolbar label { font-size:13px; font-weight:700; color: var(--muted); }
+  select.grade-filter {
+    flex:1; padding:11px 12px; border-radius:10px; border:1px solid var(--gray-200); background:#fff;
+    font-size:14px; font-family:inherit; color: var(--ink);
+  }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding: 6px 20px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  table { width:100%; border-collapse: collapse; }
+  th, td { text-align:left; padding: 11px 6px; font-size: 13.5px; border-top: 1px solid var(--gray-200); }
+  th { color: var(--muted); font-weight:700; font-size:12px; border-top:none; }
+  tr:first-child td { border-top:none; }
+  td.name { font-weight:700; }
+  select.classroom-select {
+    padding:7px 10px; border-radius:8px; border:1px solid var(--gray-200); background:#fff;
+    font-size:13px; font-family:inherit; color: var(--ink); cursor:pointer;
+  }
+  select.classroom-select.saving { opacity:0.5; }
+  .loading, .empty { color: var(--muted); font-size: 13px; padding: 30px 6px; text-align:center; }
+  .count-badge { font-size:12px; color: var(--muted); font-weight:700; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">학생 목록</span>
+</header>
+
+<main>
+  <h1>학생 목록</h1>
+  <p class="sub">학년별로 학생을 확인하고, 강의실이 잘못 지정된 경우 바로 고칠 수 있습니다.</p>
+
+  <div class="toolbar">
+    <label for="grade-filter">학년</label>
+    <select class="grade-filter" id="grade-filter">
+      <option value="">전체</option>
+      <option value="초1">초1</option>
+      <option value="초2">초2</option>
+      <option value="초3">초3</option>
+      <option value="초4">초4</option>
+      <option value="초5">초5</option>
+      <option value="초6">초6</option>
+      <option value="중1">중1</option>
+      <option value="중2">중2</option>
+      <option value="중3">중3</option>
+      <option value="고1">고1</option>
+      <option value="고2">고2</option>
+      <option value="고3">고3</option>
+      <option value="졸업">졸업</option>
+    </select>
+    <span class="count-badge" id="count-badge"></span>
+  </div>
+
+  <div class="panel">
+    <table id="student-table" style="display:none;">
+      <thead>
+        <tr><th>이름</th><th>학년</th><th>강의실</th></tr>
+      </thead>
+      <tbody id="student-tbody"></tbody>
+    </table>
+    <div class="loading" id="status-area">불러오는 중...</div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireDirector();
+
+  const TEACHER_CLASSROOMS = CLASSROOMS.filter((c) => c !== DIRECTOR_LABEL);
+  let allStudents = [];
+
+  loadStudents();
+
+  document.getElementById('grade-filter').addEventListener('change', render);
+
+  async function loadStudents() {
+    const statusArea = document.getElementById('status-area');
+    const { data, error } = await sb.rpc('rpc_admin_list_all_students', { p_password: ADMIN_PASSWORD });
+    if (error) {
+      statusArea.textContent = '학생 목록을 불러오지 못했습니다: ' + error.message;
+      return;
+    }
+    allStudents = data || [];
+    render();
+  }
+
+  function render() {
+    const grade = document.getElementById('grade-filter').value;
+    const filtered = grade ? allStudents.filter((s) => s.grade === grade) : allStudents;
+
+    const table = document.getElementById('student-table');
+    const tbody = document.getElementById('student-tbody');
+    const statusArea = document.getElementById('status-area');
+    document.getElementById('count-badge').textContent = filtered.length ? `${filtered.length}명` : '';
+
+    if (filtered.length === 0) {
+      table.style.display = 'none';
+      statusArea.style.display = 'block';
+      statusArea.textContent = '해당하는 학생이 없습니다.';
+      return;
+    }
+
+    table.style.display = 'table';
+    statusArea.style.display = 'none';
+
+    tbody.innerHTML = filtered.map((s) => `
+      <tr>
+        <td class="name">${s.student_name || ''}</td>
+        <td>${s.grade || '-'}</td>
+        <td>
+          <select class="classroom-select" data-code="${s.student_code}" data-name="${s.student_name || ''}">
+            <option value="">미지정</option>
+            ${TEACHER_CLASSROOMS.map((c) => `<option value="${c}" ${s.classroom === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+        </td>
+      </tr>
+    `).join('');
+
+    tbody.querySelectorAll('.classroom-select').forEach((sel) => {
+      sel.addEventListener('change', async () => {
+        sel.classList.add('saving');
+        sel.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_update_student_classroom', {
+          p_password: ADMIN_PASSWORD,
+          p_student_code: sel.dataset.code,
+          p_student_name: sel.dataset.name,
+          p_classroom: sel.value || null,
+        });
+        sel.disabled = false;
+        sel.classList.remove('saving');
+        if (error) {
+          alert('강의실 수정 실패: ' + error.message);
+          return;
+        }
+        const target = allStudents.find((s) => s.student_code === sel.dataset.code);
+        if (target) target.classroom = sel.value || null;
+      });
+    });
+  }
+</script>
+
+</body>
+</html>
