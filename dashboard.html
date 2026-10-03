@@ -780,15 +780,27 @@
       items
         .slice(0, 3)
         .map(
-          (item) => `
-          <div class="notice-item">
-            <div class="t">${gradePrefixLabel(item.target_grade)} ${item.title || '(제목 없음)'}</div>
+          (item, idx) => `
+          <div class="notice-item" data-idx="${idx}" style="cursor:pointer;">
+            <div class="t">${gradePrefixLabel(item.target_grade)} ${item.title || '(제목 없음)'} <i class="fa-solid fa-chevron-down notice-caret" style="font-size:10px; color:var(--faint); margin-left:4px;"></i></div>
             <div class="d">${item.posted_date || ''}</div>
+            <div class="notice-content" style="display:none; font-size:13px; color:var(--ink); line-height:1.6; white-space:pre-line; margin-top:8px;">${item.content || '(내용 없음)'}</div>
           </div>
         `
         )
         .join('')
     );
+
+    document.querySelectorAll('#card-notices .notice-item').forEach((row) => {
+      row.addEventListener('click', () => {
+        const content = row.querySelector('.notice-content');
+        const caret = row.querySelector('.notice-caret');
+        const isOpen = content.style.display !== 'none';
+        content.style.display = isOpen ? 'none' : 'block';
+        caret.classList.toggle('fa-chevron-down', isOpen);
+        caret.classList.toggle('fa-chevron-up', !isOpen);
+      });
+    });
   }
 
   // ---- 월간평가 성적 ----
