@@ -661,10 +661,9 @@
     if (today.getDate() < first.getDate()) months -= 1;
     if (months < 0) { years -= 1; months += 12; }
 
-    let text;
-    if (years > 0) text = months > 0 ? `${years}년 ${months}개월` : `${years}년`;
-    else if (months > 0) text = `${months}개월`;
-    else text = `${totalDays}일`;
+    if (years === 0 && months === 0) return; // 1개월 미만이면 아예 안 보여줌
+
+    const text = years > 0 ? (months > 0 ? `${years}년 ${months}개월` : `${years}년`) : `${months}개월`;
 
     document.getElementById('welcome-days-value').textContent = text;
     document.getElementById('welcome-days').style.display = 'inline-flex';
