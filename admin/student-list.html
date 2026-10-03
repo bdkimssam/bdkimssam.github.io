@@ -362,11 +362,14 @@
   async function openEditModal(code) {
     document.getElementById('edit-modal-code').textContent = code;
     document.getElementById('edit-student-code').value = code;
-    // 불러오는 동안 일단 빈 값으로 열어두고, 로딩되면 채움
-    ['edit-name', 'edit-school', 'edit-student-phone', 'edit-parent-phone', 'edit-parent-email', 'edit-birth-date', 'edit-address'].forEach((id) => {
+
+    // 학생 목록에 이미 있는 값으로 우선 채워두고(이름/학년), 나머지는 비워둔 채 열기
+    const listed = allStudents.find((s) => s.student_code === code) || {};
+    document.getElementById('edit-name').value = listed.student_name || '';
+    document.getElementById('edit-grade').value = listed.grade || '';
+    ['edit-school', 'edit-student-phone', 'edit-parent-phone', 'edit-parent-email', 'edit-birth-date', 'edit-address'].forEach((id) => {
       document.getElementById(id).value = '';
     });
-    document.getElementById('edit-grade').value = '';
     document.getElementById('edit-privacy-consent').checked = false;
     editModal.classList.add('open');
 
@@ -379,8 +382,9 @@
       return;
     }
     const detail = (data && data[0]) || {};
-    document.getElementById('edit-name').value = detail.student_name || '';
-    document.getElementById('edit-grade').value = detail.grade || '';
+    // students 테이블에 값이 있으면 그걸로 덮어쓰고, 없으면(= 아직 등록 전) 목록에서 가져온 값 유지
+    document.getElementById('edit-name').value = detail.student_name || listed.student_name || '';
+    document.getElementById('edit-grade').value = detail.grade || listed.grade || '';
     document.getElementById('edit-school').value = detail.school || '';
     document.getElementById('edit-student-phone').value = detail.student_phone || '';
     document.getElementById('edit-parent-phone').value = detail.parent_phone || '';
