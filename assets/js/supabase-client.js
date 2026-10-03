@@ -2,12 +2,10 @@
 // Supabase 공용 클라이언트 설정
 // 모든 페이지(index.html, dashboard.html, admin/*.html)가 이 파일을 불러와 씁니다.
 //
-// ★★★ 여기 두 줄만 채우면 전체 사이트가 Supabase로 연결됩니다 ★★★
-// Supabase 대시보드 → 프로젝트 "BD Kimssam" → Settings(톱니바퀴) → API
-// 거기서 "Project URL"과 "anon public" key를 복사해서 아래에 붙여넣으세요.
+// "BD Kimssam" 프로젝트의 Project URL / anon public key (2026-10-03 연결)
 // ============================================================
-const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co'; // TODO: 여기에 Project URL 붙여넣기
-const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';             // TODO: 여기에 anon public key 붙여넣기
+const SUPABASE_URL = 'https://reuzxqlhncwrwswadbvn.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJldXp4cWxobmN3cndzd2FkYnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5OTQ2MjUsImV4cCI6MjEwNjU3MDYyNX0.ASZxYJgbvDgL1sMXibKvte3rY_WtzbGrbYbZBaOaXC8';
 
 // 모든 페이지에서 window.sb 로 접근해서 쓸 수 있도록 전역에 노출
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
