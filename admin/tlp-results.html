@@ -125,7 +125,7 @@
 
   let allStudents = [];
   async function loadStudents() {
-    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: ADMIN_PASSWORD });
+    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: ADMIN_PASSWORD, p_classroom: getAdminClassroom() });
     if (error) { console.error(error); return; }
     allStudents = data || [];
   }
