@@ -94,7 +94,7 @@
 
   async function loadStudents() {
     const statusArea = document.getElementById('status-area');
-    const { data, error } = await sb.rpc('rpc_admin_list_all_students', { p_password: ADMIN_PASSWORD });
+    const { data, error } = await sb.rpc('rpc_admin_list_all_students', { p_password: getAdminPassword() });
     if (error) {
       statusArea.textContent = '학생 목록을 불러오지 못했습니다: ' + error.message;
       return;
@@ -140,7 +140,7 @@
         sel.classList.add('saving');
         sel.disabled = true;
         const { error } = await sb.rpc('rpc_admin_update_student_classroom', {
-          p_password: ADMIN_PASSWORD,
+          p_password: getAdminPassword(),
           p_student_code: sel.dataset.code,
           p_student_name: sel.dataset.name,
           p_classroom: sel.value || null,

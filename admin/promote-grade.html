@@ -70,7 +70,7 @@
     const area = document.getElementById('preview-area');
     area.innerHTML = '<div class="loading">불러오는 중...</div>';
 
-    const { data, error } = await sb.rpc('rpc_admin_grade_promotion_preview', { p_password: ADMIN_PASSWORD });
+    const { data, error } = await sb.rpc('rpc_admin_grade_promotion_preview', { p_password: getAdminPassword() });
     if (error) {
       area.innerHTML = '<div class="loading">미리보기를 불러오지 못했습니다: ' + error.message + '</div>';
       return;
@@ -104,7 +104,7 @@
       btn.disabled = true;
       btn.textContent = '처리 중...';
 
-      const { data: updated, error: promoteError } = await sb.rpc('rpc_admin_promote_all_grades', { p_password: ADMIN_PASSWORD });
+      const { data: updated, error: promoteError } = await sb.rpc('rpc_admin_promote_all_grades', { p_password: getAdminPassword() });
       if (promoteError) {
         alert('진급 처리 실패: ' + promoteError.message);
         btn.disabled = false;

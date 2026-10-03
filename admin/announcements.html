@@ -96,7 +96,7 @@
     const listEl = document.getElementById('notice-list');
     listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
 
-    const { data, error } = await sb.rpc('rpc_admin_list_announcements', { p_password: ADMIN_PASSWORD });
+    const { data, error } = await sb.rpc('rpc_admin_list_announcements', { p_password: getAdminPassword() });
     if (error) {
       console.error(error);
       listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>';
@@ -123,7 +123,7 @@
       btn.addEventListener('click', async () => {
         if (!confirm('이 공지를 삭제할까요?')) return;
         const { error: delErr } = await sb.rpc('rpc_admin_delete_announcement', {
-          p_password: ADMIN_PASSWORD, p_id: btn.dataset.id,
+          p_password: getAdminPassword(), p_id: btn.dataset.id,
         });
         if (delErr) { alert('삭제 실패: ' + delErr.message); return; }
         loadList();
@@ -138,7 +138,7 @@
     submitBtn.textContent = '등록 중...';
 
     const { error } = await sb.rpc('rpc_admin_add_announcement', {
-      p_password: ADMIN_PASSWORD,
+      p_password: getAdminPassword(),
       p_title: document.getElementById('title').value.trim(),
       p_content: document.getElementById('content').value.trim(),
       p_target_grade: document.getElementById('target-grade').value,

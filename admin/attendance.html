@@ -66,14 +66,14 @@
   let statusMap = {}; // student_code -> status
 
   async function loadStudents() {
-    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: ADMIN_PASSWORD });
+    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword() });
     if (error) { console.error(error); return []; }
     return data || [];
   }
 
   async function loadAttendanceForDate(dateStr) {
     const { data, error } = await sb.rpc('rpc_admin_list_attendance', {
-      p_password: ADMIN_PASSWORD, p_attendance_date: dateStr,
+      p_password: getAdminPassword(), p_attendance_date: dateStr,
     });
     if (error) { console.error(error); return {}; }
     const map = {};
@@ -122,7 +122,7 @@
           updateSummary();
 
           const { error } = await sb.rpc('rpc_admin_mark_attendance', {
-            p_password: ADMIN_PASSWORD,
+            p_password: getAdminPassword(),
             p_student_code: code,
             p_student_name: name,
             p_attendance_date: dateInput.value,

@@ -79,15 +79,18 @@
     e.preventDefault();
     const pw = document.getElementById('password').value;
     const errMsg = document.getElementById('err-msg');
+    const classroom = classroomSelect.value;
+    const expectedPassword = (classroom === DIRECTOR_LABEL) ? DIRECTOR_PASSWORD : TEACHER_PASSWORD;
 
-    if (pw !== ADMIN_PASSWORD) {
+    if (pw !== expectedPassword) {
       errMsg.style.display = 'block';
       return;
     }
     errMsg.style.display = 'none';
 
     sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-    sessionStorage.setItem(ADMIN_CLASSROOM_KEY, classroomSelect.value);
+    sessionStorage.setItem(ADMIN_CLASSROOM_KEY, classroom);
+    sessionStorage.setItem(ADMIN_PASSWORD_KEY, expectedPassword);
     window.location.href = 'index.html';
   });
 </script>

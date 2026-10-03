@@ -125,7 +125,7 @@
 
   let allStudents = [];
   async function loadStudents() {
-    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: ADMIN_PASSWORD, p_classroom: getAdminClassroom() });
+    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
     if (error) { console.error(error); return; }
     allStudents = data || [];
   }
@@ -181,7 +181,7 @@
 
   async function loadList() {
     const listEl = document.getElementById('tlp-list');
-    const { data, error } = await sb.rpc('rpc_admin_list_tlp_results', { p_password: ADMIN_PASSWORD });
+    const { data, error } = await sb.rpc('rpc_admin_list_tlp_results', { p_password: getAdminPassword() });
     if (error) { console.error(error); listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>'; return; }
     if (!data || data.length === 0) { listEl.innerHTML = '<div class="loading">등록된 결과가 없습니다.</div>'; return; }
 
@@ -216,7 +216,7 @@
     submitBtn.textContent = '저장 중...';
 
     const { error } = await sb.rpc('rpc_admin_add_tlp_result', {
-      p_password: ADMIN_PASSWORD,
+      p_password: getAdminPassword(),
       p_student_code: code,
       p_student_name: document.getElementById('selected-name').value,
       p_test_date: document.getElementById('test-date').value,

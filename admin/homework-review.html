@@ -63,7 +63,7 @@
     const listEl = document.getElementById('list');
     listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
 
-    const { data, error } = await sb.rpc('rpc_admin_list_homework', { p_password: ADMIN_PASSWORD });
+    const { data, error } = await sb.rpc('rpc_admin_list_homework', { p_password: getAdminPassword() });
     if (error) {
       console.error(error);
       listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>';
@@ -107,7 +107,7 @@
         btn.disabled = true;
         btn.textContent = '처리 중...';
         const { error } = await sb.rpc('rpc_admin_confirm_homework', {
-          p_password: ADMIN_PASSWORD, p_id: btn.dataset.id,
+          p_password: getAdminPassword(), p_id: btn.dataset.id,
         });
         if (error) {
           alert('처리 실패: ' + error.message);

@@ -136,7 +136,7 @@
   let allStudents = [];
 
   async function loadStudents() {
-    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: ADMIN_PASSWORD, p_classroom: getAdminClassroom() });
+    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
     if (error) {
       console.error(error);
       return;
@@ -212,7 +212,7 @@
     submitBtn.textContent = '저장 중...';
 
     const { error } = await sb.rpc('rpc_admin_add_weekly_progress', {
-      p_password: ADMIN_PASSWORD,
+      p_password: getAdminPassword(),
       p_student_code: code,
       p_student_name: document.getElementById('selected-name').value,
       p_grade: document.getElementById('selected-grade').value,

@@ -12,11 +12,15 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 window.sb = sb;
 
 // ------------------------------------------------------------
-// 관리자(선생님) 로그인 공용 비밀번호
+// 관리자 로그인 비밀번호 — 원장님과 강사쌤 비밀번호를 다르게 둡니다.
 // ------------------------------------------------------------
-// 이번 주말 안에 빠르게 끝내기 위해 "공유 비밀번호 1개 + 강의실 선택" 방식으로 둡니다.
-// 비밀번호를 바꾸고 싶으면 아래 한 줄만 수정하면 전체 관리자 페이지에 바로 반영됩니다.
-const ADMIN_PASSWORD = 'bdkimssam2026'; // TODO: 원하시는 비밀번호로 바꾸세요
+// DB쪽 함수(RPC)도 이 두 비밀번호로 역할을 구분합니다:
+//  - 원장님 전용 기능(공지 작성/숙제인증 확인/TLP/학년 진급/학생 강의실 수정)은
+//    DIRECTOR_PASSWORD만 통과하도록 DB에서 체크하고 있어서, 강사쌤 비밀번호로는 절대 안 됩니다.
+//  - 강사쌤+원장님 공통 기능(주간진도표/교재요청/상벌점)은 두 비밀번호 다 통과합니다.
+// 비밀번호를 바꾸면 이 두 줄과 DB쪽 함수(SQL)를 같이 맞춰줘야 합니다.
+const DIRECTOR_PASSWORD = 'bdkimssam2026'; // 원장님 전용
+const TEACHER_PASSWORD = 'bdkimssam';      // 강사쌤 4개 강의실 공통
 
 // 로그인 화면의 "강의실" 선택지. 맨 앞 "원장님"은 역할 구분용이고, 나머지는 강사쌤용 강의실입니다.
 // 실제 이름으로 바꾸고 싶으면 이 배열만 수정하면 됩니다.
@@ -26,6 +30,13 @@ const DIRECTOR_LABEL = '원장님';
 // admin/login.html 에서 로그인 성공 시 세션 저장에 사용하는 키 이름들
 const ADMIN_SESSION_KEY = 'admin_logged_in';
 const ADMIN_CLASSROOM_KEY = 'admin_classroom';
+const ADMIN_PASSWORD_KEY = 'admin_password'; // 로그인할 때 실제로 맞은 비밀번호(원장님/강사쌤)를 저장
+
+// 관리자 화면들이 RPC 호출할 때 p_password 자리에 넣는 값.
+// (로그인 시 저장된, 실제로 통과한 비밀번호를 그대로 돌려줌)
+function getAdminPassword() {
+  return sessionStorage.getItem(ADMIN_PASSWORD_KEY) || '';
+}
 
 // admin/*.html 페이지들이 맨 위에서 호출하는 인증 가드.
 // 로그인 안 돼 있으면 login.html로 보냄.
