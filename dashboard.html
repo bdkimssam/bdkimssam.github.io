@@ -6,6 +6,8 @@
 <title>학부모 마이페이지 | 봉덕김쌤수학학원</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<!-- Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
   :root {
@@ -503,6 +505,9 @@
       </span>
     </div>
     <div style="display:flex; align-items:center; gap:8px;">
+      <a href="homework-upload.html" class="logout-btn" style="text-decoration:none;">
+        <i class="fa-solid fa-camera"></i> 숙제인증
+      </a>
       <button type="button" class="logout-btn" id="switch-child-btn">
         <i class="fa-solid fa-user-group"></i> 다른 자녀 선택
       </button>
@@ -626,6 +631,7 @@
   </div>
 </main>
 
+<script src="assets/js/supabase-client.js"></script>
 <script>
   // =====================================================================
   // 1) 로그인 정보 바인딩 (localStorage → 화면)
@@ -714,80 +720,26 @@
   }
 
   // =====================================================================
-  // 2) Notion 데이터 fetch 모듈 (공지/성적/진도/피드백 등 모든 카드가 공용으로 사용)
-  //    각 웹훅 URL은 아래 API_ENDPOINTS에 나중에 채워 넣으면 됩니다.
+  // 2) Supabase 데이터 조회 공용 함수
+  //    공지/성적/진도/피드백/상점/경고 모두 Supabase RPC(보안 조회 함수)로 가져옵니다.
+  //    RPC는 "이 학생코드에 해당하는 데이터만" 서버 쪽에서 걸러서 돌려줍니다.
   // =====================================================================
-  const API_ENDPOINTS = {
-    notices: 'https://hook.eu2.make.com/yn01m7knj857129x9y226e49en1d5jof', // 공지사항
-    grades: 'https://hook.eu2.make.com/ndbxil34gcwhp9hwp3iqzxotrk09bvaw', // 월간평가 성적
-    progressAndFeedback: 'https://hook.eu2.make.com/vequ7ixpqxlc77eyr3z4ytx3r6eytskn', // 현재 진도·담당 선생님 피드백
-    rewardsAndWarnings: 'https://hook.eu2.make.com/fhhql59e27um0qtwteuh9fn9wckh8wtm', // 상점(포인트/스탬프)·경고
-    tlp: '', // 예: TLP 학습심리검사 결과를 돌려주는 Make 웹훅 주소
-  };
 
   /**
-   * student_code를 파라미터로 담아 Make 웹훅(API)에서 데이터를 가져오는 공용 함수.
-   * @param {string} endpointUrl - 호출할 Make 웹훅 주소
+   * Supabase RPC를 호출해서 특정 학생코드에 대한 데이터를 가져오는 공용 함수.
+   * @param {string} rpcName - 호출할 RPC 함수 이름 (예: 'rpc_get_announcements')
    * @param {string} code - 조회할 학생 코드
-   * @returns {Promise<any|null>} 성공 시 JSON 데이터, 실패/미설정 시 null
+   * @returns {Promise<any[]>} 성공 시 배열, 실패 시 빈 배열
    */
-  async function fetchStudentData(endpointUrl, code) {
-    if (!endpointUrl) {
-      console.warn('[fetchStudentData] 웹훅 URL이 아직 설정되지 않았습니다.');
-      return null;
-    }
-
+  async function fetchStudentData(rpcName, code) {
     try {
-      const url = new URL(endpointUrl);
-      url.searchParams.set('student_code', code);
-
-      const res = await fetch(url.toString(), { method: 'GET' });
-
-      if (!res.ok) {
-        throw new Error(`요청 실패 (status: ${res.status})`);
-      }
-
-      return await res.json();
+      const { data, error } = await sb.rpc(rpcName, { p_student_code: code });
+      if (error) throw error;
+      return data || [];
     } catch (error) {
-      console.error('[fetchStudentData] 데이터 조회 실패:', error);
-      return null;
+      console.error(`[fetchStudentData] ${rpcName} 조회 실패:`, error);
+      return [];
     }
-  }
-
-  // 노션 속성값을 안전하게 일반 값(문자열)으로 풀어내는 공용 함수.
-  // - rich_text/title: [{ plain_text: '...' }, ...] 배열
-  // - date: { start: '2026-08-20', end: null, ... }
-  // - email/number 등 단순 타입: 그냥 값 그대로
-  function extractNotionValue(value) {
-    if (value == null) return '';
-    if (typeof value === 'string' || typeof value === 'number') return value;
-    if (Array.isArray(value)) {
-      return value.map((segment) => segment?.plain_text ?? '').join('');
-    }
-    if (typeof value === 'object') {
-      if ('plain_text' in value) return value.plain_text ?? '';
-      if ('start' in value) return value.start ?? ''; // Notion 날짜 속성
-      if ('name' in value) return value.name ?? ''; // Notion 단일 선택(select) 속성 (예: 별점)
-    }
-    return String(value);
-  }
-
-  // Make가 { items: [...] } 형태로 주든, 아니면 배열([...])을 그대로 주든 항상 배열로 통일
-  function toRawItemArray(data) {
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.items)) return data.items;
-    return [];
-  }
-
-  // 노션 원본 구조(properties_value로 감싸진 형태)에서 실제 컬럼값만 뽑아내는 함수.
-  // fieldMap 예: { title: '공지사항 내용', date: '작성일' }
-  function normalizeNotionItem(raw, fieldMap) {
-    const props = raw?.properties_value ?? raw ?? {};
-    const result = {};
-    for (const [key, notionColumn] of Object.entries(fieldMap)) {
-      result[key] = extractNotionValue(props[notionColumn]);
-    }
-    return result;
   }
 
   // =====================================================================
@@ -809,19 +761,19 @@
   }
 
   // ---- 공지사항 ----
-  async function loadNotices() {
-    const data = await fetchStudentData(API_ENDPOINTS.notices, studentCode);
-    const rawItems = toRawItemArray(data);
+  // target_grade에 따라 목록에 보여줄 때만 [학년] 머릿말을 자동으로 붙임 (title 원본엔 없음)
+  function gradePrefixLabel(targetGrade) {
+    if (!targetGrade || targetGrade === '전체') return '[전체]';
+    return `[${targetGrade}]`;
+  }
 
-    if (rawItems.length === 0) {
+  async function loadNotices() {
+    const items = await fetchStudentData('rpc_get_announcements', studentCode);
+
+    if (items.length === 0) {
       renderEmptyState('card-notices', '새로운 공지사항이 등록되면 이곳에 표시됩니다.');
       return;
     }
-
-    // 노션 원본(properties_value) 구조를 { title, date }로 정리
-    const items = rawItems.map((raw) =>
-      normalizeNotionItem(raw, { title: '공지사항 내용', date: '작성일' })
-    );
 
     setCardState(
       'card-notices',
@@ -830,8 +782,8 @@
         .map(
           (item) => `
           <div class="notice-item">
-            <div class="t">${item.title || '(제목 없음)'}</div>
-            <div class="d">${item.date || ''}</div>
+            <div class="t">${gradePrefixLabel(item.target_grade)} ${item.title || '(제목 없음)'}</div>
+            <div class="d">${item.posted_date || ''}</div>
           </div>
         `
         )
@@ -841,31 +793,24 @@
 
   // ---- 월간평가 성적 ----
   async function loadGrades() {
-    const data = await fetchStudentData(API_ENDPOINTS.grades, studentCode);
-    const rawItems = toRawItemArray(data);
+    const items = await fetchStudentData('rpc_get_monthly_scores', studentCode);
 
-    if (rawItems.length === 0) {
+    if (items.length === 0) {
       renderEmptyState('card-grades', '월간평가 결과가 등록되면 이곳에 표시됩니다.');
       return;
     }
-
-    // 노션 원본(properties_value) 구조를 { year, month, score, category }로 정리
-    // (Make에서 이미 연도→월 내림차순으로 정렬해서 최신순으로 보내줌)
-    const items = rawItems.map((raw) =>
-      normalizeNotionItem(raw, { year: '연도', month: '월', score: '점수', category: '구분' })
-    );
 
     setCardState(
       'card-grades',
       items
         .slice(0, 6)
         .map((item) => {
-          // '구분'이 비어있거나 '월간평가'인 경우(기존 데이터 포함) → 기존처럼 "연도/월" 형식
+          // exam_type이 비어있거나 '월간평가'인 경우(기존 데이터 포함) → 기존처럼 "연도/월" 형식
           // 그 외(중간고사·기말고사·모의고사 등) → "월 + 구분" 형식으로 표시 (연도 생략)
-          const isMonthlyEval = !item.category || item.category === '월간평가';
+          const isMonthlyEval = !item.exam_type || item.exam_type === '월간평가';
           const label = isMonthlyEval
-            ? `<span class="k-year">${item.year}년</span><span class="k-month">${item.month}월</span>`
-            : `<span class="k-year-small">${item.year}</span> · ${item.month}월 ${item.category}`;
+            ? `<span class="k-year">${item.exam_year}년</span><span class="k-month">${item.exam_month}월</span>`
+            : `<span class="k-year-small">${item.exam_year}</span> · ${item.exam_month}월 ${item.exam_type}`;
 
           return `
           <div class="data-row">
@@ -881,48 +826,23 @@
   // ---- 현재 진도 ----
   // ---- 현재 진도 & 담당 선생님 피드백: 같은 DB 테이블에서 한 번에 조회해서 두 카드에 나눠 표시 ----
   async function loadProgressAndFeedback() {
-    const data = await fetchStudentData(API_ENDPOINTS.progressAndFeedback, studentCode);
-    const rawItems = toRawItemArray(data);
+    const items = await fetchStudentData('rpc_get_weekly_progress', studentCode);
 
-    if (rawItems.length === 0) {
+    if (items.length === 0) {
       renderEmptyState('card-progress', '진도 정보가 등록되면 이곳에 표시됩니다.');
       renderEmptyState('card-feedback', '선생님 피드백이 등록되면 이곳에 표시됩니다.');
       return;
     }
 
-    // 노션 원본(properties_value) 구조를 정리 (일부 필드가 비어있어도 안전하게 '' 처리됨)
-    const items = rawItems.map((raw) =>
-      normalizeNotionItem(raw, {
-        bookProgress: '진도책 진도',
-        homeworkProgress: '숙제책 진도',
-        comment: '담당선생님 코멘트',
-        homeworkScore: '과제 수행',
-        attitude: '수업태도',
-        date: '작성일자',
-        progressPercent: '진도율', // 선택 항목: 노션에 0~100 숫자 컬럼을 추가하면 진행률 바가 자동으로 표시됨
-      })
-    );
-
     // ---- 현재 진도: 가장 최근 기록(맨 앞) 기준 ----
     const latest = items[0];
-    const rawPercent = Number(latest.progressPercent);
-    const hasPercent = Number.isFinite(rawPercent) && latest.progressPercent !== '';
-    const percent = hasPercent ? Math.max(0, Math.min(100, rawPercent)) : null;
 
     setCardState(
       'card-progress',
       `
-      <div class="data-row"><span class="k">진도책 진도</span><span class="v">${latest.bookProgress || '기록 없음'}</span></div>
-      <div class="data-row"><span class="k">숙제책 진도</span><span class="v">${latest.homeworkProgress || '기록 없음'}</span></div>
-      <div class="data-row"><span class="k">최근 업데이트</span><span class="v">${latest.date || '-'}</span></div>
-      ${
-        percent !== null
-          ? `
-        <div class="progress-track"><div class="progress-fill" style="width:${percent}%;"></div></div>
-        <div class="progress-percent">${percent}% 진행</div>
-      `
-          : ''
-      }
+      <div class="data-row"><span class="k">진도책 진도</span><span class="v">${latest.textbook_progress || '기록 없음'}</span></div>
+      <div class="data-row"><span class="k">숙제책 진도</span><span class="v">${latest.homework_progress || '기록 없음'}</span></div>
+      <div class="data-row"><span class="k">최근 업데이트</span><span class="v">${latest.recorded_date || '-'}</span></div>
       `
     );
 
@@ -932,14 +852,14 @@
       items
         .slice(0, 3)
         .map((item) => {
-          const commentText = item.comment || '코멘트가 없습니다.';
+          const commentText = item.teacher_comment || '코멘트가 없습니다.';
           // 대략 3줄(약 60자) 넘는 긴 코멘트만 '더보기' 버튼 표시
           const needsMoreBtn = commentText.length > 60;
           return `
           <div class="feedback-item">
             <div class="teacher">
-              <span class="teacher-text"><span class="hw-score">과제수행 ${item.homeworkScore || '-'}</span><span class="teacher-sep"> · </span><span class="attitude-score">수업태도 ${item.attitude || '-'}</span></span>
-              <span class="date">${item.date || ''}</span>
+              <span class="teacher-text"><span class="hw-score">과제수행 ${item.homework_completion || '-'}</span><span class="teacher-sep"> · </span><span class="attitude-score">수업태도 ${item.attitude || '-'}</span></span>
+              <span class="date">${item.recorded_date || ''}</span>
             </div>
             <div class="comment">${commentText}</div>
             ${
@@ -960,8 +880,7 @@
 
   // ---- 상점(포인트·스탬프) & 경고: 같은 DB 테이블에서 한 번에 조회해서 두 카드에 나눠 표시 ----
   async function loadRewardsAndWarnings() {
-    const data = await fetchStudentData(API_ENDPOINTS.rewardsAndWarnings, studentCode);
-    const rawItems = toRawItemArray(data);
+    const rawItems = await fetchStudentData('rpc_get_points_warnings', studentCode);
 
     if (rawItems.length === 0) {
       renderEmptyState('card-rewards', '상점 내역이 등록되면 이곳에 표시됩니다.');
@@ -969,29 +888,19 @@
       return;
     }
 
-    // 노션 테이블 구조: 한 행이 상점(상점 종류/상점 이유) 또는 경고(경고/경고이유) 중 하나만 채워짐
-    const parsed = rawItems.map((raw) =>
-      normalizeNotionItem(raw, {
-        rewardType: '상점 종류', // '포인트' | '스탬프' | ''
-        rewardReason: '상점 이유',
-        warningFlag: '경고', // '경고' | ''
-        warningReason: '경고이유',
-        date: '작성일',
-      })
-    );
-
+    // 테이블 구조: 한 행이 상점(point_type/point_reason) 또는 경고(warning_type/warning_reason) 중 하나만 채워짐
     // 채워진 쪽을 보고 상점/경고로 분류
-    const items = parsed
+    const items = rawItems
       .map((row) => {
-        if (row.rewardType) {
+        if (row.point_type) {
           return {
-            type: row.rewardType === '스탬프' ? 'stamp' : 'point',
-            reason: row.rewardReason,
-            date: row.date,
+            type: row.point_type === '스탬프' ? 'stamp' : 'point',
+            reason: row.point_reason,
+            date: row.created_at ? row.created_at.slice(0, 10) : '',
           };
         }
-        if (row.warningFlag) {
-          return { type: 'warning', reason: row.warningReason, date: row.date };
+        if (row.warning_type) {
+          return { type: 'warning', reason: row.warning_reason, date: row.created_at ? row.created_at.slice(0, 10) : '' };
         }
         return null;
       })
@@ -1072,43 +981,10 @@
   }
 
   // ---- TLP 학습심리검사 ----
+  // TLP는 아직 Supabase 테이블/RPC가 준비되지 않아, 당분간은 "준비 중" 상태만 표시합니다.
+  // (나중에 tlp_results 테이블 + rpc_get_tlp 함수를 추가하면 여기도 다른 카드와 동일한 패턴으로 연결하면 됩니다.)
   async function loadTlp() {
-    const data = await fetchStudentData(API_ENDPOINTS.tlp, studentCode);
-    const rawItems = toRawItemArray(data);
-
-    if (rawItems.length === 0) {
-      renderEmptyState('card-tlp', 'TLP 학습심리검사 결과가 등록되면 이곳에 표시됩니다.');
-      return;
-    }
-
-    // 노션 원본(properties_value) 구조를 정리 (컬럼명은 추후 실제 노션 구성에 맞게 조정 가능)
-    const items = rawItems.map((raw) => normalizeNotionItem(raw, { comment: '코멘트' }));
-
-    // 가장 최근 검사 결과 기준
-    const latest = items[0];
-    const commentText = latest.comment || '아직 작성된 코멘트가 없습니다.';
-    const needsMoreBtn = commentText.length > 60;
-
-    setCardState(
-      'card-tlp',
-      `
-      <div class="feedback-item">
-        <div class="teacher">
-          <span>검사 결과 코멘트</span>
-        </div>
-        <div class="comment">${commentText}</div>
-        ${
-          needsMoreBtn
-            ? `<button type="button" class="feedback-more-btn" onclick="
-                const c = this.previousElementSibling;
-                const isOpen = c.classList.toggle('expanded');
-                this.textContent = isOpen ? '접기' : '더보기';
-              ">더보기</button>`
-            : ''
-        }
-      </div>
-      `
-    );
+    renderEmptyState('card-tlp', '검사 결과가 등록되면 이곳에 표시됩니다.');
   }
 
   // =====================================================================
