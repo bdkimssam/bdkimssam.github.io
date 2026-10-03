@@ -41,15 +41,20 @@
   .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
   .tag.progress { background:#E3F2FD; color:#1565C0; }
   .tag.homework { background:#FFF3E0; color:#B5651D; }
-  button.manage-btn, button.delete-btn {
+  button.manage-btn, button.delete-btn, button.edit-btn {
     padding:6px 10px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; color: var(--ink);
     font-size:12px; font-weight:700; cursor:pointer; margin-right:6px;
   }
   button.delete-btn { color:#C0392B; }
-  button.manage-btn:hover, button.delete-btn:hover { background: var(--gray-50); }
+  button.manage-btn:hover, button.delete-btn:hover, button.edit-btn:hover { background: var(--gray-50); }
   .loading { color: var(--muted); font-size: 13px; padding: 16px 6px; text-align:center; }
   .unit-panel-title { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .unit-panel-title .close-btn { font-size:12px; color: var(--muted); cursor:pointer; font-weight:700; }
+  .panel-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .panel-head h2 { margin:0; }
+  select.semester-filter { width:auto; min-width:140px; }
+  .cancel-edit-link { display:block; text-align:center; font-size:12.5px; color: var(--muted); font-weight:700; margin-top:8px; cursor:pointer; }
+  .edit-badge { background:#FFF3E0; color:#B5651D; font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:999px; }
 </style>
 </head>
 <body>
@@ -64,7 +69,10 @@
   <p class="sub">진도책·숙제책 커리큘럼과 각 교재의 단원을 등록합니다. 새 교육과정이나 교재가 추가되면 여기서 등록하면 돼요.</p>
 
   <div class="panel">
-    <h2>교재 등록</h2>
+    <div class="panel-head">
+      <h2 id="textbook-form-title">교재 등록</h2>
+      <span class="edit-badge" id="textbook-edit-badge" style="display:none;">수정 중</span>
+    </div>
     <div class="field-row">
       <div><label>교재 코드</label><input type="text" id="new-code" placeholder="예: E3-1-CORE1"></div>
       <div><label>구분</label>
@@ -95,10 +103,16 @@
       <div><label>교재명</label><input type="text" id="new-name" placeholder="예: CORE 레벨1"></div>
     </div>
     <button type="button" class="add-btn" id="add-textbook-btn">교재 추가</button>
+    <span class="cancel-edit-link" id="cancel-textbook-edit" style="display:none;">수정 취소</span>
   </div>
 
   <div class="panel">
-    <h2>등록된 교재 목록</h2>
+    <div class="panel-head">
+      <h2>등록된 교재 목록</h2>
+      <select class="semester-filter" id="grade-semester-filter">
+        <option value="">전체 학년학기</option>
+      </select>
+    </div>
     <table id="textbook-table" style="display:none;">
       <thead><tr><th>학년학기</th><th>구분</th><th>교재명</th><th>단원수</th><th></th></tr></thead>
       <tbody id="textbook-tbody"></tbody>
@@ -112,6 +126,10 @@
       <span class="close-btn" id="unit-panel-close">닫기</span>
     </div>
 
+    <div class="panel-head">
+      <label style="margin:0;" id="unit-form-title">새 단원 추가</label>
+      <span class="edit-badge" id="unit-edit-badge" style="display:none;">수정 중</span>
+    </div>
     <div class="field-row">
       <div><label>순서</label><input type="number" id="new-unit-order" min="1" placeholder="1"></div>
       <div><label>대단원명</label><input type="text" id="new-unit-major" placeholder="예: 분수의 덧셈과 뺄셈"></div>
@@ -120,6 +138,7 @@
       <div><label>중단원명 (중/고등만, 초등은 비워두세요)</label><input type="text" id="new-unit-minor" placeholder="예: 이차방정식의 활용"></div>
     </div>
     <button type="button" class="add-btn" id="add-unit-btn">단원 추가</button>
+    <span class="cancel-edit-link" id="cancel-unit-edit" style="display:none;">수정 취소</span>
 
     <table id="unit-table" style="display:none; margin-top:18px;">
       <thead><tr><th>순서</th><th>대단원</th><th>중단원</th><th></th></tr></thead>
@@ -134,8 +153,16 @@
   requireDirector();
 
   let selectedTextbookCode = null;
+  let allTextbooks = [];
+  let editingTextbookCode = null;
+  let currentFilter = '';
 
   loadTextbooks();
+
+  document.getElementById('grade-semester-filter').addEventListener('change', (e) => {
+    currentFilter = e.target.value;
+    renderTextbooks();
+  });
 
   document.getElementById('add-textbook-btn').addEventListener('click', async () => {
     const code = document.getElementById('new-code').value.trim();
@@ -147,33 +174,100 @@
 
     const btn = document.getElementById('add-textbook-btn');
     btn.disabled = true;
-    const { error } = await sb.rpc('rpc_admin_add_textbook', {
-      p_password: getAdminPassword(),
-      p_textbook_code: code, p_category: category, p_grade: grade, p_semester: semester, p_textbook_name: name,
-    });
+    let error;
+    if (editingTextbookCode) {
+      ({ error } = await sb.rpc('rpc_admin_update_textbook', {
+        p_password: getAdminPassword(),
+        p_textbook_code: editingTextbookCode, p_category: category, p_grade: grade, p_semester: semester, p_textbook_name: name,
+      }));
+    } else {
+      ({ error } = await sb.rpc('rpc_admin_add_textbook', {
+        p_password: getAdminPassword(),
+        p_textbook_code: code, p_category: category, p_grade: grade, p_semester: semester, p_textbook_name: name,
+      }));
+    }
     btn.disabled = false;
     if (error) {
-      alert('교재 추가 실패: ' + error.message);
+      alert((editingTextbookCode ? '교재 수정 실패: ' : '교재 추가 실패: ') + error.message);
       return;
     }
-    document.getElementById('new-code').value = '';
-    document.getElementById('new-name').value = '';
+    exitTextbookEditMode();
     loadTextbooks();
   });
 
+  document.getElementById('cancel-textbook-edit').addEventListener('click', () => {
+    exitTextbookEditMode();
+  });
+
+  function enterTextbookEditMode(t) {
+    editingTextbookCode = t.textbook_code;
+    document.getElementById('new-code').value = t.textbook_code;
+    document.getElementById('new-code').disabled = true;
+    document.getElementById('new-category').value = t.category || '개념서';
+    document.getElementById('new-grade').value = t.grade;
+    document.getElementById('new-semester').value = String(t.semester || 1);
+    document.getElementById('new-name').value = t.textbook_name;
+    document.getElementById('add-textbook-btn').textContent = '수정 저장';
+    document.getElementById('textbook-form-title').textContent = '교재 수정';
+    document.getElementById('textbook-edit-badge').style.display = 'inline-block';
+    document.getElementById('cancel-textbook-edit').style.display = 'block';
+    document.querySelector('.panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function exitTextbookEditMode() {
+    editingTextbookCode = null;
+    document.getElementById('new-code').value = '';
+    document.getElementById('new-code').disabled = false;
+    document.getElementById('new-name').value = '';
+    document.getElementById('add-textbook-btn').textContent = '교재 추가';
+    document.getElementById('textbook-form-title').textContent = '교재 등록';
+    document.getElementById('textbook-edit-badge').style.display = 'none';
+    document.getElementById('cancel-textbook-edit').style.display = 'none';
+  }
+
   async function loadTextbooks() {
     const statusArea = document.getElementById('textbook-status');
-    const table = document.getElementById('textbook-table');
     const { data, error } = await sb.rpc('rpc_admin_list_textbooks', { p_password: getAdminPassword() });
     if (error) {
       statusArea.textContent = '교재 목록을 불러오지 못했습니다: ' + error.message;
       return;
     }
-    const textbooks = data || [];
-    if (textbooks.length === 0) {
+    allTextbooks = data || [];
+    updateFilterOptions();
+    renderTextbooks();
+  }
+
+  function updateFilterOptions() {
+    const select = document.getElementById('grade-semester-filter');
+    const prev = select.value;
+    const seen = new Set();
+    const keys = [];
+    allTextbooks.forEach((t) => {
+      const key = t.grade + (t.semester ? '-' + t.semester : '');
+      if (!seen.has(key)) { seen.add(key); keys.push(key); }
+    });
+    select.innerHTML = '<option value="">전체 학년학기</option>' +
+      keys.map((k) => `<option value="${k}">${k}</option>`).join('');
+    if (keys.includes(prev)) select.value = prev;
+  }
+
+  function renderTextbooks() {
+    const statusArea = document.getElementById('textbook-status');
+    const table = document.getElementById('textbook-table');
+    const textbooks = currentFilter
+      ? allTextbooks.filter((t) => (t.grade + (t.semester ? '-' + t.semester : '')) === currentFilter)
+      : allTextbooks;
+
+    if (allTextbooks.length === 0) {
       table.style.display = 'none';
       statusArea.style.display = 'block';
       statusArea.textContent = '등록된 교재가 아직 없습니다.';
+      return;
+    }
+    if (textbooks.length === 0) {
+      table.style.display = 'none';
+      statusArea.style.display = 'block';
+      statusArea.textContent = '해당 학년학기에 등록된 교재가 없습니다.';
       return;
     }
     table.style.display = 'table';
@@ -188,6 +282,7 @@
         <td>${t.unit_count}개</td>
         <td style="white-space:nowrap;">
           <button type="button" class="manage-btn" data-code="${t.textbook_code}">단원 관리</button>
+          <button type="button" class="edit-btn" data-code="${t.textbook_code}">수정</button>
           <button type="button" class="delete-btn" data-code="${t.textbook_code}">삭제</button>
         </td>
       </tr>
@@ -195,6 +290,12 @@
 
     tbody.querySelectorAll('.manage-btn').forEach((btn) => {
       btn.addEventListener('click', () => openUnitPanel(btn.dataset.code));
+    });
+    tbody.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const t = allTextbooks.find((x) => x.textbook_code === btn.dataset.code);
+        if (t) enterTextbookEditMode(t);
+      });
     });
     tbody.querySelectorAll('.delete-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -214,12 +315,16 @@
 
   function openUnitPanel(code) {
     selectedTextbookCode = code;
+    exitUnitEditMode();
     document.getElementById('unit-panel').style.display = 'block';
     document.getElementById('unit-panel-code').textContent = code;
     loadUnits();
     loadTextbooks(); // 선택 표시 갱신
     document.getElementById('unit-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  let editingUnitId = null;
+  let currentUnits = [];
 
   document.getElementById('unit-panel-close').addEventListener('click', () => {
     selectedTextbookCode = null;
@@ -236,18 +341,50 @@
 
     const btn = document.getElementById('add-unit-btn');
     btn.disabled = true;
-    const { error } = await sb.rpc('rpc_admin_add_curriculum_unit', {
-      p_password: getAdminPassword(),
-      p_textbook_code: selectedTextbookCode, p_unit_order: order, p_major_unit: major, p_minor_unit: minor,
-    });
+    let error;
+    if (editingUnitId) {
+      ({ error } = await sb.rpc('rpc_admin_update_curriculum_unit', {
+        p_password: getAdminPassword(),
+        p_id: editingUnitId, p_unit_order: order, p_major_unit: major, p_minor_unit: minor,
+      }));
+    } else {
+      ({ error } = await sb.rpc('rpc_admin_add_curriculum_unit', {
+        p_password: getAdminPassword(),
+        p_textbook_code: selectedTextbookCode, p_unit_order: order, p_major_unit: major, p_minor_unit: minor,
+      }));
+    }
     btn.disabled = false;
-    if (error) { alert('단원 추가 실패: ' + error.message); return; }
-    document.getElementById('new-unit-order').value = '';
-    document.getElementById('new-unit-major').value = '';
-    document.getElementById('new-unit-minor').value = '';
+    if (error) { alert((editingUnitId ? '단원 수정 실패: ' : '단원 추가 실패: ') + error.message); return; }
+    exitUnitEditMode();
     loadUnits();
     loadTextbooks(); // 단원수 갱신
   });
+
+  document.getElementById('cancel-unit-edit').addEventListener('click', () => {
+    exitUnitEditMode();
+  });
+
+  function enterUnitEditMode(u) {
+    editingUnitId = u.id;
+    document.getElementById('new-unit-order').value = u.unit_order;
+    document.getElementById('new-unit-major').value = u.major_unit;
+    document.getElementById('new-unit-minor').value = u.minor_unit || '';
+    document.getElementById('add-unit-btn').textContent = '수정 저장';
+    document.getElementById('unit-form-title').textContent = '단원 수정';
+    document.getElementById('unit-edit-badge').style.display = 'inline-block';
+    document.getElementById('cancel-unit-edit').style.display = 'block';
+  }
+
+  function exitUnitEditMode() {
+    editingUnitId = null;
+    document.getElementById('new-unit-order').value = '';
+    document.getElementById('new-unit-major').value = '';
+    document.getElementById('new-unit-minor').value = '';
+    document.getElementById('add-unit-btn').textContent = '단원 추가';
+    document.getElementById('unit-form-title').textContent = '새 단원 추가';
+    document.getElementById('unit-edit-badge').style.display = 'none';
+    document.getElementById('cancel-unit-edit').style.display = 'none';
+  }
 
   async function loadUnits() {
     const statusArea = document.getElementById('unit-status');
@@ -259,8 +396,8 @@
       statusArea.textContent = '단원 목록을 불러오지 못했습니다: ' + error.message;
       return;
     }
-    const units = data || [];
-    if (units.length === 0) {
+    currentUnits = data || [];
+    if (currentUnits.length === 0) {
       table.style.display = 'none';
       statusArea.textContent = '등록된 단원이 아직 없습니다.';
       return;
@@ -269,21 +406,31 @@
     statusArea.textContent = '';
 
     const tbody = document.getElementById('unit-tbody');
-    tbody.innerHTML = units.map((u) => `
+    tbody.innerHTML = currentUnits.map((u) => `
       <tr>
         <td>${u.unit_order}</td>
         <td>${u.major_unit}</td>
         <td>${u.minor_unit || '-'}</td>
-        <td><button type="button" class="delete-btn" data-id="${u.id}">삭제</button></td>
+        <td style="white-space:nowrap;">
+          <button type="button" class="edit-btn" data-id="${u.id}">수정</button>
+          <button type="button" class="delete-btn" data-id="${u.id}">삭제</button>
+        </td>
       </tr>
     `).join('');
 
+    tbody.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const u = currentUnits.find((x) => String(x.id) === btn.dataset.id);
+        if (u) enterUnitEditMode(u);
+      });
+    });
     tbody.querySelectorAll('.delete-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const { error } = await sb.rpc('rpc_admin_delete_curriculum_unit', {
           p_password: getAdminPassword(), p_id: btn.dataset.id,
         });
         if (error) { alert('삭제 실패: ' + error.message); return; }
+        if (editingUnitId === btn.dataset.id) exitUnitEditMode();
         loadUnits();
         loadTextbooks();
       });
