@@ -521,7 +521,7 @@
     <h1 class="welcome-title"><span class="name" id="welcome-name">학생</span>님의 대시보드입니다</h1>
     <p class="welcome-sub">공지사항, 성적, 진도, 선생님 피드백을 이곳에서 한눈에 확인하세요.</p>
     <span class="welcome-code"><i class="fa-solid fa-id-badge"></i> 학생코드 <span id="welcome-code-value">-</span></span>
-    <span class="welcome-code" id="welcome-days" style="display:none;"><i class="fa-solid fa-heart"></i> 우리 학원과 함께한 지 <span id="welcome-days-value">-</span>일</span>
+    <span class="welcome-code" id="welcome-days" style="display:none;"><i class="fa-solid fa-heart"></i> 우리 학원과 함께한 지 <span id="welcome-days-value">-</span></span>
   </div>
 </section>
 
@@ -653,9 +653,20 @@
     const today = new Date();
     first.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
-    const days = Math.round((today - first) / (1000 * 60 * 60 * 24)) + 1; // 등원 첫날을 1일로 셈
-    if (days < 1) return;
-    document.getElementById('welcome-days-value').textContent = days;
+    const totalDays = Math.round((today - first) / (1000 * 60 * 60 * 24)) + 1; // 등원 첫날을 1일로 셈
+    if (totalDays < 1) return;
+
+    let years = today.getFullYear() - first.getFullYear();
+    let months = today.getMonth() - first.getMonth();
+    if (today.getDate() < first.getDate()) months -= 1;
+    if (months < 0) { years -= 1; months += 12; }
+
+    let text;
+    if (years > 0) text = months > 0 ? `${years}년 ${months}개월` : `${years}년`;
+    else if (months > 0) text = `${months}개월`;
+    else text = `${totalDays}일`;
+
+    document.getElementById('welcome-days-value').textContent = text;
     document.getElementById('welcome-days').style.display = 'inline-flex';
   }
 
