@@ -231,17 +231,16 @@ order by table_name;
 - `inquiry` text
 - `referral_source` text — 상담경로: 소개/검색/블로그/인스타/전화상담/기타
 - `is_registered` boolean NOT NULL DEFAULT false — 등록여부 (원장님이 상담 후 체크)
-- `visit_date` date — 방문날짜. 홈페이지에서는 아래 `consultation_slots` 기반 자체 예약으로 자동 입력, 전화상담은 원장님이 직접 입력
+- `visit_date` date — 방문날짜. 홈페이지에서는 아래 `consultation_open_slots` 중 하나를 고르면 자동 입력, 전화상담은 원장님이 직접 입력
 - `visit_time` time — 방문시간 (위와 동일)
 - `notes` text — 비고 (노쇼, 참고사항 등)
 - `created_at` timestamptz NOT NULL DEFAULT now()
 
-### `consultation_slots` — 상담 가능 시간 (요일별 고정 템플릿, 원장님이 admin/consultation-slots.html에서 관리)
+### `consultation_open_slots` — 상담 가능한 날짜+시간 (원장님이 admin/consultation-slots.html에서 하나씩 직접 추가/수정/삭제)
 - `id` uuid NOT NULL DEFAULT gen_random_uuid()
-- `day_of_week` smallint NOT NULL — 0=일 ~ 6=토
-- `start_time` time NOT NULL
-- `end_time` time NOT NULL
-- `slot_minutes` smallint NOT NULL DEFAULT 30 — 몇 분 간격으로 예약 슬롯을 쪼갤지
-- `is_active` boolean NOT NULL DEFAULT true — 꺼두면 홈페이지에서 해당 시간대가 안 보임 (삭제 안 해도 임시로 숨길 수 있음)
+- `slot_date` date NOT NULL
+- `slot_time` time NOT NULL
 - `created_at` timestamptz NOT NULL DEFAULT now()
-- 홈페이지는 이 템플릿 + 이미 예약된 (visit_date, visit_time) 쌍을 받아서 프론트에서 향후 21일치 빈 시간을 계산함 (구글 캘린더 연동 없음)
+- 요일 반복 템플릿이 아니라, 원장님이 실제로 가능한 날짜+시간을 그때그때 직접 추가하는 방식 (수업/보강/개인일정마다 스케줄이 달라서 반복 패턴이 안 맞았음)
+- 학부모가 홈페이지에서 하나를 고르면 `rpc_submit_consultation_visit_time`이 이 행을 지우고 `consultations.visit_date`/`visit_time`에 복사함 (중복예약 방지)
+- (예전에 있던 요일별 반복 템플릿 테이블 `consultation_slots`는 28o 마이그레이션에서 삭제됨)
