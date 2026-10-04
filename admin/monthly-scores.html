@@ -239,7 +239,7 @@
       }
       return `
       <div class="score-row">
-        <div class="info">${it.exam_year}년 ${it.exam_month}월 <span class="type">${it.exam_type || '월간평가'}</span></div>
+        <div class="info">${it.exam_year}년 ${String(it.exam_month).padStart(2, '0')}월 <span class="type">${it.exam_type || '월간평가'}</span></div>
         <div style="display:flex; align-items:center; gap:10px;">
           <span class="val">${it.score}점</span>
           <button type="button" class="edit-btn" data-id="${it.id}"><i class="fa-solid fa-pen"></i></button>
