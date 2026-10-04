@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>맞춤 학습 등록서 | 봉덕김쌤수학학원</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --faint:#98A1B3; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); word-break:keep-all; }
+  header { background: var(--navy-950); color:#fff; padding: 20px; display:flex; align-items:center; gap:12px; }
+  .mark { width:34px; height:34px; border-radius:9px; background:#fff; color:var(--navy-950); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; flex-shrink:0; }
+  .brand { font-weight:800; font-size:15.5px; }
+
+  main { max-width: 560px; margin: 0 auto; padding: 32px 20px 70px; }
+  h1 { font-size: 21px; font-weight: 900; margin: 0 0 6px; }
+  p.sub { font-size: 13.5px; color: var(--muted); margin: 0 0 28px; line-height:1.6; }
+
+  .notice-box { background:#FFF7E0; border:1px solid #F5E2A8; border-radius:14px; padding:16px 18px; margin-bottom:28px; font-size:13px; color:#7A5B00; line-height:1.7; }
+  .notice-box b { font-weight:800; }
+
+  .field { margin-bottom: 22px; }
+  .field label { display:block; font-size:14px; font-weight:800; color:var(--ink); margin-bottom:8px; }
+  .field label .req { color:#DC2626; margin-left:2px; }
+  .field input[type="text"], .field input[type="date"], .field input[type="tel"], .field select {
+    width:100%; padding:13px 14px; border-radius:11px; border:1px solid var(--gray-200); background:#fff;
+    font-size:14.5px; font-family:inherit; color: var(--ink);
+  }
+  .field input:focus, .field select:focus { outline:none; border-color: var(--navy-900); }
+  .field .help { font-size:12px; color: var(--faint); margin-top:6px; line-height:1.5; }
+
+  .consent-box { background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:18px; font-size:12.5px; color:var(--muted); line-height:1.7; margin-bottom:18px; }
+  .consent-box .t { font-weight:800; color:var(--ink); margin-bottom:8px; font-size:13.5px; }
+  .consent-check { display:flex; align-items:center; gap:10px; padding:14px 16px; background:#fff; border:1px solid var(--gray-200); border-radius:12px; margin-bottom:28px; cursor:pointer; }
+  .consent-check input { width:19px; height:19px; cursor:pointer; flex-shrink:0; }
+  .consent-check span { font-size:14px; font-weight:700; }
+
+  .submit-btn {
+    width:100%; padding:16px; border-radius:12px; border:none; background:var(--navy-900); color:#fff;
+    font-weight:800; font-size:15.5px; cursor:pointer;
+  }
+  .submit-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+  .error-msg { color:#DC2626; font-size:12.5px; font-weight:700; margin-top:-10px; margin-bottom:18px; display:none; }
+
+  .done-screen { display:none; text-align:center; padding: 60px 20px; }
+  .done-screen .icon { width:60px; height:60px; border-radius:50%; background:#E8F5E9; color:#2E7D32; display:flex; align-items:center; justify-content:center; font-size:24px; margin:0 auto 18px; }
+  .done-screen h2 { font-size:19px; font-weight:900; margin:0 0 8px; }
+  .done-screen p { font-size:13.5px; color:var(--muted); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="mark">봉</span>
+  <span class="brand">봉덕김쌤수학학원</span>
+</header>
+
+<main>
+  <div id="form-screen">
+    <h1>맞춤 학습 등록서</h1>
+    <p class="sub">원장님께 받으신 학생 코드로 홈페이지 이용을 위한 정보를 등록해주세요.</p>
+
+    <div class="notice-box">
+      <b>다자녀 재원 학부모님 필수 안내</b><br>
+      원내에 형제·자매 등 두 명 이상의 자녀를 보내고 계시다면, 자녀별 등록서를 각각 작성하실 때 반드시 모든 자녀의 폼에 <b>동일한 카카오 계정 이메일</b>을 입력해 주세요. 같은 이메일로 등록해 주셔야 추후 홈페이지 로그인 시 하나의 카카오 계정으로 모든 자녀의 진도와 평가 대시보드를 한눈에 확인하실 수 있습니다.
+    </div>
+
+    <div class="field">
+      <label>학생의 이름을 입력해주세요 <span class="req">*</span></label>
+      <input type="text" id="f-name" placeholder="예: 김민준">
+    </div>
+
+    <div class="field">
+      <label>학생 코드를 입력해주세요 <span class="req">*</span></label>
+      <input type="text" id="f-code" placeholder="원장님께 받으신 코드">
+    </div>
+
+    <div class="field">
+      <label>학생의 학교를 입력해주세요 <span class="req">*</span></label>
+      <select id="f-school-select">
+        <option value="">선택해주세요</option>
+        <option value="봉덕초">봉덕초</option>
+        <option value="효명초">효명초</option>
+        <option value="대봉초">대봉초</option>
+        <option value="경일여중">경일여중</option>
+        <option value="협성경복중">협성경복중</option>
+        <option value="경일여고">경일여고</option>
+        <option value="협성고">협성고</option>
+        <option value="기타">기타 (직접 입력)</option>
+      </select>
+      <input type="text" id="f-school-other" placeholder="학교명을 입력해주세요" style="display:none; margin-top:8px;">
+    </div>
+
+    <div class="field">
+      <label>학생의 학년을 입력해주세요 <span class="req">*</span></label>
+      <select id="f-grade">
+        <option value="">선택해주세요</option>
+        <optgroup label="초등">
+          <option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option>
+          <option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option>
+        </optgroup>
+        <optgroup label="중등">
+          <option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option>
+        </optgroup>
+        <optgroup label="고등">
+          <option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>학부모님의 카카오이메일을 입력해주세요 <span class="req">*</span></label>
+      <input type="text" id="f-parent-email" placeholder="카카오 계정 이메일">
+      <div class="help">홈페이지 로그인 시 이 이메일로 카카오 로그인하시면 자녀 정보가 연결됩니다.</div>
+    </div>
+
+    <div class="field">
+      <label>주소를 입력해주세요 <span class="req">*</span></label>
+      <input type="text" id="f-address" placeholder="주소">
+    </div>
+
+    <div class="field">
+      <label>학생의 생년월일을 입력해주세요 <span class="req">*</span></label>
+      <input type="date" id="f-birth">
+    </div>
+
+    <div class="field">
+      <label>학생의 연락처를 입력해주세요 <span class="req">*</span></label>
+      <input type="tel" id="f-student-phone" placeholder="010-0000-0000">
+    </div>
+
+    <div class="field">
+      <label>학부모님 연락처를 입력해주세요 <span class="req">*</span></label>
+      <input type="tel" id="f-parent-phone" placeholder="010-0000-0000">
+    </div>
+
+    <div class="consent-box">
+      <div class="t">[개인정보 수집 및 활용 동의]</div>
+      봉덕김쌤수학학원은 우리 아이들의 빈틈없는 학습 관리와 투명한 소통을 위해 최소한의 필수 정보만을 수집하고 있습니다. 귀한 정보는 최우선으로 안전하게 보호되며, 학원 운영 및 맞춤형 피드백 제공 목적으로만 소중히 활용됩니다.<br><br>
+      <b>수집 목적:</b> 홈페이지 대시보드 연동(월간 평가, TLP 심리 진단 등 결과 제공), 개별 진도 관리, 출결 및 긴급 연락 등 학사 관리 전반<br>
+      <b>수집 항목:</b> 학생 성명, 생년월일, 소속 학교 및 학년, 주소, 학생/보호자 연락처, 카카오 연동 이메일<br>
+      <b>보유 기간:</b> 학원 등록일로부터 퇴원 시까지 (이용 목적 달성 또는 본인 요청 시 지체 없이 파기)
+    </div>
+
+    <label class="consent-check">
+      <input type="checkbox" id="f-consent">
+      <span>위 개인정보 수집 및 활용에 동의하십니까? <span class="req">*</span></span>
+    </label>
+
+    <div class="error-msg" id="error-msg"></div>
+
+    <button type="button" class="submit-btn" id="submit-btn">확인 →</button>
+  </div>
+
+  <div class="done-screen" id="done-screen">
+    <div class="icon"><i class="fa-solid fa-check"></i></div>
+    <h2>등록이 완료되었습니다</h2>
+    <p>입력해주신 카카오이메일로 홈페이지에 로그인하시면<br>바로 자녀의 대시보드를 확인하실 수 있어요.</p>
+  </div>
+</main>
+
+<script src="assets/js/supabase-client.js"></script>
+<script>
+  document.getElementById('f-school-select').addEventListener('change', (e) => {
+    const otherInput = document.getElementById('f-school-other');
+    otherInput.style.display = e.target.value === '기타' ? 'block' : 'none';
+    if (e.target.value !== '기타') otherInput.value = '';
+  });
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function clearError() {
+    document.getElementById('error-msg').style.display = 'none';
+  }
+
+  document.getElementById('submit-btn').addEventListener('click', async () => {
+    clearError();
+
+    const name = document.getElementById('f-name').value.trim();
+    const code = document.getElementById('f-code').value.trim();
+    const schoolSelect = document.getElementById('f-school-select').value;
+    const schoolOther = document.getElementById('f-school-other').value.trim();
+    const school = schoolSelect === '기타' ? schoolOther : schoolSelect;
+    const grade = document.getElementById('f-grade').value;
+    const parentEmail = document.getElementById('f-parent-email').value.trim();
+    const address = document.getElementById('f-address').value.trim();
+    const birth = document.getElementById('f-birth').value;
+    const studentPhone = document.getElementById('f-student-phone').value.trim();
+    const parentPhone = document.getElementById('f-parent-phone').value.trim();
+    const consent = document.getElementById('f-consent').checked;
+
+    if (!name || !code || !school || !grade || !parentEmail || !address || !birth || !studentPhone || !parentPhone) {
+      showError('모든 필수 항목(*)을 입력해주세요.');
+      return;
+    }
+    if (!consent) {
+      showError('개인정보 수집 및 활용에 동의해주셔야 등록이 가능합니다.');
+      return;
+    }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = '등록 중...';
+
+    const { error } = await sb.rpc('rpc_register_student_detail', {
+      p_student_code: code,
+      p_student_name: name,
+      p_school: school,
+      p_grade: grade,
+      p_parent_email: parentEmail,
+      p_address: address,
+      p_birth_date: birth,
+      p_student_phone: studentPhone,
+      p_parent_phone: parentPhone,
+      p_privacy_consent: consent,
+    });
+
+    btn.disabled = false;
+    btn.textContent = '확인 →';
+
+    if (error) {
+      showError(error.message || '등록 중 문제가 발생했습니다. 다시 시도해주세요.');
+      return;
+    }
+
+    document.getElementById('form-screen').style.display = 'none';
+    document.getElementById('done-screen').style.display = 'block';
+  });
+</script>
+
+</body>
+</html>
