@@ -22,17 +22,22 @@
   }
   .filter-tabs button.active { background: var(--navy-900); color:#fff; border-color: var(--navy-900); }
   .item { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:18px; margin-bottom:14px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
-  .item .top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+  .item .top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; gap:10px; }
   .item .name { font-weight:800; font-size:14.5px; }
   .item .meta { font-size:11.5px; color:var(--muted); margin-top:2px; }
-  .item img { width:100%; max-height:360px; object-fit:contain; background:var(--gray-50); border-radius:12px; margin-bottom:10px; }
-  .item .memo { font-size:13px; color:var(--ink); margin-bottom:10px; white-space:pre-line; }
+  .item .book { font-size:12.5px; color:var(--ink); margin-top:6px; }
+  .item .book b { font-weight:700; }
+  .photo-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; margin:12px 0; }
+  .photo-grid img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:10px; background:var(--gray-50); cursor:pointer; }
   .confirm-btn {
-    border:none; border-radius:10px; padding:9px 14px; font-size:13px; font-weight:800; cursor:pointer;
+    border:none; border-radius:10px; padding:9px 14px; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;
   }
   .confirm-btn.pending { background:#FFF3E0; color:#B5651D; }
-  .confirm-btn.confirmed { background:#E8F5E9; color:#2E7D32; cursor:default; }
+  .confirm-btn.confirmed { background:#E8F5E9; color:#2E7D32; }
   .loading { color: var(--muted); font-size: 13px; }
+  .lightbox-overlay { display:none; position:fixed; inset:0; background:rgba(7,12,22,0.85); z-index:50; align-items:center; justify-content:center; padding:20px; }
+  .lightbox-overlay.open { display:flex; }
+  .lightbox-overlay img { max-width:100%; max-height:100%; border-radius:12px; }
 </style>
 </head>
 <body>
@@ -43,7 +48,7 @@
 </header>
 
 <main>
-  <h1>고등부 숙제인증 사진</h1>
+  <h1>숙제인증 제출 확인</h1>
   <div class="filter-tabs">
     <button type="button" class="active" data-filter="all">전체</button>
     <button type="button" data-filter="pending">확인대기</button>
@@ -51,6 +56,10 @@
   </div>
   <div id="list"><div class="loading">불러오는 중...</div></div>
 </main>
+
+<div class="lightbox-overlay" id="lightbox">
+  <img id="lightbox-img" src="" alt="숙제 사진 크게보기">
+</div>
 
 <script src="../assets/js/supabase-client.js"></script>
 <script>
@@ -63,7 +72,7 @@
     const listEl = document.getElementById('list');
     listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
 
-    const { data, error } = await sb.rpc('rpc_admin_list_homework', { p_password: getAdminPassword() });
+    const { data, error } = await sb.rpc('rpc_admin_list_homework_verifications', { p_password: getAdminPassword() });
     if (error) {
       console.error(error);
       listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>';
@@ -71,6 +80,12 @@
     }
     allItems = data || [];
     render();
+  }
+
+  function fmtDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
   function render() {
@@ -90,35 +105,49 @@
       <div class="item">
         <div class="top">
           <div>
-            <div class="name">${it.student_name || '이름 미상'}</div>
-            <div class="meta">${it.student_code} · ${it.submitted_date}</div>
+            <div class="name">${it.student_name || '이름 미상'} <span style="font-weight:600; color:var(--muted); font-size:12px;">(${it.grade || '-'})</span></div>
+            <div class="meta">${it.student_code} · ${fmtDateTime(it.submitted_at)}</div>
+            ${(it.textbook_name || it.homework_range) ? `<div class="book"><b>${it.textbook_name || ''}</b> ${it.homework_range || ''}</div>` : ''}
           </div>
-          <button class="confirm-btn ${it.confirmed ? 'confirmed' : 'pending'}" data-id="${it.id}" ${it.confirmed ? 'disabled' : ''}>
-            ${it.confirmed ? '확인완료' : '확인하기'}
+          <button class="confirm-btn ${it.confirmed ? 'confirmed' : 'pending'}" data-id="${it.id}" data-confirmed="${it.confirmed}">
+            ${it.confirmed ? '확인완료 ✓' : '확인하기'}
           </button>
         </div>
-        <img src="${it.photo_url}" alt="숙제 사진">
-        ${it.memo ? `<div class="memo">${it.memo}</div>` : ''}
+        <div class="photo-grid">
+          ${(it.image_urls || []).map((url) => `<img src="${url}" alt="숙제 사진" data-full="${url}">`).join('')}
+        </div>
       </div>
     `).join('');
 
-    listEl.querySelectorAll('.confirm-btn.pending').forEach((btn) => {
+    listEl.querySelectorAll('.photo-grid img').forEach((img) => {
+      img.addEventListener('click', () => {
+        document.getElementById('lightbox-img').src = img.dataset.full;
+        document.getElementById('lightbox').classList.add('open');
+      });
+    });
+
+    listEl.querySelectorAll('.confirm-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
+        const nextConfirmed = btn.dataset.confirmed !== 'true';
         btn.disabled = true;
         btn.textContent = '처리 중...';
-        const { error } = await sb.rpc('rpc_admin_confirm_homework', {
-          p_password: getAdminPassword(), p_id: btn.dataset.id,
+        const { error } = await sb.rpc('rpc_admin_set_homework_confirmed', {
+          p_password: getAdminPassword(), p_id: btn.dataset.id, p_confirmed: nextConfirmed,
         });
+        btn.disabled = false;
         if (error) {
           alert('처리 실패: ' + error.message);
-          btn.disabled = false;
-          btn.textContent = '확인하기';
+          btn.textContent = btn.dataset.confirmed === 'true' ? '확인완료 ✓' : '확인하기';
           return;
         }
         load();
       });
     });
   }
+
+  document.getElementById('lightbox').addEventListener('click', () => {
+    document.getElementById('lightbox').classList.remove('open');
+  });
 
   document.querySelectorAll('.filter-tabs button').forEach((btn) => {
     btn.addEventListener('click', () => {

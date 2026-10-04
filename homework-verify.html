@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>숙제 인증 | 봉덕김쌤수학학원</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 20px 20px; text-align:center; }
+  header .brand { font-weight:800; font-size:16px; }
+  header .sub { font-size:12px; color:rgba(255,255,255,0.65); margin-top:4px; }
+  main { max-width: 480px; margin: 0 auto; padding: 24px 20px 60px; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom:18px; }
+  label { display:block; font-size:12.5px; font-weight:700; color: var(--muted); margin-bottom:6px; }
+  select, input[type="text"] {
+    width:100%; font-size:14.5px; padding:11px 13px; border-radius:10px; border:1px solid var(--gray-200);
+    margin-bottom:16px; font-family:inherit; background:#fff;
+  }
+  select:focus, input:focus { outline:none; border-color: var(--navy-900); }
+  .row2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .photo-input-wrap { margin-bottom:16px; }
+  .photo-btn {
+    display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:16px;
+    border:2px dashed var(--gray-200); border-radius:12px; background:var(--gray-50); color:var(--muted);
+    font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .photo-preview-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-top:10px; }
+  .photo-preview { position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; background:var(--gray-50); }
+  .photo-preview img { width:100%; height:100%; object-fit:cover; }
+  .photo-preview .remove-btn {
+    position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; border:none;
+    background:rgba(7,12,22,0.7); color:#fff; font-size:12px; cursor:pointer; line-height:1;
+  }
+  .photo-count { font-size:11.5px; color:var(--muted); margin-top:6px; }
+  button.submit { width:100%; padding:13px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:14.5px; cursor:pointer; }
+  button.submit:hover { background:#000; }
+  button.submit:disabled { opacity:0.5; cursor:not-allowed; }
+  .success-box { text-align:center; padding:36px 20px; }
+  .success-box i { font-size:40px; color:#2E7D32; margin-bottom:14px; }
+  .success-box .t { font-weight:800; font-size:16px; margin-bottom:6px; }
+  .success-box .d { font-size:13px; color:var(--muted); margin-bottom:20px; }
+  .success-box button {
+    padding:11px 20px; border-radius:10px; border:1px solid var(--gray-200); background:#fff; color:var(--ink);
+    font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .loading-overlay {
+    display:none; position:fixed; inset:0; background:rgba(7,12,22,0.5); z-index:50; align-items:center; justify-content:center; color:#fff; font-weight:700;
+  }
+  .loading-overlay.open { display:flex; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">봉덕김쌤수학학원</div>
+  <div class="sub">숙제 인증</div>
+</header>
+
+<main>
+  <div class="panel" id="form-panel">
+    <div class="row2">
+      <div>
+        <label for="grade-select">학년</label>
+        <select id="grade-select"><option value="">학년 선택</option></select>
+      </div>
+      <div>
+        <label for="student-select">이름</label>
+        <select id="student-select" disabled><option value="">학년 먼저 선택</option></select>
+      </div>
+    </div>
+
+    <label for="textbook-name">교재명</label>
+    <input type="text" id="textbook-name" placeholder="예: 쎈 수학 중3-2">
+
+    <label for="homework-range">숙제 범위</label>
+    <input type="text" id="homework-range" placeholder="예: 52~58쪽">
+
+    <label>숙제 사진 (최대 10장)</label>
+    <div class="photo-input-wrap">
+      <input type="file" id="photo-file-input" accept="image/*" multiple capture="environment" style="display:none;">
+      <button type="button" class="photo-btn" id="photo-btn"><i class="fa-solid fa-camera"></i> 사진 선택</button>
+      <div class="photo-preview-grid" id="photo-preview-grid"></div>
+      <div class="photo-count" id="photo-count"></div>
+    </div>
+
+    <button type="button" class="submit" id="submit-btn" disabled>학생을 먼저 선택하세요</button>
+  </div>
+
+  <div class="panel" id="success-panel" style="display:none;">
+    <div class="success-box">
+      <i class="fa-solid fa-circle-check"></i>
+      <div class="t">제출 완료!</div>
+      <div class="d">숙제 인증 사진이 잘 등록됐어요.</div>
+      <button type="button" id="again-btn">다시 제출하기</button>
+    </div>
+  </div>
+</main>
+
+<div class="loading-overlay" id="loading-overlay">업로드 중...</div>
+
+<script src="assets/js/supabase-client.js"></script>
+<script>
+  const MAX_PHOTOS = 10;
+  let selectedFiles = [];
+  let allParticipants = [];
+  let participantsByGrade = {};
+
+  const gradeSelect = document.getElementById('grade-select');
+  const studentSelect = document.getElementById('student-select');
+  const submitBtn = document.getElementById('submit-btn');
+
+  async function loadParticipants() {
+    const { data, error } = await sb.rpc('rpc_list_homework_participants');
+    if (error) { console.error(error); return; }
+    allParticipants = data || [];
+    participantsByGrade = {};
+    allParticipants.forEach((s) => {
+      const g = s.grade || '학년 미지정';
+      if (!participantsByGrade[g]) participantsByGrade[g] = [];
+      participantsByGrade[g].push(s);
+    });
+    const grades = Object.keys(participantsByGrade).sort((a, b) => compareGrades(a, b));
+    gradeSelect.innerHTML = '<option value="">학년 선택</option>' +
+      grades.map((g) => `<option value="${g}">${g}</option>`).join('');
+  }
+  loadParticipants();
+
+  gradeSelect.addEventListener('change', () => {
+    const g = gradeSelect.value;
+    if (!g) {
+      studentSelect.innerHTML = '<option value="">학년 먼저 선택</option>';
+      studentSelect.disabled = true;
+    } else {
+      const students = (participantsByGrade[g] || []).slice().sort((a, b) => (a.student_name || '').localeCompare(b.student_name || '', 'ko'));
+      studentSelect.innerHTML = '<option value="">이름 선택</option>' +
+        students.map((s) => `<option value="${s.student_code}" data-name="${s.student_name}" data-grade="${s.grade || ''}">${s.student_name}</option>`).join('');
+      studentSelect.disabled = false;
+    }
+    updateSubmitState();
+  });
+
+  studentSelect.addEventListener('change', updateSubmitState);
+
+  function updateSubmitState() {
+    if (!studentSelect.value) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = '학생을 먼저 선택하세요';
+    } else if (selectedFiles.length === 0) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = '사진을 선택하세요';
+    } else {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '제출하기';
+    }
+  }
+
+  // ---- 사진 선택/미리보기 ----
+  const photoInput = document.getElementById('photo-file-input');
+  document.getElementById('photo-btn').addEventListener('click', () => photoInput.click());
+
+  photoInput.addEventListener('change', () => {
+    const files = Array.from(photoInput.files || []);
+    for (const f of files) {
+      if (selectedFiles.length >= MAX_PHOTOS) {
+        alert(`사진은 최대 ${MAX_PHOTOS}장까지 올릴 수 있어요.`);
+        break;
+      }
+      selectedFiles.push(f);
+    }
+    photoInput.value = '';
+    renderPreviews();
+    updateSubmitState();
+  });
+
+  function renderPreviews() {
+    const grid = document.getElementById('photo-preview-grid');
+    grid.innerHTML = selectedFiles.map((f, idx) => `
+      <div class="photo-preview">
+        <img src="${URL.createObjectURL(f)}" alt="미리보기">
+        <button type="button" class="remove-btn" data-idx="${idx}">✕</button>
+      </div>
+    `).join('');
+    grid.querySelectorAll('.remove-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedFiles.splice(parseInt(btn.dataset.idx, 10), 1);
+        renderPreviews();
+        updateSubmitState();
+      });
+    });
+    document.getElementById('photo-count').textContent = selectedFiles.length ? `${selectedFiles.length} / ${MAX_PHOTOS}장` : '';
+  }
+
+  // ---- 제출 ----
+  document.getElementById('submit-btn').addEventListener('click', async () => {
+    const opt = studentSelect.selectedOptions[0];
+    const studentCode = studentSelect.value;
+    const studentName = opt.dataset.name;
+    const grade = opt.dataset.grade;
+
+    if (!studentCode || selectedFiles.length === 0) return;
+
+    const overlay = document.getElementById('loading-overlay');
+    overlay.classList.add('open');
+    submitBtn.disabled = true;
+
+    try {
+      const imageUrls = [];
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const path = `${studentCode}/${Date.now()}_${i}.${ext}`;
+        const { error: uploadError } = await sb.storage.from('homework-verification').upload(path, file, { upsert: false });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = sb.storage.from('homework-verification').getPublicUrl(path);
+        imageUrls.push(urlData.publicUrl);
+      }
+
+      const { error: submitError } = await sb.rpc('rpc_submit_homework_verification', {
+        p_student_code: studentCode,
+        p_student_name: studentName,
+        p_grade: grade,
+        p_textbook_name: document.getElementById('textbook-name').value.trim(),
+        p_homework_range: document.getElementById('homework-range').value.trim(),
+        p_image_urls: imageUrls,
+      });
+      if (submitError) throw submitError;
+
+      document.getElementById('form-panel').style.display = 'none';
+      document.getElementById('success-panel').style.display = 'block';
+    } catch (err) {
+      alert('제출 실패: ' + (err.message || err));
+      submitBtn.disabled = false;
+    } finally {
+      overlay.classList.remove('open');
+    }
+  });
+
+  document.getElementById('again-btn').addEventListener('click', () => {
+    selectedFiles = [];
+    document.getElementById('textbook-name').value = '';
+    document.getElementById('homework-range').value = '';
+    renderPreviews();
+    gradeSelect.value = '';
+    studentSelect.innerHTML = '<option value="">학년 먼저 선택</option>';
+    studentSelect.disabled = true;
+    updateSubmitState();
+    document.getElementById('success-panel').style.display = 'none';
+    document.getElementById('form-panel').style.display = 'block';
+  });
+</script>
+
+</body>
+</html>
