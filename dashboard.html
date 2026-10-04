@@ -389,6 +389,25 @@
   .log-item .reason { font-size: 13px; color: var(--ink); font-weight: 600; line-height: 1.5; }
   .log-item .date { font-size: 11px; color: var(--faint); margin-top: 1px; }
 
+  /* ---- 숙제인증 카드 ---- */
+  .hw-item { padding: 12px 0; border-top: 1px solid var(--gray-100); }
+  .hw-item:first-child { border-top: none; }
+  .hw-item-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .hw-item-head .book { font-size:13.5px; font-weight:800; color:var(--ink); }
+  .hw-item-head .range { font-size:12.5px; color:var(--muted); font-weight:600; margin-top:1px; }
+  .hw-item-head .date { font-size:11.5px; color:var(--faint); margin-top:2px; }
+  .hw-status-badge { font-size:11px; font-weight:800; padding:4px 10px; border-radius:999px; white-space:nowrap; flex-shrink:0; }
+  .hw-status-badge.pending { background:#FFF3E0; color:#B5651D; }
+  .hw-status-badge.approved { background:#E8F5E9; color:#2E7D32; }
+  .hw-status-badge.redo { background:#FDE8E8; color:#C0392B; }
+  .hw-feedback { font-size:12.5px; color:var(--ink); background:var(--gray-50); border-radius:10px; padding:8px 10px; margin-top:8px; line-height:1.5; }
+  .hw-feedback .lbl { font-size:11px; font-weight:800; color:var(--navy-700); margin-right:4px; }
+  .hw-photo-grid { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .hw-photo-grid img { width:56px; height:56px; object-fit:cover; border-radius:8px; background:var(--gray-100); cursor:pointer; }
+  .hw-lightbox-overlay { display:none; position:fixed; inset:0; background:rgba(7,12,22,0.85); z-index:200; align-items:center; justify-content:center; padding:20px; }
+  .hw-lightbox-overlay.open { display:flex; }
+  .hw-lightbox-overlay img { max-width:100%; max-height:100%; border-radius:12px; }
+
   .footnote {
     max-width: 1080px;
     margin: 0 auto;
@@ -553,6 +572,20 @@
       </div>
     </div>
 
+    <!-- 숙제인증 현황 (가로로 넓은 카드) -->
+    <div class="card" id="card-homework" style="grid-column: 1 / -1; height:auto;">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon" style="background:#7C3AED;"><i class="fa-solid fa-camera"></i></span>
+          <span class="card-title">숙제인증 현황</span>
+        </div>
+        <span class="card-tag">최근 제출 내역</span>
+      </div>
+      <div class="card-body" data-state="loading" style="overflow-y:visible;">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
     <!-- 현재 진도 -->
     <div class="card" id="card-progress">
       <div class="card-head">
@@ -639,6 +672,10 @@
 
   </div>
 </main>
+
+<div class="hw-lightbox-overlay" id="hw-lightbox">
+  <img id="hw-lightbox-img" src="" alt="숙제 사진 크게보기">
+</div>
 
 <script src="assets/js/supabase-client.js"></script>
 <script>
@@ -1092,6 +1129,59 @@
     );
   }
 
+  // ---- 숙제인증 현황 ----
+  const HW_STATUS_LABEL = { pending: '대기중', approved: '확인완료', redo: '미흡' };
+
+  function fmtDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  async function loadHomeworkVerifications() {
+    const items = await fetchStudentData('rpc_get_homework_verifications', studentCode);
+
+    if (items.length === 0) {
+      renderEmptyState('card-homework', '숙제 인증을 제출하면 이곳에 표시됩니다.');
+      return;
+    }
+
+    setCardState(
+      'card-homework',
+      items.map((it) => {
+        const status = it.review_status || 'pending';
+        const photos = (it.image_urls || [])
+          .map((url) => `<img src="${url}" alt="숙제 사진" data-full="${url}">`)
+          .join('');
+        return `
+          <div class="hw-item">
+            <div class="hw-item-head">
+              <div>
+                <div class="book">${it.textbook_name || ''} ${it.range_text || ''}</div>
+                <div class="date">${fmtDateTime(it.submitted_at)}</div>
+              </div>
+              <span class="hw-status-badge ${status}">${HW_STATUS_LABEL[status] || '대기중'}</span>
+            </div>
+            ${it.feedback ? `<div class="hw-feedback"><span class="lbl">원장님 피드백</span>${it.feedback}</div>` : ''}
+            ${photos ? `<div class="hw-photo-grid">${photos}</div>` : ''}
+          </div>
+        `;
+      }).join('')
+    );
+
+    document.querySelectorAll('#card-homework .hw-photo-grid img').forEach((img) => {
+      img.addEventListener('click', () => {
+        document.getElementById('hw-lightbox-img').src = img.dataset.full;
+        document.getElementById('hw-lightbox').classList.add('open');
+      });
+    });
+  }
+
+  document.getElementById('hw-lightbox').addEventListener('click', () => {
+    document.getElementById('hw-lightbox').classList.remove('open');
+  });
+
   async function loadBlogPosts() {
     const { data, error } = await sb.rpc('rpc_get_blog_posts');
     if (error || !data || data.length === 0) {
@@ -1114,6 +1204,7 @@
   // =====================================================================
   loadNotices();
   loadGrades();
+  loadHomeworkVerifications();
   loadProgressAndFeedback();
   loadRewardsAndWarnings();
   loadTlp();
