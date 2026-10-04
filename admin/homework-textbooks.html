@@ -166,6 +166,9 @@
     loadRanges();
   }
 
+  let allRanges = [];
+  let renamingRangeId = null;
+
   async function loadRanges() {
     const listEl = document.getElementById('range-list');
     listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
@@ -173,10 +176,54 @@
       p_password: getAdminPassword(), p_textbook_id: selectedTextbookId,
     });
     if (error) { listEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>'; return; }
-    if (!data || data.length === 0) { listEl.innerHTML = '<div class="empty">등록된 범위가 없습니다.</div>'; return; }
-    listEl.innerHTML = data.map((r) => `
-      <div class="range-row"><span class="order-badge">${r.range_order}</span><span>${r.range_text}</span></div>
-    `).join('');
+    allRanges = data || [];
+    renderRanges();
+  }
+
+  function renderRanges() {
+    const listEl = document.getElementById('range-list');
+    if (allRanges.length === 0) { listEl.innerHTML = '<div class="empty">등록된 범위가 없습니다.</div>'; return; }
+    listEl.innerHTML = allRanges.map((r) => {
+      if (r.id === renamingRangeId) {
+        return `
+          <div class="range-row">
+            <span class="order-badge">${r.range_order}</span>
+            <input type="text" class="range-rename-input" data-id="${r.id}" value="${r.range_text}" style="flex:1; padding:7px 9px; border-radius:8px; border:1px solid var(--gray-200); font-size:12.5px; font-family:inherit;">
+            <button type="button" class="range-save-btn" data-id="${r.id}" style="padding:7px 10px; border-radius:8px; border:none; background:var(--navy-900); color:#fff; font-weight:700; font-size:12px; cursor:pointer;">저장</button>
+            <button type="button" class="range-cancel-btn" style="padding:7px 10px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; color:var(--ink); font-weight:700; font-size:12px; cursor:pointer;">취소</button>
+          </div>
+        `;
+      }
+      return `
+        <div class="range-row">
+          <span class="order-badge">${r.range_order}</span>
+          <span style="flex:1;">${r.range_text}</span>
+          <button type="button" class="range-edit-btn" data-id="${r.id}" style="background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:2px;"><i class="fa-solid fa-pen"></i></button>
+        </div>
+      `;
+    }).join('');
+
+    listEl.querySelectorAll('.range-edit-btn').forEach((el) => {
+      el.addEventListener('click', () => { renamingRangeId = el.dataset.id; renderRanges(); });
+    });
+    listEl.querySelectorAll('.range-cancel-btn').forEach((el) => {
+      el.addEventListener('click', () => { renamingRangeId = null; renderRanges(); });
+    });
+    listEl.querySelectorAll('.range-save-btn').forEach((el) => {
+      el.addEventListener('click', async () => {
+        const input = listEl.querySelector(`.range-rename-input[data-id="${el.dataset.id}"]`);
+        const newText = input.value.trim();
+        if (!newText) return;
+        el.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_update_homework_textbook_range', {
+          p_password: getAdminPassword(), p_range_id: el.dataset.id, p_range_text: newText,
+        });
+        el.disabled = false;
+        if (error) { alert('수정 실패: ' + error.message); return; }
+        renamingRangeId = null;
+        loadRanges();
+      });
+    });
   }
 
   document.getElementById('add-range-btn').addEventListener('click', async () => {
