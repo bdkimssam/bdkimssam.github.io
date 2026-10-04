@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>숙제인증 교재/범위 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; display:grid; grid-template-columns: 1fr; gap:18px; }
+  @media (min-width: 760px) { main { max-width: 900px; grid-template-columns: 280px 1fr; align-items:start; } }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 8px; grid-column: 1 / -1; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 4px; line-height:1.6; grid-column: 1 / -1; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:18px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  .panel h2 { font-size:14px; font-weight:800; margin:0 0 12px; }
+  .add-row { display:flex; gap:6px; margin-bottom:14px; }
+  .add-row input { flex:1; padding:10px 12px; border-radius:9px; border:1px solid var(--gray-200); font-size:13.5px; font-family:inherit; }
+  .add-row button { padding:10px 14px; border-radius:9px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:13px; cursor:pointer; white-space:nowrap; }
+  .add-row button:disabled { opacity:0.5; cursor:not-allowed; }
+  .textbook-item { padding:11px 10px; border-radius:10px; cursor:pointer; font-size:13.5px; font-weight:700; display:flex; justify-content:space-between; align-items:center; }
+  .textbook-item:hover { background: var(--gray-50); }
+  .textbook-item.active { background: var(--navy-900); color:#fff; }
+  .textbook-item .count { font-size:11px; font-weight:700; color: var(--muted); }
+  .textbook-item.active .count { color: rgba(255,255,255,0.7); }
+  .range-row { display:flex; align-items:center; gap:8px; padding:9px 4px; border-top:1px solid var(--gray-200); font-size:13px; }
+  .range-row:first-child { border-top:none; }
+  .range-row .order-badge { width:26px; height:26px; border-radius:50%; background:var(--gray-50); display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:800; color:var(--muted); flex-shrink:0; }
+  .empty, .loading { color: var(--muted); font-size:13px; padding:16px 4px; text-align:center; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">숙제인증 교재/범위</span>
+</header>
+
+<main>
+  <h1>교재 / 범위 관리</h1>
+  <p class="sub">교재를 먼저 만들고, 그 밑에 범위(1~20번, 21~40번...)를 순서대로 전체 등록해두시면 됩니다.</p>
+
+  <div class="panel">
+    <h2>교재 목록</h2>
+    <div class="add-row">
+      <input type="text" id="new-textbook-input" placeholder="새 교재명 (예: 마플교과서 중3-2)">
+      <button type="button" id="add-textbook-btn">추가</button>
+    </div>
+    <div id="textbook-list"><div class="loading">불러오는 중...</div></div>
+  </div>
+
+  <div class="panel">
+    <h2 id="range-panel-title">범위 목록</h2>
+    <div id="range-add-row" class="add-row" style="display:none;">
+      <input type="text" id="new-range-input" placeholder="범위 (예: 1~20번)">
+      <button type="button" id="add-range-btn">추가</button>
+    </div>
+    <div id="range-list"><div class="empty">왼쪽에서 교재를 먼저 선택하세요.</div></div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireDirector();
+
+  let allTextbooks = [];
+  let selectedTextbookId = null;
+
+  async function loadTextbooks() {
+    const listEl = document.getElementById('textbook-list');
+    const { data, error } = await sb.rpc('rpc_admin_list_homework_textbooks', { p_password: getAdminPassword() });
+    if (error) { listEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>'; return; }
+    allTextbooks = data || [];
+    renderTextbooks();
+  }
+
+  function renderTextbooks() {
+    const listEl = document.getElementById('textbook-list');
+    if (allTextbooks.length === 0) { listEl.innerHTML = '<div class="empty">등록된 교재가 없습니다.</div>'; return; }
+    listEl.innerHTML = allTextbooks.map((t) => `
+      <div class="textbook-item ${t.id === selectedTextbookId ? 'active' : ''}" data-id="${t.id}" data-name="${t.textbook_name}">
+        <span>${t.textbook_name}</span>
+        <span class="count">${t.range_count}개</span>
+      </div>
+    `).join('');
+    listEl.querySelectorAll('.textbook-item').forEach((el) => {
+      el.addEventListener('click', () => selectTextbook(el.dataset.id, el.dataset.name));
+    });
+  }
+
+  document.getElementById('add-textbook-btn').addEventListener('click', async () => {
+    const input = document.getElementById('new-textbook-input');
+    const name = input.value.trim();
+    if (!name) return;
+    const btn = document.getElementById('add-textbook-btn');
+    btn.disabled = true;
+    const { error } = await sb.rpc('rpc_admin_add_homework_textbook', { p_password: getAdminPassword(), p_textbook_name: name });
+    btn.disabled = false;
+    if (error) { alert('추가 실패: ' + error.message); return; }
+    input.value = '';
+    loadTextbooks();
+  });
+
+  function selectTextbook(id, name) {
+    selectedTextbookId = id;
+    document.getElementById('range-panel-title').textContent = `범위 목록 — ${name}`;
+    document.getElementById('range-add-row').style.display = 'flex';
+    renderTextbooks();
+    loadRanges();
+  }
+
+  async function loadRanges() {
+    const listEl = document.getElementById('range-list');
+    listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
+    const { data, error } = await sb.rpc('rpc_admin_list_homework_textbook_ranges', {
+      p_password: getAdminPassword(), p_textbook_id: selectedTextbookId,
+    });
+    if (error) { listEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>'; return; }
+    if (!data || data.length === 0) { listEl.innerHTML = '<div class="empty">등록된 범위가 없습니다.</div>'; return; }
+    listEl.innerHTML = data.map((r) => `
+      <div class="range-row"><span class="order-badge">${r.range_order}</span><span>${r.range_text}</span></div>
+    `).join('');
+  }
+
+  document.getElementById('add-range-btn').addEventListener('click', async () => {
+    if (!selectedTextbookId) return;
+    const input = document.getElementById('new-range-input');
+    const text = input.value.trim();
+    if (!text) return;
+    const btn = document.getElementById('add-range-btn');
+    btn.disabled = true;
+    const { error } = await sb.rpc('rpc_admin_add_homework_textbook_range', {
+      p_password: getAdminPassword(), p_textbook_id: selectedTextbookId, p_range_text: text,
+    });
+    btn.disabled = false;
+    if (error) { alert('추가 실패: ' + error.message); return; }
+    input.value = '';
+    loadRanges();
+    loadTextbooks();
+  });
+
+  document.getElementById('new-range-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('add-range-btn').click();
+  });
+  document.getElementById('new-textbook-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('add-textbook-btn').click();
+  });
+
+  loadTextbooks();
+</script>
+
+</body>
+</html>

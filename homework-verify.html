@@ -23,6 +23,8 @@
   }
   select:focus, input:focus { outline:none; border-color: var(--navy-900); }
   .row2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  select:disabled { background: var(--gray-50); color: var(--muted); }
+  .range-empty-msg { font-size:12.5px; color:var(--muted); background:var(--gray-50); border-radius:10px; padding:12px; margin:-6px 0 16px; line-height:1.6; }
   .photo-input-wrap { margin-bottom:16px; }
   .photo-btn {
     display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:16px;
@@ -74,11 +76,12 @@
       </div>
     </div>
 
-    <div id="subject-area" style="display:none;">
-      <label for="subject-select">과목</label>
-      <select id="subject-select"></select>
-      <div id="subject-book-info" style="font-size:12.5px; color:var(--muted); margin:-10px 0 16px;"></div>
-    </div>
+    <label for="textbook-select">교재</label>
+    <select id="textbook-select" disabled><option value="">학생 먼저 선택</option></select>
+
+    <label for="range-select">범위 (아직 안 끝낸 것만 보여요)</label>
+    <select id="range-select" disabled><option value="">교재 먼저 선택</option></select>
+    <div class="range-empty-msg" id="range-empty-msg" style="display:none;"></div>
 
     <label>숙제 사진 (최대 10장)</label>
     <div class="photo-input-wrap">
@@ -109,9 +112,14 @@
   let selectedFiles = [];
   let allParticipants = [];
   let participantsByGrade = {};
+  let studentTextbooks = [];
+  let incompleteRanges = [];
 
   const gradeSelect = document.getElementById('grade-select');
   const studentSelect = document.getElementById('student-select');
+  const textbookSelect = document.getElementById('textbook-select');
+  const rangeSelect = document.getElementById('range-select');
+  const rangeEmptyMsg = document.getElementById('range-empty-msg');
   const submitBtn = document.getElementById('submit-btn');
 
   async function loadParticipants() {
@@ -132,64 +140,88 @@
 
   gradeSelect.addEventListener('change', () => {
     const g = gradeSelect.value;
-    if (!g) {
-      studentSelect.innerHTML = '<option value="">학년 먼저 선택</option>';
-      studentSelect.disabled = true;
-    } else {
-      const students = (participantsByGrade[g] || []).slice().sort((a, b) => (a.student_name || '').localeCompare(b.student_name || '', 'ko'));
-      studentSelect.innerHTML = '<option value="">이름 선택</option>' +
-        students.map((s) => `<option value="${s.student_code}" data-name="${s.student_name}" data-grade="${s.grade || ''}">${s.student_name}</option>`).join('');
-      studentSelect.disabled = false;
-    }
-    updateSubmitState();
+    resetFrom('student');
+    if (!g) return;
+    const students = (participantsByGrade[g] || []).slice().sort((a, b) => (a.student_name || '').localeCompare(b.student_name || '', 'ko'));
+    studentSelect.innerHTML = '<option value="">이름 선택</option>' +
+      students.map((s) => `<option value="${s.student_code}" data-name="${s.student_name}" data-grade="${s.grade || ''}">${s.student_name}</option>`).join('');
+    studentSelect.disabled = false;
   });
 
-  let currentAssignments = [];
-  const subjectArea = document.getElementById('subject-area');
-  const subjectSelect = document.getElementById('subject-select');
-  const subjectBookInfo = document.getElementById('subject-book-info');
-
   studentSelect.addEventListener('change', async () => {
+    resetFrom('textbook');
     const code = studentSelect.value;
-    currentAssignments = [];
-    subjectSelect.innerHTML = '';
-    subjectArea.style.display = 'none';
-    subjectBookInfo.textContent = '';
-    updateSubmitState();
-
     if (!code) return;
 
-    const { data, error } = await sb.rpc('rpc_get_current_homework_assignments', { p_student_code: code });
+    const { data, error } = await sb.rpc('rpc_get_student_textbooks', { p_student_code: code });
     if (error) { console.error(error); return; }
-    currentAssignments = data || [];
+    studentTextbooks = data || [];
 
-    if (currentAssignments.length === 0) {
-      subjectArea.style.display = 'block';
-      subjectBookInfo.textContent = '등록된 숙제가 없어요. 선생님께 문의해 주세요.';
+    if (studentTextbooks.length === 0) {
+      textbookSelect.innerHTML = '<option value="">배정된 교재 없음</option>';
       updateSubmitState();
       return;
     }
-
-    subjectArea.style.display = 'block';
-    subjectSelect.innerHTML = currentAssignments.map((a) => `<option value="${a.subject}">${a.subject}</option>`).join('');
-    updateSubjectBookInfo();
+    textbookSelect.innerHTML = '<option value="">교재 선택</option>' +
+      studentTextbooks.map((t) => `<option value="${t.textbook_id}">${t.textbook_name}</option>`).join('');
+    textbookSelect.disabled = false;
     updateSubmitState();
   });
 
-  subjectSelect.addEventListener('change', () => { updateSubjectBookInfo(); updateSubmitState(); });
+  textbookSelect.addEventListener('change', async () => {
+    resetFrom('range');
+    const textbookId = textbookSelect.value;
+    const code = studentSelect.value;
+    if (!textbookId || !code) return;
 
-  function updateSubjectBookInfo() {
-    const a = currentAssignments.find((x) => x.subject === subjectSelect.value);
-    subjectBookInfo.textContent = a ? `${a.textbook_name || ''} ${a.homework_range || ''}`.trim() : '';
+    const { data, error } = await sb.rpc('rpc_get_incomplete_ranges', { p_student_code: code, p_textbook_id: textbookId });
+    if (error) { console.error(error); return; }
+    incompleteRanges = data || [];
+
+    if (incompleteRanges.length === 0) {
+      rangeEmptyMsg.style.display = 'block';
+      rangeEmptyMsg.textContent = '지금까지 등록된 범위를 모두 끝냈어요! 선생님이 범위를 더 등록하시면 여기 나타나요.';
+      rangeSelect.innerHTML = '<option value="">끝낸 범위 없음</option>';
+      updateSubmitState();
+      return;
+    }
+    rangeSelect.innerHTML = '<option value="">범위 선택</option>' +
+      incompleteRanges.map((r) => `<option value="${r.id}">${r.range_order}. ${r.range_text}</option>`).join('');
+    rangeSelect.disabled = false;
+    updateSubmitState();
+  });
+
+  rangeSelect.addEventListener('change', updateSubmitState);
+
+  function resetFrom(level) {
+    if (level === 'student') {
+      studentSelect.innerHTML = '<option value="">학년 먼저 선택</option>';
+      studentSelect.disabled = true;
+    }
+    if (level === 'student' || level === 'textbook') {
+      textbookSelect.innerHTML = '<option value="">학생 먼저 선택</option>';
+      textbookSelect.disabled = true;
+      studentTextbooks = [];
+    }
+    if (level === 'student' || level === 'textbook' || level === 'range') {
+      rangeSelect.innerHTML = '<option value="">교재 먼저 선택</option>';
+      rangeSelect.disabled = true;
+      rangeEmptyMsg.style.display = 'none';
+      incompleteRanges = [];
+    }
+    updateSubmitState();
   }
 
   function updateSubmitState() {
     if (!studentSelect.value) {
       submitBtn.disabled = true;
       submitBtn.textContent = '학생을 먼저 선택하세요';
-    } else if (currentAssignments.length === 0) {
+    } else if (!textbookSelect.value) {
       submitBtn.disabled = true;
-      submitBtn.textContent = '등록된 숙제가 없어요';
+      submitBtn.textContent = '교재를 선택하세요';
+    } else if (!rangeSelect.value) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = '범위를 선택하세요';
     } else if (selectedFiles.length === 0) {
       submitBtn.disabled = true;
       submitBtn.textContent = '사진을 선택하세요';
@@ -237,15 +269,14 @@
 
   // ---- 제출 ----
   document.getElementById('submit-btn').addEventListener('click', async () => {
-    const opt = studentSelect.selectedOptions[0];
+    const studentOpt = studentSelect.selectedOptions[0];
     const studentCode = studentSelect.value;
-    const studentName = opt.dataset.name;
-    const grade = opt.dataset.grade;
+    const studentName = studentOpt.dataset.name;
+    const grade = studentOpt.dataset.grade;
+    const textbookId = textbookSelect.value;
+    const rangeId = rangeSelect.value;
 
-    const subject = subjectSelect.value;
-    const assignment = currentAssignments.find((a) => a.subject === subject);
-
-    if (!studentCode || !subject || selectedFiles.length === 0) return;
+    if (!studentCode || !textbookId || !rangeId || selectedFiles.length === 0) return;
 
     const overlay = document.getElementById('loading-overlay');
     overlay.classList.add('open');
@@ -267,9 +298,8 @@
         p_student_code: studentCode,
         p_student_name: studentName,
         p_grade: grade,
-        p_subject: subject,
-        p_textbook_name: assignment ? assignment.textbook_name : '',
-        p_homework_range: assignment ? assignment.homework_range : '',
+        p_textbook_id: textbookId,
+        p_range_id: rangeId,
         p_image_urls: imageUrls,
       });
       if (submitError) throw submitError;
@@ -286,15 +316,9 @@
 
   document.getElementById('again-btn').addEventListener('click', () => {
     selectedFiles = [];
-    currentAssignments = [];
-    subjectSelect.innerHTML = '';
-    subjectArea.style.display = 'none';
-    subjectBookInfo.textContent = '';
     renderPreviews();
     gradeSelect.value = '';
-    studentSelect.innerHTML = '<option value="">학년 먼저 선택</option>';
-    studentSelect.disabled = true;
-    updateSubmitState();
+    resetFrom('student');
     document.getElementById('success-panel').style.display = 'none';
     document.getElementById('form-panel').style.display = 'block';
   });
