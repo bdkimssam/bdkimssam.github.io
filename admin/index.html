@@ -18,7 +18,9 @@
   .logout-btn { appearance:none; background:transparent; border:1px solid rgba(255,255,255,0.25); color:rgba(255,255,255,0.85); font-weight:600; font-size:13px; padding:8px 14px; border-radius:999px; cursor:pointer; }
   .logout-btn:hover { border-color: rgba(255,255,255,0.55); }
   main { max-width: 920px; margin: 0 auto; padding: 36px 20px 60px; }
-  h1 { font-size: 20px; font-weight: 900; margin: 0 0 24px; }
+  h1 { font-size: 20px; font-weight: 900; margin: 0 0 20px; }
+  .section-title { font-size: 13px; font-weight: 800; color: var(--muted); margin: 28px 0 10px; }
+  .section-title:first-of-type { margin-top: 0; }
   .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   @media (max-width: 760px) { .grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } }
@@ -47,6 +49,8 @@
 
 <main>
   <h1>무엇을 하시겠어요?</h1>
+
+  <h2 class="section-title">공지 · 상담</h2>
   <div class="grid">
     <a class="card" href="announcements.html" data-director-only>
       <div class="icon"><i class="fa-solid fa-bullhorn"></i></div>
@@ -58,6 +62,10 @@
       <div class="title">상담 관리</div>
       <div class="desc">홈페이지 상담신청 확인 · 전화상담 직접입력</div>
     </a>
+  </div>
+
+  <h2 class="section-title">학습 관리</h2>
+  <div class="grid">
     <a class="card" href="weekly-progress.html">
       <div class="icon"><i class="fa-solid fa-route"></i></div>
       <div class="title">주간진도표 입력</div>
@@ -68,16 +76,20 @@
       <div class="title">월간평가 입력</div>
       <div class="desc">학생별 월간평가 · 중간/기말 · 모의고사 점수 입력</div>
     </a>
-    <a class="card" href="textbook-request.html">
-      <div class="icon"><i class="fa-solid fa-book"></i></div>
-      <div class="title">교재 제작 요청</div>
-      <div class="desc">학생 교재 제작 요청 등록 · 완료 처리</div>
-    </a>
     <a class="card" href="points-warnings.html">
       <div class="icon"><i class="fa-solid fa-star"></i></div>
       <div class="title">상벌점</div>
       <div class="desc">상점 · 경고 등록 및 내역 확인</div>
     </a>
+    <a class="card" href="tlp-results.html" data-director-only>
+      <div class="icon"><i class="fa-solid fa-brain"></i></div>
+      <div class="title">TLP 학습심리검사</div>
+      <div class="desc">검사 결과 등급 입력 · 코멘트 작성</div>
+    </a>
+  </div>
+
+  <h2 class="section-title">숙제인증</h2>
+  <div class="grid">
     <a class="card" href="homework-review.html" data-director-only>
       <div class="icon"><i class="fa-solid fa-camera"></i></div>
       <div class="title">숙제인증 확인</div>
@@ -93,25 +105,29 @@
       <div class="title">숙제인증 학생별 교재 배정</div>
       <div class="desc">학생마다 어떤 교재를 할지 체크</div>
     </a>
-    <a class="card" href="tlp-results.html" data-director-only>
-      <div class="icon"><i class="fa-solid fa-brain"></i></div>
-      <div class="title">TLP 학습심리검사</div>
-      <div class="desc">검사 결과 등급 입력 · 코멘트 작성</div>
+  </div>
+
+  <h2 class="section-title">교재 · 학생 관리</h2>
+  <div class="grid">
+    <a class="card" href="textbook-request.html">
+      <div class="icon"><i class="fa-solid fa-book"></i></div>
+      <div class="title">교재 제작 요청</div>
+      <div class="desc">학생 교재 제작 요청 등록 · 완료 처리</div>
     </a>
-    <a class="card" href="promote-grade.html" data-director-only>
-      <div class="icon"><i class="fa-solid fa-arrow-up"></i></div>
-      <div class="title">학년 일괄 진급</div>
-      <div class="desc">전체 학생 학년을 한 번에 올리기</div>
+    <a class="card" href="curriculum.html" data-director-only>
+      <div class="icon"><i class="fa-solid fa-book-open"></i></div>
+      <div class="title">교재/단원 관리</div>
+      <div class="desc">진도책·숙제책 커리큘럼 · 단원 등록</div>
     </a>
     <a class="card" href="student-list.html" data-director-only>
       <div class="icon"><i class="fa-solid fa-users"></i></div>
       <div class="title">학생 목록</div>
       <div class="desc">학년별 학생 확인 · 강의실 수정</div>
     </a>
-    <a class="card" href="curriculum.html" data-director-only>
-      <div class="icon"><i class="fa-solid fa-book-open"></i></div>
-      <div class="title">교재/단원 관리</div>
-      <div class="desc">진도책·숙제책 커리큘럼 · 단원 등록</div>
+    <a class="card" href="promote-grade.html" data-director-only>
+      <div class="icon"><i class="fa-solid fa-arrow-up"></i></div>
+      <div class="title">학년 일괄 진급</div>
+      <div class="desc">전체 학생 학년을 한 번에 올리기</div>
     </a>
   </div>
 </main>
