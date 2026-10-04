@@ -93,11 +93,11 @@
     <div class="add-form" id="add-form">
       <div class="row2">
         <div>
-          <label>학부모님 성함 *</label>
+          <label>학생 이름 *</label>
           <input type="text" id="add-name">
         </div>
         <div>
-          <label>연락처 *</label>
+          <label>학부모님 연락처 *</label>
           <input type="tel" id="add-phone" placeholder="010-0000-0000">
         </div>
       </div>
@@ -165,14 +165,14 @@
   saveAddBtn.addEventListener('click', async () => {
     const name = document.getElementById('add-name').value.trim();
     const phone = document.getElementById('add-phone').value.trim();
-    if (!name || !phone) { alert('학부모님 성함과 연락처는 필수예요.'); return; }
+    if (!name || !phone) { alert('학생 이름과 연락처는 필수예요.'); return; }
 
     saveAddBtn.disabled = true;
     saveAddBtn.textContent = '저장 중...';
 
     const { error } = await sb.rpc('rpc_admin_add_consultation', {
       p_password: getAdminPassword(),
-      p_parent_name: name,
+      p_student_name: name,
       p_parent_phone: phone,
       p_student_grade: document.getElementById('add-grade').value.trim(),
       p_inquiry: document.getElementById('add-inquiry').value.trim(),
@@ -250,11 +250,11 @@
         <div class="edit-panel">
           <div class="row2">
             <div>
-              <label>성함</label>
-              <input type="text" class="e-name" data-id="${it.id}" value="${it.parent_name || ''}">
+              <label>학생 이름</label>
+              <input type="text" class="e-name" data-id="${it.id}" value="${it.student_name || ''}">
             </div>
             <div>
-              <label>연락처</label>
+              <label>학부모님 연락처</label>
               <input type="tel" class="e-phone" data-id="${it.id}" value="${it.parent_phone || ''}">
             </div>
           </div>
@@ -298,7 +298,7 @@
       <div class="consult-row">
         <div class="head">
           <div>
-            <span class="name">${it.parent_name || ''}</span>
+            <span class="name">${it.student_name || ''}</span>
             <span class="phone">${it.parent_phone || ''}</span>
           </div>
           <div class="actions">
@@ -331,12 +331,12 @@
         const id = btn.dataset.id;
         const name = consultListEl.querySelector(`.e-name[data-id="${id}"]`).value.trim();
         const phone = consultListEl.querySelector(`.e-phone[data-id="${id}"]`).value.trim();
-        if (!name || !phone) { alert('성함과 연락처는 필수예요.'); return; }
+        if (!name || !phone) { alert('학생 이름과 연락처는 필수예요.'); return; }
         btn.disabled = true;
         const { error } = await sb.rpc('rpc_admin_update_consultation', {
           p_password: getAdminPassword(),
           p_id: id,
-          p_parent_name: name,
+          p_student_name: name,
           p_parent_phone: phone,
           p_student_grade: consultListEl.querySelector(`.e-grade[data-id="${id}"]`).value.trim(),
           p_inquiry: consultListEl.querySelector(`.e-inquiry[data-id="${id}"]`).value.trim(),

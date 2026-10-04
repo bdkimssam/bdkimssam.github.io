@@ -800,8 +800,8 @@
 
           <div class="flex flex-col gap-4">
             <div>
-              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">학부모님 성함 <span class="text-red-500">*</span></label>
-              <input type="text" id="consult-parent-name" class="w-full px-4 py-3 rounded-xl border border-black/10 text-[14.5px] focus:outline-none focus:border-navy-900">
+              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">학생 이름 <span class="text-red-500">*</span></label>
+              <input type="text" id="consult-student-name" class="w-full px-4 py-3 rounded-xl border border-black/10 text-[14.5px] focus:outline-none focus:border-navy-900">
             </div>
             <div>
               <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">연락처 <span class="text-red-500">*</span></label>
@@ -1110,7 +1110,7 @@
   function resetConsultModalToForm() {
     document.getElementById('consult-step-form').classList.remove('hidden');
     document.getElementById('consult-step-calendar').classList.add('hidden');
-    document.getElementById('consult-parent-name').value = '';
+    document.getElementById('consult-student-name').value = '';
     document.getElementById('consult-parent-phone').value = '';
     document.getElementById('consult-student-grade').value = '';
     document.getElementById('consult-inquiry').value = '';
@@ -1124,7 +1124,7 @@
   }
 
   document.getElementById('consult-submit-btn').addEventListener('click', async () => {
-    const nameEl = document.getElementById('consult-parent-name');
+    const nameEl = document.getElementById('consult-student-name');
     const phoneEl = document.getElementById('consult-parent-phone');
     const gradeEl = document.getElementById('consult-student-grade');
     const inquiryEl = document.getElementById('consult-inquiry');
@@ -1135,7 +1135,7 @@
     const name = nameEl.value.trim();
     const phone = phoneEl.value.trim();
     if (!name || !phone) {
-      errEl.textContent = '성함과 연락처는 필수로 입력해주세요.';
+      errEl.textContent = '학생 이름과 연락처는 필수로 입력해주세요.';
       errEl.classList.remove('hidden');
       return;
     }
@@ -1145,7 +1145,7 @@
     btn.textContent = '저장 중...';
 
     const { error } = await sb.rpc('rpc_submit_consultation', {
-      p_parent_name: name,
+      p_student_name: name,
       p_parent_phone: phone,
       p_student_grade: gradeEl.value.trim(),
       p_inquiry: inquiryEl.value.trim(),

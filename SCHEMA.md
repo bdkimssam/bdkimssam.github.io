@@ -222,3 +222,15 @@ order by table_name;
 - `link` text NOT NULL
 - `published_at` timestamptz
 - `fetched_at` timestamptz NOT NULL DEFAULT now()
+
+### `consultations` — 상담 신청 (홈페이지 폼 + 전화상담 직접입력)
+- `id` uuid NOT NULL DEFAULT gen_random_uuid()
+- `student_name` text NOT NULL
+- `parent_phone` text NOT NULL
+- `student_grade` text
+- `inquiry` text
+- `referral_source` text — 상담경로: 소개/검색/블로그/인스타/전화상담/기타
+- `is_registered` boolean NOT NULL DEFAULT false — 등록여부 (원장님이 상담 후 체크)
+- `visit_date` date — 방문날짜 (원장님이 직접 입력, 구글 캘린더와 자동 연동 아님)
+- `notes` text — 비고 (노쇼, 참고사항 등)
+- `created_at` timestamptz NOT NULL DEFAULT now()
