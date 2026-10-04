@@ -808,7 +808,7 @@
               <input type="tel" id="consult-parent-phone" placeholder="010-0000-0000" class="w-full px-4 py-3 rounded-xl border border-black/10 text-[14.5px] focus:outline-none focus:border-navy-900">
             </div>
             <div>
-              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">학생 학년</label>
+              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">학생 학년 <span class="text-red-500">*</span></label>
               <input type="text" id="consult-student-grade" placeholder="예: 중2, 고1 예정" class="w-full px-4 py-3 rounded-xl border border-black/10 text-[14.5px] focus:outline-none focus:border-navy-900">
             </div>
             <div>
@@ -1134,8 +1134,9 @@
 
     const name = nameEl.value.trim();
     const phone = phoneEl.value.trim();
-    if (!name || !phone) {
-      errEl.textContent = '학생 이름과 연락처는 필수로 입력해주세요.';
+    const grade = gradeEl.value.trim();
+    if (!name || !phone || !grade) {
+      errEl.textContent = '학생 이름, 연락처, 학년은 필수로 입력해주세요.';
       errEl.classList.remove('hidden');
       return;
     }
