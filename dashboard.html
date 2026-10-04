@@ -871,11 +871,22 @@
     // ---- 현재 진도: 가장 최근 기록(맨 앞) 기준 ----
     const latest = items[0];
 
+    function progressBar(percent) {
+      if (percent === null || percent === undefined) return '';
+      const p = Math.max(0, Math.min(100, percent));
+      return `
+        <div class="progress-track"><div class="progress-fill" style="width:${p}%;"></div></div>
+        <div class="progress-percent">진도율 ${p}%</div>
+      `;
+    }
+
     setCardState(
       'card-progress',
       `
       <div class="data-row"><span class="k">진도책 진도</span><span class="v">${latest.textbook_progress || '기록 없음'}</span></div>
+      ${progressBar(latest.textbook_progress_percent)}
       <div class="data-row"><span class="k">숙제책 진도</span><span class="v">${latest.homework_progress || '기록 없음'}</span></div>
+      ${progressBar(latest.homework_progress_percent)}
       <div class="data-row"><span class="k">최근 업데이트</span><span class="v">${latest.recorded_date || '-'}</span></div>
       `
     );
