@@ -1199,79 +1199,48 @@
     emptyEl.classList.add('hidden');
     listEl.innerHTML = '';
 
-    const [templatesRes, bookedRes] = await Promise.all([
-      sb.rpc('rpc_get_consultation_slot_templates'),
-      sb.rpc('rpc_get_booked_consultation_times'),
-    ]);
+    const { data, error } = await sb.rpc('rpc_get_open_consultation_slots');
 
     loadingEl.classList.add('hidden');
 
-    if (templatesRes.error || bookedRes.error) {
+    if (error) {
       emptyEl.classList.remove('hidden');
       emptyEl.innerHTML = '시간을 불러오지 못했어요. 전화로 문의해주세요.';
       return;
     }
 
-    const templates = templatesRes.data || [];
-    const booked = new Set((bookedRes.data || []).map((b) => `${b.visit_date}_${b.visit_time}`));
-
-    if (templates.length === 0) {
+    const slots = data || [];
+    if (slots.length === 0) {
       emptyEl.classList.remove('hidden');
       return;
     }
 
-    // 내일부터 21일간, 요일별 템플릿에 맞춰 가능한 시간 생성
-    const today = new Date();
-    const groups = []; // [{ dateStr, dateLabel, times: ['14:00:00', ...] }]
-    for (let offset = 1; offset <= 21; offset++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() + offset);
-      const dow = d.getDay();
-      const dayTemplates = templates.filter((t) => t.day_of_week === dow);
-      if (dayTemplates.length === 0) continue;
+    // 원장님이 직접 추가한 날짜+시간을 날짜별로 묶어서 표시
+    const groupMap = new Map(); // dateStr -> [{id, time}]
+    slots.forEach((s) => {
+      if (!groupMap.has(s.slot_date)) groupMap.set(s.slot_date, []);
+      groupMap.get(s.slot_date).push({ id: s.id, time: s.slot_time });
+    });
 
-      const dateStr = dateToStr(d);
-      const times = [];
-      dayTemplates.forEach((t) => {
-        const [sh, sm] = t.start_time.split(':').map(Number);
-        const [eh, em] = t.end_time.split(':').map(Number);
-        const startMin = sh * 60 + sm;
-        const endMin = eh * 60 + em;
-        const step = t.slot_minutes;
-        for (let m = startMin; m + step <= endMin; m += step) {
-          const hh = Math.floor(m / 60), mm = m % 60;
-          const timeStr = `${pad2(hh)}:${pad2(mm)}:00`;
-          if (!booked.has(`${dateStr}_${timeStr}`) && !times.includes(timeStr)) {
-            times.push(timeStr);
-          }
-        }
-      });
-      if (times.length > 0) {
-        times.sort();
-        groups.push({ dateStr, dateLabel: `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW_LABEL[dow]})`, times });
-      }
-    }
-
-    if (groups.length === 0) {
-      emptyEl.classList.remove('hidden');
-      return;
-    }
-
-    listEl.innerHTML = groups.map((g) => `
+    listEl.innerHTML = Array.from(groupMap.entries()).map(([dateStr, times]) => {
+      const d = new Date(dateStr + 'T00:00:00');
+      const dateLabelStr = `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW_LABEL[d.getDay()]})`;
+      return `
       <div>
-        <div class="text-[13px] font-bold text-navy-900 mb-2">${g.dateLabel}</div>
+        <div class="text-[13px] font-bold text-navy-900 mb-2">${dateLabelStr}</div>
         <div class="flex flex-wrap gap-2">
-          ${g.times.map((t) => `<button type="button" class="consult-time-btn px-3.5 py-2 rounded-lg border border-black/10 text-[13px] font-bold text-ink hover:border-navy-900 hover:bg-navy-900 hover:text-white transition-colors" data-date="${g.dateStr}" data-time="${t}" data-label="${g.dateLabel} ${timeToLabel(t)}">${timeToLabel(t)}</button>`).join('')}
+          ${times.map((t) => `<button type="button" class="consult-time-btn px-3.5 py-2 rounded-lg border border-black/10 text-[13px] font-bold text-ink hover:border-navy-900 hover:bg-navy-900 hover:text-white transition-colors" data-slot-id="${t.id}" data-label="${dateLabelStr} ${timeToLabel(t.time)}">${timeToLabel(t.time)}</button>`).join('')}
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     listEl.querySelectorAll('.consult-time-btn').forEach((btn) => {
-      btn.addEventListener('click', () => selectConsultSlot(btn.dataset.date, btn.dataset.time, btn.dataset.label));
+      btn.addEventListener('click', () => selectConsultSlot(btn.dataset.slotId, btn.dataset.label));
     });
   }
 
-  async function selectConsultSlot(dateStr, timeStr, label) {
+  async function selectConsultSlot(slotId, label) {
     if (!currentConsultationId) return;
     const listEl = document.getElementById('consult-slots-list');
     listEl.style.opacity = '0.5';
@@ -1279,8 +1248,7 @@
 
     const { error } = await sb.rpc('rpc_submit_consultation_visit_time', {
       p_id: currentConsultationId,
-      p_visit_date: dateStr,
-      p_visit_time: timeStr,
+      p_slot_id: slotId,
     });
 
     listEl.style.opacity = '1';
