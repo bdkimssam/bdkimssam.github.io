@@ -30,8 +30,9 @@
   .textbook-item .right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
   .textbook-item .count { font-size:11px; font-weight:700; color: var(--muted); }
   .textbook-item.active .count { color: rgba(255,255,255,0.7); }
-  .textbook-item .edit-btn { background:none; border:none; cursor:pointer; color:inherit; opacity:0.6; font-size:12px; padding:2px; }
-  .textbook-item .edit-btn:hover { opacity:1; }
+  .textbook-item .edit-btn, .textbook-item .delete-btn { background:none; border:none; cursor:pointer; color:inherit; opacity:0.6; font-size:12px; padding:2px; }
+  .textbook-item .edit-btn:hover, .textbook-item .delete-btn:hover { opacity:1; }
+  .textbook-item .delete-btn:hover { color:#DC2626; }
   .textbook-rename-row { display:flex; gap:6px; padding:6px 2px; }
   .textbook-rename-row input { flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--gray-200); font-size:13px; font-family:inherit; }
   .textbook-rename-row button { padding:8px 10px; border-radius:8px; border:none; background:var(--navy-900); color:#fff; font-weight:700; font-size:12px; cursor:pointer; }
@@ -107,6 +108,7 @@
           <span class="right">
             <span class="count">${t.range_count}개</span>
             <button type="button" class="edit-btn" data-id="${t.id}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="delete-btn" data-id="${t.id}" data-name="${t.textbook_name}"><i class="fa-solid fa-trash"></i></button>
           </span>
         </div>
       `;
@@ -124,6 +126,25 @@
     });
     listEl.querySelectorAll('.rename-cancel-btn').forEach((el) => {
       el.addEventListener('click', () => { renamingTextbookId = null; renderTextbooks(); });
+    });
+    listEl.querySelectorAll('.delete-btn').forEach((el) => {
+      el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm(`"${el.dataset.name}" 교재를 삭제할까요?\n제출된 인증 기록이 있으면 삭제되지 않습니다.`)) return;
+        el.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_delete_homework_textbook', {
+          p_password: getAdminPassword(), p_textbook_id: el.dataset.id,
+        });
+        el.disabled = false;
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+        if (el.dataset.id === selectedTextbookId) {
+          selectedTextbookId = null;
+          document.getElementById('range-panel-title').textContent = '범위 목록';
+          document.getElementById('range-add-row').style.display = 'none';
+          document.getElementById('range-list').innerHTML = '<div class="empty">왼쪽에서 교재를 먼저 선택하세요.</div>';
+        }
+        loadTextbooks();
+      });
     });
     listEl.querySelectorAll('.rename-save-btn').forEach((el) => {
       el.addEventListener('click', async () => {
@@ -199,6 +220,7 @@
           <span class="order-badge">${r.range_order}</span>
           <span style="flex:1;">${r.range_text}</span>
           <button type="button" class="range-edit-btn" data-id="${r.id}" style="background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:2px;"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="range-delete-btn" data-id="${r.id}" data-text="${r.range_text}" style="background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:2px;"><i class="fa-solid fa-trash"></i></button>
         </div>
       `;
     }).join('');
@@ -208,6 +230,19 @@
     });
     listEl.querySelectorAll('.range-cancel-btn').forEach((el) => {
       el.addEventListener('click', () => { renamingRangeId = null; renderRanges(); });
+    });
+    listEl.querySelectorAll('.range-delete-btn').forEach((el) => {
+      el.addEventListener('click', async () => {
+        if (!confirm(`"${el.dataset.text}" 범위를 삭제할까요?\n제출된 인증 기록이 있으면 삭제되지 않습니다.`)) return;
+        el.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_delete_homework_textbook_range', {
+          p_password: getAdminPassword(), p_range_id: el.dataset.id,
+        });
+        el.disabled = false;
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+        loadRanges();
+        loadTextbooks();
+      });
     });
     listEl.querySelectorAll('.range-save-btn').forEach((el) => {
       el.addEventListener('click', async () => {
