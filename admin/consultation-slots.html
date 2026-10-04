@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상담 가능 시간 설정 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; display:flex; flex-direction:column; gap:18px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 4px; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  label { display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+  select, input {
+    width:100%; font-size:14.5px; padding:11px 13px; border-radius:10px; border:1px solid var(--gray-200);
+    margin-bottom:0; font-family:inherit; background:#fff;
+  }
+  select:focus, input:focus { outline:none; border-color: var(--navy-900); }
+  .row-add { display:grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap:8px; align-items:end; }
+  .row-add label { margin-bottom:4px; }
+  button.add-btn {
+    padding:11px 16px; border-radius:10px; border:none; background:var(--navy-900); color:#fff;
+    font-weight:800; font-size:13.5px; cursor:pointer; white-space:nowrap;
+  }
+  button.add-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .slot-list { margin-top:18px; }
+  .slot-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 2px; border-top:1px solid var(--gray-200); font-size:13.5px; }
+  .slot-row:first-child { border-top:none; }
+  .slot-row .info { font-weight:700; }
+  .slot-row .info .range { color: var(--muted); font-weight:600; font-size:12px; margin-left:6px; }
+  .slot-row .sub { color: var(--muted); font-size:12px; margin-top:2px; }
+  .slot-row.inactive { opacity:0.45; }
+  .slot-row .actions { display:flex; align-items:center; gap:10px; }
+  .slot-row .actions button { background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:4px; }
+  .slot-row .del-btn:hover { color:#DC2626; }
+  .slot-row .edit-btn:hover { color:var(--navy-900); }
+  .toggle-switch { position:relative; width:38px; height:22px; border-radius:999px; background:var(--gray-200); cursor:pointer; border:none; padding:0; flex-shrink:0; }
+  .toggle-switch.on { background:#16A34A; }
+  .toggle-switch .dot { position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff; transition: transform .15s; }
+  .toggle-switch.on .dot { transform: translateX(16px); }
+  .slot-edit-row { padding:12px 2px; border-top:1px solid var(--gray-200); display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:8px; align-items:end; }
+  .slot-edit-row:first-child { border-top:none; }
+  .slot-edit-row label { margin-bottom:4px; font-size:11px; }
+  .slot-edit-row select, .slot-edit-row input { padding:8px 10px; font-size:13px; }
+  .slot-edit-actions { grid-column: 1 / -1; display:flex; gap:8px; margin-top:4px; }
+  .slot-edit-actions button { flex:1; padding:9px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; }
+  .slot-edit-actions .save-btn { border:none; background:var(--navy-900); color:#fff; }
+  .slot-edit-actions .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
+  .empty, .loading { color: var(--muted); font-size:13px; padding:16px 4px; text-align:center; }
+  @media (max-width: 560px) {
+    .row-add { grid-template-columns: 1fr 1fr; }
+    .slot-edit-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="consultations.html"><i class="fa-solid fa-arrow-left"></i> 상담 관리</a>
+  <span class="brand">상담 가능 시간 설정</span>
+</header>
+
+<main>
+  <h1>요일별 상담 가능 시간</h1>
+  <p class="sub">여기서 설정한 요일·시간대가 홈페이지 "상담하기" 2단계에서 학부모님께 그대로 보여요. 껐다 켰다 하거나 삭제할 수 있어서, 보강 등으로 특정 요일이 안 될 때 바로 꺼두시면 돼요.</p>
+
+  <div class="panel">
+    <div class="row-add">
+      <div>
+        <label for="add-day">요일</label>
+        <select id="add-day">
+          <option value="0">일요일</option>
+          <option value="1">월요일</option>
+          <option value="2">화요일</option>
+          <option value="3">수요일</option>
+          <option value="4">목요일</option>
+          <option value="5">금요일</option>
+          <option value="6" selected>토요일</option>
+        </select>
+      </div>
+      <div>
+        <label for="add-start">시작</label>
+        <input type="time" id="add-start" value="14:00">
+      </div>
+      <div>
+        <label for="add-end">종료</label>
+        <input type="time" id="add-end" value="17:00">
+      </div>
+      <div>
+        <label for="add-duration">간격</label>
+        <select id="add-duration">
+          <option value="15">15분</option>
+          <option value="20">20분</option>
+          <option value="30" selected>30분</option>
+          <option value="60">60분</option>
+        </select>
+      </div>
+      <button type="button" class="add-btn" id="add-slot-btn">추가</button>
+    </div>
+
+    <div class="slot-list" id="slot-list"><div class="loading">불러오는 중...</div></div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireDirector();
+
+  const DOW_LABEL = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+
+  const addDaySelect = document.getElementById('add-day');
+  const addStartInput = document.getElementById('add-start');
+  const addEndInput = document.getElementById('add-end');
+  const addDurationSelect = document.getElementById('add-duration');
+  const addSlotBtn = document.getElementById('add-slot-btn');
+  const slotListEl = document.getElementById('slot-list');
+
+  function fmtTime(t) {
+    // "14:00:00" -> "14:00"
+    return (t || '').slice(0, 5);
+  }
+
+  let currentSlots = [];
+  let editingSlotId = null;
+
+  async function loadSlots() {
+    slotListEl.innerHTML = '<div class="loading">불러오는 중...</div>';
+    const { data, error } = await sb.rpc('rpc_admin_list_consultation_slots', {
+      p_password: getAdminPassword(),
+    });
+    if (error) {
+      slotListEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>';
+      return;
+    }
+    currentSlots = data || [];
+    renderSlots();
+  }
+  loadSlots();
+
+  function renderSlots() {
+    if (currentSlots.length === 0) {
+      slotListEl.innerHTML = '<div class="empty">아직 설정된 상담 가능 시간이 없습니다. 위에서 추가해주세요.</div>';
+      return;
+    }
+
+    slotListEl.innerHTML = currentSlots.map((s) => {
+      if (s.id === editingSlotId) {
+        return `
+          <div class="slot-edit-row">
+            <div>
+              <label>요일</label>
+              <select class="e-day" data-id="${s.id}">
+                ${DOW_LABEL.map((l, i) => `<option value="${i}" ${i === s.day_of_week ? 'selected' : ''}>${l}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label>시작</label>
+              <input type="time" class="e-start" data-id="${s.id}" value="${fmtTime(s.start_time)}">
+            </div>
+            <div>
+              <label>종료</label>
+              <input type="time" class="e-end" data-id="${s.id}" value="${fmtTime(s.end_time)}">
+            </div>
+            <div>
+              <label>간격</label>
+              <select class="e-duration" data-id="${s.id}">
+                ${[15, 20, 30, 60].map((m) => `<option value="${m}" ${m === s.slot_minutes ? 'selected' : ''}>${m}분</option>`).join('')}
+              </select>
+            </div>
+            <div class="slot-edit-actions">
+              <button type="button" class="save-btn" data-id="${s.id}">저장</button>
+              <button type="button" class="cancel-btn">취소</button>
+            </div>
+          </div>
+        `;
+      }
+      return `
+      <div class="slot-row ${s.is_active ? '' : 'inactive'}">
+        <div>
+          <div class="info">${DOW_LABEL[s.day_of_week]} <span class="range">${fmtTime(s.start_time)} ~ ${fmtTime(s.end_time)}</span></div>
+          <div class="sub">${s.slot_minutes}분 간격${s.is_active ? '' : ' · 꺼짐'}</div>
+        </div>
+        <div class="actions">
+          <button type="button" class="toggle-switch ${s.is_active ? 'on' : ''}" data-id="${s.id}" title="켜기/끄기"><span class="dot"></span></button>
+          <button type="button" class="edit-btn" data-id="${s.id}"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="del-btn" data-id="${s.id}"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    `;
+    }).join('');
+
+    slotListEl.querySelectorAll('.toggle-switch').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const s = currentSlots.find((x) => x.id === id);
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_update_consultation_slot', {
+          p_password: getAdminPassword(), p_id: id,
+          p_day_of_week: s.day_of_week, p_start_time: s.start_time, p_end_time: s.end_time,
+          p_slot_minutes: s.slot_minutes, p_is_active: !s.is_active,
+        });
+        btn.disabled = false;
+        if (error) { alert('변경 실패: ' + error.message); return; }
+        loadSlots();
+      });
+    });
+    slotListEl.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { editingSlotId = btn.dataset.id; renderSlots(); });
+    });
+    slotListEl.querySelectorAll('.cancel-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { editingSlotId = null; renderSlots(); });
+    });
+    slotListEl.querySelectorAll('.save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const day = slotListEl.querySelector(`.e-day[data-id="${id}"]`).value;
+        const start = slotListEl.querySelector(`.e-start[data-id="${id}"]`).value;
+        const end = slotListEl.querySelector(`.e-end[data-id="${id}"]`).value;
+        const duration = slotListEl.querySelector(`.e-duration[data-id="${id}"]`).value;
+        if (!start || !end) { alert('시작/종료 시간을 입력해주세요.'); return; }
+        if (start >= end) { alert('종료 시간이 시작 시간보다 늦어야 해요.'); return; }
+        const s = currentSlots.find((x) => x.id === id);
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_update_consultation_slot', {
+          p_password: getAdminPassword(), p_id: id,
+          p_day_of_week: Number(day), p_start_time: start, p_end_time: end,
+          p_slot_minutes: Number(duration), p_is_active: s.is_active,
+        });
+        btn.disabled = false;
+        if (error) { alert('수정 실패: ' + error.message); return; }
+        editingSlotId = null;
+        loadSlots();
+      });
+    });
+    slotListEl.querySelectorAll('.del-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 시간대를 삭제할까요?')) return;
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_delete_consultation_slot', {
+          p_password: getAdminPassword(), p_id: btn.dataset.id,
+        });
+        btn.disabled = false;
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+        loadSlots();
+      });
+    });
+  }
+
+  addSlotBtn.addEventListener('click', async () => {
+    const start = addStartInput.value;
+    const end = addEndInput.value;
+    if (!start || !end) { alert('시작/종료 시간을 입력해주세요.'); return; }
+    if (start >= end) { alert('종료 시간이 시작 시간보다 늦어야 해요.'); return; }
+
+    addSlotBtn.disabled = true;
+    addSlotBtn.textContent = '저장 중...';
+
+    const { error } = await sb.rpc('rpc_admin_add_consultation_slot', {
+      p_password: getAdminPassword(),
+      p_day_of_week: Number(addDaySelect.value),
+      p_start_time: start,
+      p_end_time: end,
+      p_slot_minutes: Number(addDurationSelect.value),
+    });
+
+    addSlotBtn.disabled = false;
+    addSlotBtn.textContent = '추가';
+
+    if (error) { alert('저장 실패: ' + error.message); return; }
+    loadSlots();
+  });
+</script>
+
+</body>
+</html>

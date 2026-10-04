@@ -831,20 +831,24 @@
           </div>
         </div>
 
-        <!-- 2단계: 구글 캘린더 예약(Appointment Scheduling) — 1단계 제출 후에만 표시 -->
-        <div id="consult-step-calendar" class="hidden">
-          <div class="w-full h-[65vh] sm:h-[70vh] md:h-[75vh] rounded-xl overflow-hidden bg-gray-50">
-            <iframe
-              id="consult-calendar-iframe"
-              src="about:blank"
-              data-src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ1d5Kh69NHVjCN65UjD9O4ZOX3r9ncvYYU1GRbp2iRsrbkQRVH2mFWT1hog_BlQksYDFLlLTclI?gv=true"
-              title="봉덕김쌤수학학원 1:1 상담 예약 (구글 캘린더)"
-              class="w-full h-full block border-0"
-              frameborder="0"
-              loading="lazy"
-              allow="fullscreen"
-            ></iframe>
+        <!-- 2단계: 상담 가능 시간 선택 — 1단계 제출 후에만 표시 -->
+        <div id="consult-step-slots" class="hidden">
+          <p class="text-ink/70 text-[13.5px] leading-relaxed mb-5">원하시는 상담 시간을 선택해주세요.</p>
+          <div id="consult-slots-loading" class="text-ink/50 text-[13.5px] py-10 text-center">불러오는 중...</div>
+          <div id="consult-slots-empty" class="hidden text-ink/60 text-[13.5px] py-10 text-center leading-relaxed">
+            현재 예약 가능한 시간이 없어요.<br>전화(053-000-0000)로 문의해주시면 빠르게 안내해드릴게요.
           </div>
+          <div id="consult-slots-list" class="flex flex-col gap-5 max-h-[55vh] overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- 3단계: 예약 완료 -->
+        <div id="consult-step-done" class="hidden text-center py-10">
+          <div class="w-14 h-14 rounded-full bg-navy-900 text-white flex items-center justify-center mx-auto mb-5">
+            <i class="fa-solid fa-check text-xl"></i>
+          </div>
+          <h3 class="text-navy-900 font-black text-lg mb-2">상담 예약이 완료되었어요</h3>
+          <p id="consult-done-summary" class="text-ink/70 text-[13.5px] leading-relaxed mb-6"></p>
+          <button type="button" id="consult-done-close-btn" class="bg-navy-900 hover:bg-black transition-colors text-white font-bold text-[14.5px] py-3 px-8 rounded-xl">확인</button>
         </div>
       </div>
     </div>
@@ -1106,10 +1110,13 @@
     resetConsultModalToForm();
   }
 
+  let currentConsultationId = null;
+
   // 모달 열릴 때마다 1단계(입력 폼)부터 다시 시작하도록 초기화
   function resetConsultModalToForm() {
     document.getElementById('consult-step-form').classList.remove('hidden');
-    document.getElementById('consult-step-calendar').classList.add('hidden');
+    document.getElementById('consult-step-slots').classList.add('hidden');
+    document.getElementById('consult-step-done').classList.add('hidden');
     document.getElementById('consult-student-name').value = '';
     document.getElementById('consult-parent-phone').value = '';
     document.getElementById('consult-student-grade').value = '';
@@ -1121,6 +1128,7 @@
     const submitBtn = document.getElementById('consult-submit-btn');
     submitBtn.disabled = false;
     submitBtn.textContent = '다음: 예약 시간 선택 →';
+    currentConsultationId = null;
   }
 
   document.getElementById('consult-submit-btn').addEventListener('click', async () => {
@@ -1145,7 +1153,7 @@
     btn.disabled = true;
     btn.textContent = '저장 중...';
 
-    const { error } = await sb.rpc('rpc_submit_consultation', {
+    const { data, error } = await sb.rpc('rpc_submit_consultation', {
       p_student_name: name,
       p_parent_phone: phone,
       p_student_grade: gradeEl.value.trim(),
@@ -1162,14 +1170,135 @@
       return;
     }
 
-    // 2단계(구글 캘린더)로 전환, 이때 처음으로 iframe src를 실제 주소로 세팅
+    currentConsultationId = data;
+
+    // 2단계(상담 가능 시간 선택)로 전환
     document.getElementById('consult-step-form').classList.add('hidden');
-    const calendarStep = document.getElementById('consult-step-calendar');
-    calendarStep.classList.remove('hidden');
-    const iframe = document.getElementById('consult-calendar-iframe');
-    if (iframe.src === 'about:blank' || !iframe.src) {
-      iframe.src = iframe.dataset.src;
+    document.getElementById('consult-step-slots').classList.remove('hidden');
+    loadConsultSlots();
+  });
+
+  // ---- 2단계: 상담 가능 시간 불러오기 & 선택 ----
+  const DOW_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function dateToStr(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+  function timeToLabel(t) {
+    // t: "14:30:00" 또는 "14:30" → "오후 2:30"
+    const [h, m] = t.split(':').map(Number);
+    const ampm = h < 12 ? '오전' : '오후';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${ampm} ${h12}:${pad2(m)}`;
+  }
+
+  async function loadConsultSlots() {
+    const loadingEl = document.getElementById('consult-slots-loading');
+    const emptyEl = document.getElementById('consult-slots-empty');
+    const listEl = document.getElementById('consult-slots-list');
+    loadingEl.classList.remove('hidden');
+    emptyEl.classList.add('hidden');
+    listEl.innerHTML = '';
+
+    const [templatesRes, bookedRes] = await Promise.all([
+      sb.rpc('rpc_get_consultation_slot_templates'),
+      sb.rpc('rpc_get_booked_consultation_times'),
+    ]);
+
+    loadingEl.classList.add('hidden');
+
+    if (templatesRes.error || bookedRes.error) {
+      emptyEl.classList.remove('hidden');
+      emptyEl.innerHTML = '시간을 불러오지 못했어요. 전화로 문의해주세요.';
+      return;
     }
+
+    const templates = templatesRes.data || [];
+    const booked = new Set((bookedRes.data || []).map((b) => `${b.visit_date}_${b.visit_time}`));
+
+    if (templates.length === 0) {
+      emptyEl.classList.remove('hidden');
+      return;
+    }
+
+    // 내일부터 21일간, 요일별 템플릿에 맞춰 가능한 시간 생성
+    const today = new Date();
+    const groups = []; // [{ dateStr, dateLabel, times: ['14:00:00', ...] }]
+    for (let offset = 1; offset <= 21; offset++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + offset);
+      const dow = d.getDay();
+      const dayTemplates = templates.filter((t) => t.day_of_week === dow);
+      if (dayTemplates.length === 0) continue;
+
+      const dateStr = dateToStr(d);
+      const times = [];
+      dayTemplates.forEach((t) => {
+        const [sh, sm] = t.start_time.split(':').map(Number);
+        const [eh, em] = t.end_time.split(':').map(Number);
+        const startMin = sh * 60 + sm;
+        const endMin = eh * 60 + em;
+        const step = t.slot_minutes;
+        for (let m = startMin; m + step <= endMin; m += step) {
+          const hh = Math.floor(m / 60), mm = m % 60;
+          const timeStr = `${pad2(hh)}:${pad2(mm)}:00`;
+          if (!booked.has(`${dateStr}_${timeStr}`) && !times.includes(timeStr)) {
+            times.push(timeStr);
+          }
+        }
+      });
+      if (times.length > 0) {
+        times.sort();
+        groups.push({ dateStr, dateLabel: `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW_LABEL[dow]})`, times });
+      }
+    }
+
+    if (groups.length === 0) {
+      emptyEl.classList.remove('hidden');
+      return;
+    }
+
+    listEl.innerHTML = groups.map((g) => `
+      <div>
+        <div class="text-[13px] font-bold text-navy-900 mb-2">${g.dateLabel}</div>
+        <div class="flex flex-wrap gap-2">
+          ${g.times.map((t) => `<button type="button" class="consult-time-btn px-3.5 py-2 rounded-lg border border-black/10 text-[13px] font-bold text-ink hover:border-navy-900 hover:bg-navy-900 hover:text-white transition-colors" data-date="${g.dateStr}" data-time="${t}" data-label="${g.dateLabel} ${timeToLabel(t)}">${timeToLabel(t)}</button>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.consult-time-btn').forEach((btn) => {
+      btn.addEventListener('click', () => selectConsultSlot(btn.dataset.date, btn.dataset.time, btn.dataset.label));
+    });
+  }
+
+  async function selectConsultSlot(dateStr, timeStr, label) {
+    if (!currentConsultationId) return;
+    const listEl = document.getElementById('consult-slots-list');
+    listEl.style.opacity = '0.5';
+    listEl.style.pointerEvents = 'none';
+
+    const { error } = await sb.rpc('rpc_submit_consultation_visit_time', {
+      p_id: currentConsultationId,
+      p_visit_date: dateStr,
+      p_visit_time: timeStr,
+    });
+
+    listEl.style.opacity = '1';
+    listEl.style.pointerEvents = 'auto';
+
+    if (error) {
+      alert('죄송해요, 방금 다른 분이 같은 시간을 예약하셨어요. 다른 시간을 선택해주세요.');
+      loadConsultSlots();
+      return;
+    }
+
+    document.getElementById('consult-step-slots').classList.add('hidden');
+    document.getElementById('consult-step-done').classList.remove('hidden');
+    document.getElementById('consult-done-summary').textContent = `${label}에 상담 예약이 확정되었어요. 해당 시간에 학원으로 전화 또는 방문해주시면 됩니다.`;
+  }
+
+  document.getElementById('consult-done-close-btn').addEventListener('click', () => {
+    closeConsultModal();
   });
 
   function closeConsultModal() {

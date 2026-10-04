@@ -85,8 +85,13 @@
 </header>
 
 <main>
-  <h1>상담 신청 관리</h1>
-  <p class="sub">홈페이지에서 들어온 상담신청과 전화상담을 한 곳에서 확인·관리할 수 있어요.</p>
+  <div style="display:flex; align-items:start; justify-content:space-between; gap:10px;">
+    <div>
+      <h1>상담 신청 관리</h1>
+      <p class="sub">홈페이지에서 들어온 상담신청과 전화상담을 한 곳에서 확인·관리할 수 있어요.</p>
+    </div>
+    <a href="consultation-slots.html" style="white-space:nowrap; font-size:12.5px; font-weight:800; color:var(--navy-900); text-decoration:none; border:1px solid var(--gray-200); background:#fff; padding:9px 13px; border-radius:10px;"><i class="fa-solid fa-clock"></i> 상담 가능 시간 설정</a>
+  </div>
 
   <div class="panel">
     <button type="button" class="toggle-add-btn" id="toggle-add-btn"><i class="fa-solid fa-phone"></i> 전화상담 직접 입력하기</button>
@@ -121,10 +126,14 @@
       </div>
       <label>문의 내용</label>
       <textarea id="add-inquiry" rows="2"></textarea>
-      <div class="row2">
+      <div class="row3">
         <div>
           <label>방문날짜</label>
           <input type="date" id="add-visit-date">
+        </div>
+        <div>
+          <label>방문시간</label>
+          <input type="time" id="add-visit-time">
         </div>
         <div>
           <div class="checkbox-row" style="margin-top:28px;">
@@ -179,6 +188,7 @@
       p_referral_source: document.getElementById('add-referral').value,
       p_is_registered: document.getElementById('add-registered').checked,
       p_visit_date: document.getElementById('add-visit-date').value || null,
+      p_visit_time: document.getElementById('add-visit-time').value || null,
       p_notes: document.getElementById('add-notes').value.trim(),
     });
 
@@ -187,7 +197,7 @@
 
     if (error) { alert('저장 실패: ' + error.message); return; }
 
-    ['add-name', 'add-phone', 'add-grade', 'add-inquiry', 'add-notes', 'add-visit-date'].forEach((id) => {
+    ['add-name', 'add-phone', 'add-grade', 'add-inquiry', 'add-notes', 'add-visit-date', 'add-visit-time'].forEach((id) => {
       document.getElementById(id).value = '';
     });
     document.getElementById('add-referral').value = '';
@@ -273,10 +283,14 @@
           </div>
           <label>문의 내용</label>
           <textarea class="e-inquiry" data-id="${it.id}" rows="2">${it.inquiry || ''}</textarea>
-          <div class="row2">
+          <div class="row3">
             <div>
               <label>방문날짜</label>
               <input type="date" class="e-visit-date" data-id="${it.id}" value="${it.visit_date || ''}">
+            </div>
+            <div>
+              <label>방문시간</label>
+              <input type="time" class="e-visit-time" data-id="${it.id}" value="${(it.visit_time || '').slice(0, 5)}">
             </div>
             <div>
               <div class="checkbox-row" style="margin-top:28px;">
@@ -311,7 +325,7 @@
           <span>${fmtDateTime(it.created_at)}</span>
           ${it.student_grade ? `<span>${it.student_grade}</span>` : ''}
           ${it.referral_source ? `<span>${it.referral_source}</span>` : ''}
-          ${it.visit_date ? `<span>방문 ${it.visit_date}</span>` : ''}
+          ${it.visit_date ? `<span>방문 ${it.visit_date}${it.visit_time ? ' ' + it.visit_time.slice(0, 5) : ''}</span>` : ''}
         </div>
         ${it.inquiry ? `<div class="inquiry">${it.inquiry}</div>` : ''}
         ${it.notes ? `<div class="notes"><i class="fa-solid fa-note-sticky"></i> ${it.notes}</div>` : ''}
@@ -343,6 +357,7 @@
           p_referral_source: consultListEl.querySelector(`.e-referral[data-id="${id}"]`).value,
           p_is_registered: consultListEl.querySelector(`.e-registered[data-id="${id}"]`).checked,
           p_visit_date: consultListEl.querySelector(`.e-visit-date[data-id="${id}"]`).value || null,
+          p_visit_time: consultListEl.querySelector(`.e-visit-time[data-id="${id}"]`).value || null,
           p_notes: consultListEl.querySelector(`.e-notes[data-id="${id}"]`).value.trim(),
         });
         btn.disabled = false;
