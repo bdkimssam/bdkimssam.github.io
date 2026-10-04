@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상담 관리 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 60px; display:flex; flex-direction:column; gap:18px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 4px; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  label { display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+  select, input, textarea {
+    width:100%; font-size:14.5px; padding:11px 13px; border-radius:10px; border:1px solid var(--gray-200);
+    margin-bottom:14px; font-family:inherit; background:#fff;
+  }
+  select:focus, input:focus, textarea:focus { outline:none; border-color: var(--navy-900); }
+  textarea { resize: vertical; min-height: 60px; }
+  .toggle-add-btn {
+    width:100%; padding:13px; border-radius:10px; border:1px dashed var(--gray-200); background:var(--gray-50);
+    color: var(--navy-900); font-weight:800; font-size:13.5px; cursor:pointer; text-align:center;
+  }
+  .add-form { display:none; margin-top:16px; }
+  .add-form.open { display:block; }
+  .row2 { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .row2 > div, .row3 > div { min-width: 0; }
+  .checkbox-row { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .checkbox-row input { width:auto; margin:0; }
+  .checkbox-row label { margin:0; }
+  button.save-add-btn {
+    padding:12px 18px; border-radius:10px; border:none; background:var(--navy-900); color:#fff;
+    font-weight:800; font-size:13.5px; cursor:pointer; width:100%;
+  }
+  button.save-add-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .filter-row { display:flex; gap:8px; margin-bottom:0; }
+  .filter-row button {
+    flex:1; padding:9px; border-radius:9px; border:1px solid var(--gray-200); background:#fff;
+    font-weight:700; font-size:12.5px; cursor:pointer; color: var(--muted);
+  }
+  .filter-row button.active { background: var(--navy-900); color:#fff; border-color: var(--navy-900); }
+  .consult-list { margin-top:4px; }
+  .consult-row { padding:14px 2px; border-top:1px solid var(--gray-200); font-size:13.5px; }
+  .consult-row:first-child { border-top:none; }
+  .consult-row .head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .consult-row .name { font-weight:800; font-size:14.5px; }
+  .consult-row .phone { color: var(--muted); font-size:12.5px; margin-left:6px; font-weight:600; }
+  .consult-row .meta { color: var(--muted); font-size:12px; margin-top:4px; display:flex; gap:10px; flex-wrap:wrap; }
+  .consult-row .inquiry { margin-top:8px; color: var(--ink); line-height:1.5; }
+  .consult-row .notes { margin-top:6px; color:#B45309; background:#FFFBEB; border-radius:8px; padding:8px 10px; font-size:12.5px; line-height:1.5; }
+  .badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; }
+  .badge.registered { background:#DCFCE7; color:#15803D; }
+  .badge.not-registered { background:#F3F4F6; color:#6B7280; }
+  .actions { display:flex; align-items:center; gap:10px; }
+  .actions button { background:none; border:none; cursor:pointer; color:var(--muted); font-size:13px; padding:4px; }
+  .actions .del-btn:hover { color:#DC2626; }
+  .actions .edit-btn:hover { color:var(--navy-900); }
+  .edit-panel { margin-top:10px; padding:14px; background: var(--gray-50); border-radius:12px; }
+  .edit-panel label { font-size:11px; margin-bottom:4px; }
+  .edit-panel select, .edit-panel input, .edit-panel textarea { margin-bottom:10px; padding:9px 11px; font-size:13px; }
+  .edit-actions { display:flex; gap:8px; margin-top:2px; }
+  .edit-actions button { flex:1; padding:9px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; }
+  .edit-actions .save-btn { border:none; background:var(--navy-900); color:#fff; }
+  .edit-actions .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
+  .empty, .loading { color: var(--muted); font-size:13px; padding:16px 4px; text-align:center; }
+  @media (max-width: 520px) {
+    .row2, .row3 { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">상담 관리</span>
+</header>
+
+<main>
+  <h1>상담 신청 관리</h1>
+  <p class="sub">홈페이지에서 들어온 상담신청과 전화상담을 한 곳에서 확인·관리할 수 있어요.</p>
+
+  <div class="panel">
+    <button type="button" class="toggle-add-btn" id="toggle-add-btn"><i class="fa-solid fa-phone"></i> 전화상담 직접 입력하기</button>
+    <div class="add-form" id="add-form">
+      <div class="row2">
+        <div>
+          <label>학부모님 성함 *</label>
+          <input type="text" id="add-name">
+        </div>
+        <div>
+          <label>연락처 *</label>
+          <input type="tel" id="add-phone" placeholder="010-0000-0000">
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label>학생 학년</label>
+          <input type="text" id="add-grade" placeholder="예: 중2">
+        </div>
+        <div>
+          <label>상담경로</label>
+          <select id="add-referral">
+            <option value="">선택안함</option>
+            <option value="소개">지인 소개</option>
+            <option value="검색">인터넷 검색</option>
+            <option value="블로그">블로그</option>
+            <option value="인스타">인스타그램</option>
+            <option value="전화상담">전화상담</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+      </div>
+      <label>문의 내용</label>
+      <textarea id="add-inquiry" rows="2"></textarea>
+      <div class="row2">
+        <div>
+          <label>방문날짜</label>
+          <input type="date" id="add-visit-date">
+        </div>
+        <div>
+          <div class="checkbox-row" style="margin-top:28px;">
+            <input type="checkbox" id="add-registered">
+            <label for="add-registered" style="margin:0;">등록 완료</label>
+          </div>
+        </div>
+      </div>
+      <label>비고</label>
+      <textarea id="add-notes" rows="2" placeholder="노쇼, 참고사항 등"></textarea>
+      <button type="button" class="save-add-btn" id="save-add-btn">저장</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="filter-row">
+      <button type="button" class="filter-btn active" data-filter="all">전체</button>
+      <button type="button" class="filter-btn" data-filter="not-registered">미등록</button>
+      <button type="button" class="filter-btn" data-filter="registered">등록완료</button>
+    </div>
+    <div class="consult-list" id="consult-list"><div class="loading">불러오는 중...</div></div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireAdminAuth();
+
+  const toggleAddBtn = document.getElementById('toggle-add-btn');
+  const addForm = document.getElementById('add-form');
+  const saveAddBtn = document.getElementById('save-add-btn');
+  const consultListEl = document.getElementById('consult-list');
+
+  toggleAddBtn.addEventListener('click', () => {
+    addForm.classList.toggle('open');
+  });
+
+  saveAddBtn.addEventListener('click', async () => {
+    const name = document.getElementById('add-name').value.trim();
+    const phone = document.getElementById('add-phone').value.trim();
+    if (!name || !phone) { alert('학부모님 성함과 연락처는 필수예요.'); return; }
+
+    saveAddBtn.disabled = true;
+    saveAddBtn.textContent = '저장 중...';
+
+    const { error } = await sb.rpc('rpc_admin_add_consultation', {
+      p_password: getAdminPassword(),
+      p_parent_name: name,
+      p_parent_phone: phone,
+      p_student_grade: document.getElementById('add-grade').value.trim(),
+      p_inquiry: document.getElementById('add-inquiry').value.trim(),
+      p_referral_source: document.getElementById('add-referral').value,
+      p_is_registered: document.getElementById('add-registered').checked,
+      p_visit_date: document.getElementById('add-visit-date').value || null,
+      p_notes: document.getElementById('add-notes').value.trim(),
+    });
+
+    saveAddBtn.disabled = false;
+    saveAddBtn.textContent = '저장';
+
+    if (error) { alert('저장 실패: ' + error.message); return; }
+
+    ['add-name', 'add-phone', 'add-grade', 'add-inquiry', 'add-notes', 'add-visit-date'].forEach((id) => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('add-referral').value = '';
+    document.getElementById('add-registered').checked = false;
+    addForm.classList.remove('open');
+    loadConsultations();
+  });
+
+  const REFERRAL_OPTIONS = ['소개', '검색', '블로그', '인스타', '전화상담', '기타'];
+
+  let currentConsultations = [];
+  let editingConsultId = null;
+  let currentFilter = 'all';
+
+  document.querySelectorAll('.filter-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      editingConsultId = null;
+      renderConsultations(currentConsultations);
+    });
+  });
+
+  async function loadConsultations() {
+    consultListEl.innerHTML = '<div class="loading">불러오는 중...</div>';
+    const { data, error } = await sb.rpc('rpc_admin_list_consultations', {
+      p_password: getAdminPassword(),
+    });
+    if (error) {
+      consultListEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>';
+      return;
+    }
+    currentConsultations = data || [];
+    renderConsultations(currentConsultations);
+  }
+  loadConsultations();
+
+  function fmtDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  function renderConsultations(items) {
+    const filtered = items.filter((it) => {
+      if (currentFilter === 'registered') return it.is_registered;
+      if (currentFilter === 'not-registered') return !it.is_registered;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      consultListEl.innerHTML = '<div class="empty">상담 내역이 없습니다.</div>';
+      return;
+    }
+
+    consultListEl.innerHTML = filtered.map((it) => {
+      const isEditing = it.id === editingConsultId;
+      const editPanel = isEditing ? `
+        <div class="edit-panel">
+          <div class="row2">
+            <div>
+              <label>성함</label>
+              <input type="text" class="e-name" data-id="${it.id}" value="${it.parent_name || ''}">
+            </div>
+            <div>
+              <label>연락처</label>
+              <input type="tel" class="e-phone" data-id="${it.id}" value="${it.parent_phone || ''}">
+            </div>
+          </div>
+          <div class="row2">
+            <div>
+              <label>학생 학년</label>
+              <input type="text" class="e-grade" data-id="${it.id}" value="${it.student_grade || ''}">
+            </div>
+            <div>
+              <label>상담경로</label>
+              <select class="e-referral" data-id="${it.id}">
+                <option value="">선택안함</option>
+                ${REFERRAL_OPTIONS.map((r) => `<option value="${r}" ${r === it.referral_source ? 'selected' : ''}>${r}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <label>문의 내용</label>
+          <textarea class="e-inquiry" data-id="${it.id}" rows="2">${it.inquiry || ''}</textarea>
+          <div class="row2">
+            <div>
+              <label>방문날짜</label>
+              <input type="date" class="e-visit-date" data-id="${it.id}" value="${it.visit_date || ''}">
+            </div>
+            <div>
+              <div class="checkbox-row" style="margin-top:28px;">
+                <input type="checkbox" class="e-registered" data-id="${it.id}" ${it.is_registered ? 'checked' : ''}>
+                <label style="margin:0;">등록 완료</label>
+              </div>
+            </div>
+          </div>
+          <label>비고</label>
+          <textarea class="e-notes" data-id="${it.id}" rows="2">${it.notes || ''}</textarea>
+          <div class="edit-actions">
+            <button type="button" class="save-btn" data-id="${it.id}">저장</button>
+            <button type="button" class="cancel-btn">취소</button>
+          </div>
+        </div>
+      ` : '';
+
+      return `
+      <div class="consult-row">
+        <div class="head">
+          <div>
+            <span class="name">${it.parent_name || ''}</span>
+            <span class="phone">${it.parent_phone || ''}</span>
+          </div>
+          <div class="actions">
+            <span class="badge ${it.is_registered ? 'registered' : 'not-registered'}">${it.is_registered ? '등록완료' : '미등록'}</span>
+            <button type="button" class="edit-btn" data-id="${it.id}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="del-btn" data-id="${it.id}"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+        <div class="meta">
+          <span>${fmtDateTime(it.created_at)}</span>
+          ${it.student_grade ? `<span>${it.student_grade}</span>` : ''}
+          ${it.referral_source ? `<span>${it.referral_source}</span>` : ''}
+          ${it.visit_date ? `<span>방문 ${it.visit_date}</span>` : ''}
+        </div>
+        ${it.inquiry ? `<div class="inquiry">${it.inquiry}</div>` : ''}
+        ${it.notes ? `<div class="notes"><i class="fa-solid fa-note-sticky"></i> ${it.notes}</div>` : ''}
+        ${editPanel}
+      </div>
+    `;
+    }).join('');
+
+    consultListEl.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { editingConsultId = btn.dataset.id; renderConsultations(currentConsultations); });
+    });
+    consultListEl.querySelectorAll('.cancel-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { editingConsultId = null; renderConsultations(currentConsultations); });
+    });
+    consultListEl.querySelectorAll('.save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const name = consultListEl.querySelector(`.e-name[data-id="${id}"]`).value.trim();
+        const phone = consultListEl.querySelector(`.e-phone[data-id="${id}"]`).value.trim();
+        if (!name || !phone) { alert('성함과 연락처는 필수예요.'); return; }
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_update_consultation', {
+          p_password: getAdminPassword(),
+          p_id: id,
+          p_parent_name: name,
+          p_parent_phone: phone,
+          p_student_grade: consultListEl.querySelector(`.e-grade[data-id="${id}"]`).value.trim(),
+          p_inquiry: consultListEl.querySelector(`.e-inquiry[data-id="${id}"]`).value.trim(),
+          p_referral_source: consultListEl.querySelector(`.e-referral[data-id="${id}"]`).value,
+          p_is_registered: consultListEl.querySelector(`.e-registered[data-id="${id}"]`).checked,
+          p_visit_date: consultListEl.querySelector(`.e-visit-date[data-id="${id}"]`).value || null,
+          p_notes: consultListEl.querySelector(`.e-notes[data-id="${id}"]`).value.trim(),
+        });
+        btn.disabled = false;
+        if (error) { alert('수정 실패: ' + error.message); return; }
+        editingConsultId = null;
+        loadConsultations();
+      });
+    });
+    consultListEl.querySelectorAll('.del-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 상담 내역을 삭제할까요?')) return;
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_delete_consultation', {
+          p_password: getAdminPassword(), p_id: btn.dataset.id,
+        });
+        btn.disabled = false;
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+        loadConsultations();
+      });
+    });
+  }
+</script>
+
+</body>
+</html>

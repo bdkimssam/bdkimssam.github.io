@@ -793,17 +793,58 @@
       </div>
 
       <div class="px-6 md:px-8 py-6 overflow-y-auto">
-        <!-- 구글 캘린더 예약(Appointment Scheduling) 삽입 영역: 실제 예약 페이지 링크가 확정되면 아래 iframe의 src만 교체하면 됩니다 -->
-        <div class="w-full h-[65vh] sm:h-[70vh] md:h-[75vh] rounded-xl overflow-hidden bg-gray-50">
 
-          <iframe
-            src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ1d5Kh69NHVjCN65UjD9O4ZOX3r9ncvYYU1GRbp2iRsrbkQRVH2mFWT1hog_BlQksYDFLlLTclI?gv=true"
-            title="봉덕김쌤수학학원 1:1 상담 예약 (구글 캘린더)"
-            class="w-full h-full block border-0"
-            frameborder="0"
-            loading="lazy"
-            allow="fullscreen"
-          ></iframe>
+        <!-- 1단계: 간단한 문의 정보 입력 (Supabase에 기록용) -->
+        <div id="consult-step-form">
+          <p class="text-ink/70 text-[13.5px] leading-relaxed mb-5">간단한 정보를 남겨주시면, 바로 이어서 상담 가능한 시간을 예약하실 수 있어요.</p>
+
+          <div class="flex flex-col gap-4">
+            <div>
+              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">학부모님 성함 <span class="text-red-500">*</span></label>
+              <input type="text" id="consult-parent-name" class="w-full px-4 py-3 rounded-xl border border-black/10 text-[14.5px] focus:outline-none focus:border-navy-900">
+            </div>
+            <div>
+              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">연락처 <span class="text-red-500">*</span></label>
+              <input type="tel" id="consult-parent-phone" placeholder="010-0000-0000" class="w-full px-4 py-3 rounded-xl border border-black/10 text-[14.5px] focus:outline-none focus:border-navy-900">
+            </div>
+            <div>
+              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">학생 학년</label>
+              <input type="text" id="consult-student-grade" placeholder="예: 중2, 고1 예정" class="w-full px-4 py-3 rounded-xl border border-black/10 text-[14.5px] focus:outline-none focus:border-navy-900">
+            </div>
+            <div>
+              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">문의 내용</label>
+              <textarea id="consult-inquiry" rows="3" placeholder="궁금하신 점을 편하게 남겨주세요" class="w-full px-4 py-3 rounded-xl border border-black/10 text-[14.5px] focus:outline-none focus:border-navy-900 resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">어떻게 알고 오셨나요?</label>
+              <select id="consult-referral-source" class="w-full px-4 py-3 rounded-xl border border-black/10 text-[14.5px] focus:outline-none focus:border-navy-900 bg-white">
+                <option value="">선택해주세요</option>
+                <option value="소개">지인 소개</option>
+                <option value="검색">인터넷 검색</option>
+                <option value="블로그">블로그</option>
+                <option value="인스타">인스타그램</option>
+                <option value="기타">기타</option>
+              </select>
+            </div>
+            <p id="consult-error-msg" class="hidden text-red-600 text-[12.5px] font-bold"></p>
+            <button type="button" id="consult-submit-btn" class="w-full bg-navy-900 hover:bg-black transition-colors text-white font-bold text-[14.5px] py-3.5 rounded-xl">다음: 예약 시간 선택 →</button>
+          </div>
+        </div>
+
+        <!-- 2단계: 구글 캘린더 예약(Appointment Scheduling) — 1단계 제출 후에만 표시 -->
+        <div id="consult-step-calendar" class="hidden">
+          <div class="w-full h-[65vh] sm:h-[70vh] md:h-[75vh] rounded-xl overflow-hidden bg-gray-50">
+            <iframe
+              id="consult-calendar-iframe"
+              src="about:blank"
+              data-src="https://calendar.google.com/calendar/appointments/schedules/AcZssZ1d5Kh69NHVjCN65UjD9O4ZOX3r9ncvYYU1GRbp2iRsrbkQRVH2mFWT1hog_BlQksYDFLlLTclI?gv=true"
+              title="봉덕김쌤수학학원 1:1 상담 예약 (구글 캘린더)"
+              class="w-full h-full block border-0"
+              frameborder="0"
+              loading="lazy"
+              allow="fullscreen"
+            ></iframe>
+          </div>
         </div>
       </div>
     </div>
@@ -1062,7 +1103,73 @@
     // 모바일 메뉴가 열려 있으면 함께 닫기
     mobileMenu.classList.add('hidden');
     consultModalClose.focus();
+    resetConsultModalToForm();
   }
+
+  // 모달 열릴 때마다 1단계(입력 폼)부터 다시 시작하도록 초기화
+  function resetConsultModalToForm() {
+    document.getElementById('consult-step-form').classList.remove('hidden');
+    document.getElementById('consult-step-calendar').classList.add('hidden');
+    document.getElementById('consult-parent-name').value = '';
+    document.getElementById('consult-parent-phone').value = '';
+    document.getElementById('consult-student-grade').value = '';
+    document.getElementById('consult-inquiry').value = '';
+    document.getElementById('consult-referral-source').value = '';
+    const errEl = document.getElementById('consult-error-msg');
+    errEl.classList.add('hidden');
+    errEl.textContent = '';
+    const submitBtn = document.getElementById('consult-submit-btn');
+    submitBtn.disabled = false;
+    submitBtn.textContent = '다음: 예약 시간 선택 →';
+  }
+
+  document.getElementById('consult-submit-btn').addEventListener('click', async () => {
+    const nameEl = document.getElementById('consult-parent-name');
+    const phoneEl = document.getElementById('consult-parent-phone');
+    const gradeEl = document.getElementById('consult-student-grade');
+    const inquiryEl = document.getElementById('consult-inquiry');
+    const referralEl = document.getElementById('consult-referral-source');
+    const errEl = document.getElementById('consult-error-msg');
+    errEl.classList.add('hidden');
+
+    const name = nameEl.value.trim();
+    const phone = phoneEl.value.trim();
+    if (!name || !phone) {
+      errEl.textContent = '성함과 연락처는 필수로 입력해주세요.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    const btn = document.getElementById('consult-submit-btn');
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+
+    const { error } = await sb.rpc('rpc_submit_consultation', {
+      p_parent_name: name,
+      p_parent_phone: phone,
+      p_student_grade: gradeEl.value.trim(),
+      p_inquiry: inquiryEl.value.trim(),
+      p_referral_source: referralEl.value,
+    });
+
+    btn.disabled = false;
+    btn.textContent = '다음: 예약 시간 선택 →';
+
+    if (error) {
+      errEl.textContent = '저장 중 문제가 발생했습니다: ' + error.message;
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    // 2단계(구글 캘린더)로 전환, 이때 처음으로 iframe src를 실제 주소로 세팅
+    document.getElementById('consult-step-form').classList.add('hidden');
+    const calendarStep = document.getElementById('consult-step-calendar');
+    calendarStep.classList.remove('hidden');
+    const iframe = document.getElementById('consult-calendar-iframe');
+    if (iframe.src === 'about:blank' || !iframe.src) {
+      iframe.src = iframe.dataset.src;
+    }
+  });
 
   function closeConsultModal() {
     consultModal.classList.add('hidden');
