@@ -208,21 +208,23 @@
     scoreListEl.innerHTML = items.map((it) => {
       if (it.id === editingScoreId) {
         const level = (selectedGrade || '').charAt(0);
-        const types = EXAM_TYPES_BY_LEVEL[level] || ['월간평가', '중간고사', '기말고사', '모의고사'];
+        let types = EXAM_TYPES_BY_LEVEL[level] || ['월간평가', '중간고사', '기말고사', '모의고사'];
+        const currentType = it.exam_type || '월간평가'; // 옛날 데이터는 구분이 비어있으면 월간평가로 취급
+        if (!types.includes(currentType)) types = [currentType, ...types]; // 목록에 없는 값이면 맨 앞에 추가해서 안 사라지게
         const years = [thisYear, thisYear - 1].includes(Number(it.exam_year)) ? [thisYear, thisYear - 1] : [Number(it.exam_year), thisYear, thisYear - 1];
         return `
           <div class="score-edit-row">
             <div>
               <label>연도</label>
-              <select class="edit-year" data-id="${it.id}">${years.map((y) => `<option value="${y}" ${String(y) === it.exam_year ? 'selected' : ''}>${y}</option>`).join('')}</select>
+              <select class="edit-year" data-id="${it.id}">${years.map((y) => `<option value="${y}" ${Number(y) === Number(it.exam_year) ? 'selected' : ''}>${y}</option>`).join('')}</select>
             </div>
             <div>
               <label>월</label>
-              <select class="edit-month" data-id="${it.id}">${Array.from({ length: 12 }, (_, i) => i + 1).map((m) => `<option value="${m}" ${String(m) === it.exam_month ? 'selected' : ''}>${m}월</option>`).join('')}</select>
+              <select class="edit-month" data-id="${it.id}">${Array.from({ length: 12 }, (_, i) => i + 1).map((m) => `<option value="${m}" ${Number(m) === Number(it.exam_month) ? 'selected' : ''}>${m}월</option>`).join('')}</select>
             </div>
             <div>
               <label>구분</label>
-              <select class="edit-type" data-id="${it.id}">${types.map((t) => `<option value="${t}" ${t === it.exam_type ? 'selected' : ''}>${t}</option>`).join('')}</select>
+              <select class="edit-type" data-id="${it.id}">${types.map((t) => `<option value="${t}" ${t === currentType ? 'selected' : ''}>${t}</option>`).join('')}</select>
             </div>
             <div>
               <label>점수</label>
@@ -237,7 +239,7 @@
       }
       return `
       <div class="score-row">
-        <div class="info">${it.exam_year}년 ${it.exam_month}월 <span class="type">${it.exam_type}</span></div>
+        <div class="info">${it.exam_year}년 ${it.exam_month}월 <span class="type">${it.exam_type || '월간평가'}</span></div>
         <div style="display:flex; align-items:center; gap:10px;">
           <span class="val">${it.score}점</span>
           <button type="button" class="edit-btn" data-id="${it.id}"><i class="fa-solid fa-pen"></i></button>
