@@ -891,11 +891,15 @@
       `
     );
 
-    // ---- 담당 선생님 피드백: 최근 3건 ----
+    // ---- 담당 선생님 피드백: 코멘트가 실제로 적힌 것만 최근 2건 ----
+    const feedbackItems = items.filter((item) => item.teacher_comment && item.teacher_comment.trim()).slice(0, 2);
+    if (feedbackItems.length === 0) {
+      renderEmptyState('card-feedback', '선생님 피드백이 등록되면 이곳에 표시됩니다.');
+      return;
+    }
     setCardState(
       'card-feedback',
-      items
-        .slice(0, 3)
+      feedbackItems
         .map((item) => {
           const commentText = item.teacher_comment || '코멘트가 없습니다.';
           // 대략 3줄(약 60자) 넘는 긴 코멘트만 '더보기' 버튼 표시
