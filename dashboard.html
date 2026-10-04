@@ -1143,6 +1143,12 @@
     const items = await fetchStudentData('rpc_get_homework_verifications', studentCode);
 
     if (items.length === 0) {
+      // 지금 배정된 교재가 없으면(=숙제인증 대상이 아니면) 카드 자체를 숨김
+      const assigned = await fetchStudentData('rpc_get_student_textbooks', studentCode);
+      if (assigned.length === 0) {
+        document.getElementById('card-homework').style.display = 'none';
+        return;
+      }
       renderEmptyState('card-homework', '숙제 인증을 제출하면 이곳에 표시됩니다.');
       return;
     }
