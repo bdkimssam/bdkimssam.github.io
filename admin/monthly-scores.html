@@ -39,8 +39,20 @@
   .score-row .info { font-weight:700; }
   .score-row .info .type { color: var(--muted); font-weight:600; font-size:12px; margin-left:6px; }
   .score-row .val { font-weight:900; }
-  .score-row .del-btn { background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:4px; }
+  .score-row .edit-btn, .score-row .del-btn { background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:4px; }
   .score-row .del-btn:hover { color:#DC2626; }
+  .score-row .edit-btn:hover { color:var(--navy-900); }
+  .score-edit-row { padding:10px 2px; border-top:1px solid var(--gray-200); display:grid; grid-template-columns: 1fr 1fr 1.4fr 1fr; gap:8px; align-items:end; }
+  .score-edit-row:first-child { border-top:none; }
+  .score-edit-row label { margin-bottom:4px; font-size:11px; }
+  .score-edit-row select, .score-edit-row input { margin-bottom:0; padding:8px 10px; font-size:13px; }
+  .score-edit-actions { grid-column: 1 / -1; display:flex; gap:8px; margin-top:4px; }
+  .score-edit-actions button { flex:1; padding:9px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; }
+  .score-edit-actions .save-btn { border:none; background:var(--navy-900); color:#fff; }
+  .score-edit-actions .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
+  @media (max-width: 520px) {
+    .score-edit-row { grid-template-columns: 1fr 1fr; }
+  }
   .empty, .loading { color: var(--muted); font-size:13px; padding:16px 4px; text-align:center; }
   @media (max-width: 520px) {
     .row-add { grid-template-columns: 1fr 1fr; }
@@ -184,21 +196,82 @@
     renderScores(data || []);
   }
 
+  let currentScores = [];
+  let editingScoreId = null;
+
   function renderScores(items) {
+    currentScores = items;
     if (items.length === 0) {
       scoreListEl.innerHTML = '<div class="empty">입력된 점수가 없습니다.</div>';
       return;
     }
-    scoreListEl.innerHTML = items.map((it) => `
+    scoreListEl.innerHTML = items.map((it) => {
+      if (it.id === editingScoreId) {
+        const level = (selectedGrade || '').charAt(0);
+        const types = EXAM_TYPES_BY_LEVEL[level] || ['월간평가', '중간고사', '기말고사', '모의고사'];
+        const years = [thisYear, thisYear - 1].includes(Number(it.exam_year)) ? [thisYear, thisYear - 1] : [Number(it.exam_year), thisYear, thisYear - 1];
+        return `
+          <div class="score-edit-row">
+            <div>
+              <label>연도</label>
+              <select class="edit-year" data-id="${it.id}">${years.map((y) => `<option value="${y}" ${String(y) === it.exam_year ? 'selected' : ''}>${y}</option>`).join('')}</select>
+            </div>
+            <div>
+              <label>월</label>
+              <select class="edit-month" data-id="${it.id}">${Array.from({ length: 12 }, (_, i) => i + 1).map((m) => `<option value="${m}" ${String(m) === it.exam_month ? 'selected' : ''}>${m}월</option>`).join('')}</select>
+            </div>
+            <div>
+              <label>구분</label>
+              <select class="edit-type" data-id="${it.id}">${types.map((t) => `<option value="${t}" ${t === it.exam_type ? 'selected' : ''}>${t}</option>`).join('')}</select>
+            </div>
+            <div>
+              <label>점수</label>
+              <input type="number" class="edit-score" data-id="${it.id}" value="${it.score}" min="0" max="100">
+            </div>
+            <div class="score-edit-actions">
+              <button type="button" class="save-btn" data-id="${it.id}">저장</button>
+              <button type="button" class="cancel-btn">취소</button>
+            </div>
+          </div>
+        `;
+      }
+      return `
       <div class="score-row">
         <div class="info">${it.exam_year}년 ${it.exam_month}월 <span class="type">${it.exam_type}</span></div>
         <div style="display:flex; align-items:center; gap:10px;">
           <span class="val">${it.score}점</span>
+          <button type="button" class="edit-btn" data-id="${it.id}"><i class="fa-solid fa-pen"></i></button>
           <button type="button" class="del-btn" data-id="${it.id}"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
+    scoreListEl.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { editingScoreId = btn.dataset.id; renderScores(currentScores); });
+    });
+    scoreListEl.querySelectorAll('.cancel-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { editingScoreId = null; renderScores(currentScores); });
+    });
+    scoreListEl.querySelectorAll('.save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const year = scoreListEl.querySelector(`.edit-year[data-id="${id}"]`).value;
+        const month = scoreListEl.querySelector(`.edit-month[data-id="${id}"]`).value;
+        const type = scoreListEl.querySelector(`.edit-type[data-id="${id}"]`).value;
+        const score = scoreListEl.querySelector(`.edit-score[data-id="${id}"]`).value;
+        if (score === '') { alert('점수를 입력해주세요.'); return; }
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_update_monthly_score', {
+          p_password: getAdminPassword(), p_score_id: id,
+          p_exam_type: type, p_exam_year: year, p_exam_month: month, p_score: score,
+        });
+        btn.disabled = false;
+        if (error) { alert('수정 실패: ' + error.message); return; }
+        editingScoreId = null;
+        loadScores();
+      });
+    });
     scoreListEl.querySelectorAll('.del-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('이 점수를 삭제할까요?')) return;
