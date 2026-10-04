@@ -142,6 +142,7 @@
       <option value="고2">고2</option>
       <option value="고3">고3</option>
       <option value="졸업">졸업</option>
+      <option value="미지정">미지정</option>
     </select>
     <span class="count-badge" id="count-badge"></span>
     <label class="withdrawn-toggle"><input type="checkbox" id="withdrawn-toggle"> 퇴원생도 보기</label>
@@ -244,7 +245,11 @@
 
   function render() {
     const grade = document.getElementById('grade-filter').value;
-    const filtered = (grade ? allStudents.filter((s) => s.grade === grade) : allStudents.slice())
+    const filtered = (
+      grade === '미지정' ? allStudents.filter((s) => !s.grade) :
+      grade ? allStudents.filter((s) => s.grade === grade) :
+      allStudents.slice()
+    )
       .sort((a, b) => {
         const ca = a.classroom || '￿'; // 미지정은 맨 뒤로
         const cb = b.classroom || '￿';
