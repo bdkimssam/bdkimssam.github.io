@@ -34,6 +34,13 @@
   }
   .confirm-btn.pending { background:#FFF3E0; color:#B5651D; }
   .confirm-btn.confirmed { background:#E8F5E9; color:#2E7D32; }
+  .feedback-row { display:flex; gap:6px; margin-top:4px; }
+  .feedback-row input { flex:1; padding:9px 11px; border-radius:9px; border:1px solid var(--gray-200); font-size:12.5px; font-family:inherit; }
+  .feedback-row button {
+    padding:9px 14px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; color:var(--ink);
+    font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;
+  }
+  .feedback-row button:hover { background:var(--gray-50); }
   .loading { color: var(--muted); font-size: 13px; }
   .lightbox-overlay { display:none; position:fixed; inset:0; background:rgba(7,12,22,0.85); z-index:50; align-items:center; justify-content:center; padding:20px; }
   .lightbox-overlay.open { display:flex; }
@@ -107,7 +114,7 @@
           <div>
             <div class="name">${it.student_name || '이름 미상'} <span style="font-weight:600; color:var(--muted); font-size:12px;">(${it.grade || '-'})</span></div>
             <div class="meta">${it.student_code} · ${fmtDateTime(it.submitted_at)}</div>
-            ${(it.textbook_name || it.homework_range) ? `<div class="book"><b>${it.textbook_name || ''}</b> ${it.homework_range || ''}</div>` : ''}
+            ${it.subject ? `<div class="book"><b>[${it.subject}]</b> ${it.textbook_name || ''} ${it.homework_range || ''}</div>` : ''}
           </div>
           <button class="confirm-btn ${it.confirmed ? 'confirmed' : 'pending'}" data-id="${it.id}" data-confirmed="${it.confirmed}">
             ${it.confirmed ? '확인완료 ✓' : '확인하기'}
@@ -115,6 +122,10 @@
         </div>
         <div class="photo-grid">
           ${(it.image_urls || []).map((url) => `<img src="${url}" alt="숙제 사진" data-full="${url}">`).join('')}
+        </div>
+        <div class="feedback-row">
+          <input type="text" class="feedback-input" data-id="${it.id}" placeholder="원장님 코멘트 (예: 오늘은 좀 덜했어요)" value="${(it.feedback || '').replace(/"/g, '&quot;')}">
+          <button type="button" class="feedback-save-btn" data-id="${it.id}">저장</button>
         </div>
       </div>
     `).join('');
@@ -141,6 +152,22 @@
           return;
         }
         load();
+      });
+    });
+
+    listEl.querySelectorAll('.feedback-save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const input = listEl.querySelector(`.feedback-input[data-id="${btn.dataset.id}"]`);
+        btn.disabled = true;
+        btn.textContent = '저장 중...';
+        const { error } = await sb.rpc('rpc_admin_set_homework_feedback', {
+          p_password: getAdminPassword(), p_id: btn.dataset.id, p_feedback: input.value.trim(),
+        });
+        btn.disabled = false;
+        btn.textContent = '저장';
+        if (error) { alert('저장 실패: ' + error.message); return; }
+        const item = allItems.find((x) => x.id === btn.dataset.id);
+        if (item) item.feedback = input.value.trim();
       });
     });
   }

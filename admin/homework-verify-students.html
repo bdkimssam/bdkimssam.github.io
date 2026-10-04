@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>숙제인증 참여 학생 | 관리자</title>
+<title>숙제인증 참여/숙제 등록 | 관리자</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -24,16 +24,22 @@
     font-size:14px; font-family:inherit; color: var(--ink);
   }
   .count-badge { font-size:12px; color: var(--muted); font-weight:700; white-space:nowrap; }
-  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding: 6px 20px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
-  table { width:100%; border-collapse: collapse; }
-  th, td { text-align:left; padding: 11px 6px; font-size: 13.5px; border-top: 1px solid var(--gray-200); }
-  th { color: var(--muted); font-weight:700; font-size:12px; border-top:none; }
-  tr:first-child td { border-top:none; }
-  td.name { font-weight:700; }
-  td.code { color: var(--muted); font-family: 'SFMono-Regular', Consolas, monospace; font-size:12.5px; }
-  td.check { text-align:center; width:44px; }
-  input.participate-check { width:18px; height:18px; cursor:pointer; }
-  input.participate-check.saving { opacity:0.4; }
+  .card { background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:14px 16px; margin-bottom:12px; box-shadow: 0 6px 18px rgba(11,18,32,0.04); }
+  .card-top { display:flex; align-items:center; gap:10px; }
+  .card-top input.participate-check { width:18px; height:18px; cursor:pointer; flex-shrink:0; }
+  .card-top input.participate-check.saving { opacity:0.4; }
+  .card-top .name { font-weight:800; font-size:14.5px; }
+  .card-top .meta { font-size:11.5px; color:var(--muted); margin-top:1px; }
+  .card-top .meta .code { font-family: 'SFMono-Regular', Consolas, monospace; }
+  .subjects-area { margin-top:12px; padding-top:12px; border-top:1px solid var(--gray-200); }
+  .subject-row { display:flex; justify-content:space-between; align-items:center; font-size:12.5px; padding:5px 0; }
+  .subject-row .tag { font-weight:800; color: var(--navy-900); background:var(--gray-50); border-radius:6px; padding:2px 8px; margin-right:6px; }
+  .subject-row .book { color: var(--ink); }
+  .subject-row .date { color: var(--muted); font-size:11px; }
+  .add-row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .add-row input { flex:1; min-width:70px; padding:8px 9px; border-radius:8px; border:1px solid var(--gray-200); font-size:12.5px; font-family:inherit; }
+  .add-row button { padding:8px 12px; border-radius:8px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:12.5px; cursor:pointer; white-space:nowrap; }
+  .add-row button:disabled { opacity:0.5; cursor:not-allowed; }
   .loading, .empty { color: var(--muted); font-size: 13px; padding: 30px 6px; text-align:center; }
 </style>
 </head>
@@ -41,12 +47,12 @@
 
 <header>
   <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
-  <span class="brand">숙제인증 참여 학생</span>
+  <span class="brand">숙제인증 참여/숙제 등록</span>
 </header>
 
 <main>
-  <h1>숙제인증 참여 학생 관리</h1>
-  <p class="sub">체크한 학생만 숙제 인증 제출 화면(학년 선택 → 이름 선택)에 나타납니다.</p>
+  <h1>숙제인증 참여 학생 · 숙제 등록</h1>
+  <p class="sub">체크한 학생만 숙제 인증 제출 화면에 나타납니다. 과목별로 숙제를 등록하면 기록이 쌓이고(덮어쓰지 않음), 가장 최근 등록이 "지금 숙제"로 보여집니다.</p>
 
   <div class="toolbar">
     <label for="grade-filter">학년</label>
@@ -60,13 +66,7 @@
     <span class="count-badge" id="count-badge"></span>
   </div>
 
-  <div class="panel">
-    <table id="student-table" style="display:none;">
-      <thead>
-        <tr><th class="check">참여</th><th>이름</th><th>학생코드</th><th>학년</th><th>강의실</th></tr>
-      </thead>
-      <tbody id="student-tbody"></tbody>
-    </table>
+  <div id="list-area">
     <div class="loading" id="status-area">불러오는 중...</div>
   </div>
 </main>
@@ -77,26 +77,36 @@
 
   let allStudents = [];
   let participantCodes = new Set();
+  let assignmentsByStudent = {}; // student_code -> [{subject, textbook_name, homework_range, assigned_at}]
 
   async function loadAll() {
     const statusArea = document.getElementById('status-area');
-    const [studentsRes, participantsRes] = await Promise.all([
+    const [studentsRes, participantsRes, assignmentsRes] = await Promise.all([
       sb.rpc('rpc_admin_list_all_students', { p_password: getAdminPassword(), p_include_withdrawn: false }),
       sb.rpc('rpc_admin_list_homework_participants', { p_password: getAdminPassword() }),
+      sb.rpc('rpc_admin_list_current_homework_assignments', { p_password: getAdminPassword() }),
     ]);
 
-    if (studentsRes.error) {
-      statusArea.textContent = '학생 목록을 불러오지 못했습니다: ' + studentsRes.error.message;
-      return;
-    }
-    if (participantsRes.error) {
-      statusArea.textContent = '참여 학생 목록을 불러오지 못했습니다: ' + participantsRes.error.message;
-      return;
-    }
+    if (studentsRes.error) { statusArea.textContent = '학생 목록을 불러오지 못했습니다: ' + studentsRes.error.message; return; }
+    if (participantsRes.error) { statusArea.textContent = '참여 학생 목록을 불러오지 못했습니다: ' + participantsRes.error.message; return; }
+    if (assignmentsRes.error) { statusArea.textContent = '숙제 등록 목록을 불러오지 못했습니다: ' + assignmentsRes.error.message; return; }
 
     allStudents = studentsRes.data || [];
     participantCodes = new Set((participantsRes.data || []).map((p) => p.student_code));
+
+    assignmentsByStudent = {};
+    (assignmentsRes.data || []).forEach((a) => {
+      if (!assignmentsByStudent[a.student_code]) assignmentsByStudent[a.student_code] = [];
+      assignmentsByStudent[a.student_code].push(a);
+    });
+
     render();
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
   }
 
   function render() {
@@ -109,37 +119,49 @@
         return (a.student_name || '').localeCompare(b.student_name || '', 'ko');
       });
 
-    const table = document.getElementById('student-table');
-    const tbody = document.getElementById('student-tbody');
-    const statusArea = document.getElementById('status-area');
+    const listArea = document.getElementById('list-area');
     const participatingCount = filtered.filter((s) => participantCodes.has(s.student_code)).length;
     document.getElementById('count-badge').textContent = filtered.length ? `${filtered.length}명 중 ${participatingCount}명 참여` : '';
 
     if (filtered.length === 0) {
-      table.style.display = 'none';
-      statusArea.style.display = 'block';
-      statusArea.textContent = '해당하는 학생이 없습니다. (중3~고3만 표시됩니다)';
+      listArea.innerHTML = '<div class="empty">해당하는 학생이 없습니다. (중3~고3만 표시됩니다)</div>';
       return;
     }
 
-    table.style.display = 'table';
-    statusArea.style.display = 'none';
+    listArea.innerHTML = filtered.map((s) => {
+      const isParticipating = participantCodes.has(s.student_code);
+      const subjects = (assignmentsByStudent[s.student_code] || []).slice().sort((a, b) => a.subject.localeCompare(b.subject, 'ko'));
 
-    tbody.innerHTML = filtered.map((s) => `
-      <tr>
-        <td class="check">
-          <input type="checkbox" class="participate-check"
-            data-code="${s.student_code}" data-name="${s.student_name || ''}" data-grade="${s.grade || ''}"
-            ${participantCodes.has(s.student_code) ? 'checked' : ''}>
-        </td>
-        <td class="name">${s.student_name || ''}</td>
-        <td class="code">${s.student_code || ''}</td>
-        <td>${s.grade || '-'}</td>
-        <td>${s.classroom || '-'}</td>
-      </tr>
-    `).join('');
+      return `
+        <div class="card" data-code="${s.student_code}">
+          <div class="card-top">
+            <input type="checkbox" class="participate-check"
+              data-code="${s.student_code}" data-name="${s.student_name || ''}" data-grade="${s.grade || ''}"
+              ${isParticipating ? 'checked' : ''}>
+            <div>
+              <div class="name">${s.student_name || ''}</div>
+              <div class="meta"><span class="code">${s.student_code || ''}</span> · ${s.grade || '-'} · ${s.classroom || '-'}</div>
+            </div>
+          </div>
+          <div class="subjects-area" style="${isParticipating ? '' : 'display:none;'}">
+            ${subjects.map((a) => `
+              <div class="subject-row">
+                <span><span class="tag">${a.subject}</span><span class="book">${a.textbook_name || ''} ${a.homework_range || ''}</span></span>
+                <span class="date">${fmtDate(a.assigned_at)}</span>
+              </div>
+            `).join('') || '<div class="subject-row" style="color:var(--muted);">등록된 숙제 없음</div>'}
+            <div class="add-row">
+              <input type="text" class="subject-input" placeholder="과목 (예: 수학)" style="flex:0 0 90px;">
+              <input type="text" class="textbook-input" placeholder="교재명">
+              <input type="text" class="range-input" placeholder="범위">
+              <button type="button" class="add-btn">등록</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
 
-    tbody.querySelectorAll('.participate-check').forEach((cb) => {
+    listArea.querySelectorAll('.participate-check').forEach((cb) => {
       cb.addEventListener('change', async () => {
         cb.disabled = true;
         cb.classList.add('saving');
@@ -159,6 +181,42 @@
         }
         if (cb.checked) participantCodes.add(cb.dataset.code);
         else participantCodes.delete(cb.dataset.code);
+        render();
+      });
+    });
+
+    listArea.querySelectorAll('.card').forEach((card) => {
+      const code = card.dataset.code;
+      const student = filtered.find((s) => s.student_code === code);
+      const addBtn = card.querySelector('.add-btn');
+      if (!addBtn) return;
+      addBtn.addEventListener('click', async () => {
+        const subjectInput = card.querySelector('.subject-input');
+        const textbookInput = card.querySelector('.textbook-input');
+        const rangeInput = card.querySelector('.range-input');
+        const subject = subjectInput.value.trim();
+        if (!subject) { alert('과목을 입력해 주세요.'); return; }
+
+        addBtn.disabled = true;
+        addBtn.textContent = '등록 중...';
+        const { error } = await sb.rpc('rpc_admin_add_homework_assignment', {
+          p_password: getAdminPassword(),
+          p_student_code: code,
+          p_student_name: student.student_name,
+          p_grade: student.grade,
+          p_subject: subject,
+          p_textbook_name: textbookInput.value.trim(),
+          p_homework_range: rangeInput.value.trim(),
+        });
+        addBtn.disabled = false;
+        addBtn.textContent = '등록';
+        if (error) { alert('등록 실패: ' + error.message); return; }
+
+        if (!assignmentsByStudent[code]) assignmentsByStudent[code] = [];
+        assignmentsByStudent[code] = assignmentsByStudent[code].filter((a) => a.subject !== subject);
+        assignmentsByStudent[code].push({
+          subject, textbook_name: textbookInput.value.trim(), homework_range: rangeInput.value.trim(), assigned_at: new Date().toISOString(),
+        });
         render();
       });
     });

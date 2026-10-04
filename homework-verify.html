@@ -74,11 +74,11 @@
       </div>
     </div>
 
-    <label for="textbook-name">교재명</label>
-    <input type="text" id="textbook-name" placeholder="예: 쎈 수학 중3-2">
-
-    <label for="homework-range">숙제 범위</label>
-    <input type="text" id="homework-range" placeholder="예: 52~58쪽">
+    <div id="subject-area" style="display:none;">
+      <label for="subject-select">과목</label>
+      <select id="subject-select"></select>
+      <div id="subject-book-info" style="font-size:12.5px; color:var(--muted); margin:-10px 0 16px;"></div>
+    </div>
 
     <label>숙제 사진 (최대 10장)</label>
     <div class="photo-input-wrap">
@@ -144,12 +144,52 @@
     updateSubmitState();
   });
 
-  studentSelect.addEventListener('change', updateSubmitState);
+  let currentAssignments = [];
+  const subjectArea = document.getElementById('subject-area');
+  const subjectSelect = document.getElementById('subject-select');
+  const subjectBookInfo = document.getElementById('subject-book-info');
+
+  studentSelect.addEventListener('change', async () => {
+    const code = studentSelect.value;
+    currentAssignments = [];
+    subjectSelect.innerHTML = '';
+    subjectArea.style.display = 'none';
+    subjectBookInfo.textContent = '';
+    updateSubmitState();
+
+    if (!code) return;
+
+    const { data, error } = await sb.rpc('rpc_get_current_homework_assignments', { p_student_code: code });
+    if (error) { console.error(error); return; }
+    currentAssignments = data || [];
+
+    if (currentAssignments.length === 0) {
+      subjectArea.style.display = 'block';
+      subjectBookInfo.textContent = '등록된 숙제가 없어요. 선생님께 문의해 주세요.';
+      updateSubmitState();
+      return;
+    }
+
+    subjectArea.style.display = 'block';
+    subjectSelect.innerHTML = currentAssignments.map((a) => `<option value="${a.subject}">${a.subject}</option>`).join('');
+    updateSubjectBookInfo();
+    updateSubmitState();
+  });
+
+  subjectSelect.addEventListener('change', () => { updateSubjectBookInfo(); updateSubmitState(); });
+
+  function updateSubjectBookInfo() {
+    const a = currentAssignments.find((x) => x.subject === subjectSelect.value);
+    subjectBookInfo.textContent = a ? `${a.textbook_name || ''} ${a.homework_range || ''}`.trim() : '';
+  }
 
   function updateSubmitState() {
     if (!studentSelect.value) {
       submitBtn.disabled = true;
       submitBtn.textContent = '학생을 먼저 선택하세요';
+    } else if (currentAssignments.length === 0) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = '등록된 숙제가 없어요';
     } else if (selectedFiles.length === 0) {
       submitBtn.disabled = true;
       submitBtn.textContent = '사진을 선택하세요';
@@ -202,7 +242,10 @@
     const studentName = opt.dataset.name;
     const grade = opt.dataset.grade;
 
-    if (!studentCode || selectedFiles.length === 0) return;
+    const subject = subjectSelect.value;
+    const assignment = currentAssignments.find((a) => a.subject === subject);
+
+    if (!studentCode || !subject || selectedFiles.length === 0) return;
 
     const overlay = document.getElementById('loading-overlay');
     overlay.classList.add('open');
@@ -224,8 +267,9 @@
         p_student_code: studentCode,
         p_student_name: studentName,
         p_grade: grade,
-        p_textbook_name: document.getElementById('textbook-name').value.trim(),
-        p_homework_range: document.getElementById('homework-range').value.trim(),
+        p_subject: subject,
+        p_textbook_name: assignment ? assignment.textbook_name : '',
+        p_homework_range: assignment ? assignment.homework_range : '',
         p_image_urls: imageUrls,
       });
       if (submitError) throw submitError;
@@ -242,8 +286,10 @@
 
   document.getElementById('again-btn').addEventListener('click', () => {
     selectedFiles = [];
-    document.getElementById('textbook-name').value = '';
-    document.getElementById('homework-range').value = '';
+    currentAssignments = [];
+    subjectSelect.innerHTML = '';
+    subjectArea.style.display = 'none';
+    subjectBookInfo.textContent = '';
     renderPreviews();
     gradeSelect.value = '';
     studentSelect.innerHTML = '<option value="">학년 먼저 선택</option>';
