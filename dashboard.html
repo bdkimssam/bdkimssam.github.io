@@ -174,9 +174,6 @@
     z-index: 2;
   }
 
-  #card-tlp {
-    grid-column: 1 / -1;
-  }
 
   .card {
     background: var(--white);
@@ -620,6 +617,20 @@
           <span class="card-title">TLP 학습심리검사</span>
         </div>
         <span class="card-tag">검사 결과</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 블로그 소식 -->
+    <div class="card" id="card-blog">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon" style="background:#03C75A;"><i class="fa-solid fa-blog"></i></span>
+          <span class="card-title">블로그 소식</span>
+        </div>
+        <span class="card-tag">최근 글</span>
       </div>
       <div class="card-body" data-state="loading">
         <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
@@ -1081,6 +1092,23 @@
     );
   }
 
+  async function loadBlogPosts() {
+    const { data, error } = await sb.rpc('rpc_get_blog_posts');
+    if (error || !data || data.length === 0) {
+      renderEmptyState('card-blog', '블로그 글이 등록되면 이곳에 표시됩니다.');
+      return;
+    }
+
+    const rows = data.map((post) => `
+      <div class="notice-item" style="cursor:pointer;" onclick="window.open('${post.link}', '_blank')">
+        <div class="t">${post.title}</div>
+        <div class="d">${post.published_at ? new Date(post.published_at).toLocaleDateString('ko-KR') : ''}</div>
+      </div>
+    `).join('');
+
+    setCardState('card-blog', rows);
+  }
+
   // =====================================================================
   // 4) 페이지 로드 시 모든 카드 데이터 동시 요청
   // =====================================================================
@@ -1089,6 +1117,7 @@
   loadProgressAndFeedback();
   loadRewardsAndWarnings();
   loadTlp();
+  loadBlogPosts();
 </script>
 
 </body>
