@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>월간평가 입력 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; display:flex; flex-direction:column; gap:18px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 4px; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  label { display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+  select, input {
+    width:100%; font-size:14.5px; padding:11px 13px; border-radius:10px; border:1px solid var(--gray-200);
+    margin-bottom:14px; font-family:inherit; background:#fff;
+  }
+  select:focus, input:focus { outline:none; border-color: var(--navy-900); }
+  .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .row-add { display:grid; grid-template-columns: 1fr 1fr 1.4fr 1fr auto; gap:8px; align-items:end; margin-bottom:0; }
+  .row-add label { margin-bottom:4px; }
+  .row-add select, .row-add input { margin-bottom:0; }
+  button.add-btn {
+    padding:11px 16px; border-radius:10px; border:none; background:var(--navy-900); color:#fff;
+    font-weight:800; font-size:13.5px; cursor:pointer; white-space:nowrap;
+  }
+  button.add-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .score-list { margin-top:18px; }
+  .score-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 2px; border-top:1px solid var(--gray-200); font-size:13.5px; }
+  .score-row:first-child { border-top:none; }
+  .score-row .info { font-weight:700; }
+  .score-row .info .type { color: var(--muted); font-weight:600; font-size:12px; margin-left:6px; }
+  .score-row .val { font-weight:900; }
+  .score-row .del-btn { background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:4px; }
+  .score-row .del-btn:hover { color:#DC2626; }
+  .empty, .loading { color: var(--muted); font-size:13px; padding:16px 4px; text-align:center; }
+  @media (max-width: 520px) {
+    .row-add { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">월간평가 입력</span>
+</header>
+
+<main>
+  <h1>월간평가 점수 입력</h1>
+  <p class="sub">학생을 선택하면 지금까지 입력된 점수 목록이 보이고, 아래에서 월별로 추가 입력할 수 있어요.</p>
+
+  <div class="panel">
+    <label for="student-select">학생 선택</label>
+    <select id="student-select" style="margin-bottom:0;">
+      <option value="">학생을 선택하세요</option>
+    </select>
+  </div>
+
+  <div class="panel" id="entry-panel" style="display:none;">
+    <div class="row-add">
+      <div>
+        <label for="exam-year">연도</label>
+        <select id="exam-year"></select>
+      </div>
+      <div>
+        <label for="exam-month">월</label>
+        <select id="exam-month"></select>
+      </div>
+      <div>
+        <label for="exam-type">구분</label>
+        <select id="exam-type"></select>
+      </div>
+      <div>
+        <label for="exam-score">점수</label>
+        <input type="number" id="exam-score" placeholder="예: 85" min="0" max="100">
+      </div>
+      <button type="button" class="add-btn" id="add-score-btn">추가</button>
+    </div>
+
+    <div class="score-list" id="score-list"><div class="empty">입력된 점수가 없습니다.</div></div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireAdminAuth();
+
+  // 학교급별 시험 구분 옵션
+  const EXAM_TYPES_BY_LEVEL = {
+    '초': ['월간평가', '경시대회'],
+    '중': ['월간평가', '중간고사', '기말고사'],
+    '고': ['중간고사', '기말고사', '모의고사'],
+  };
+
+  const studentSelect = document.getElementById('student-select');
+  const entryPanel = document.getElementById('entry-panel');
+  const examYearSelect = document.getElementById('exam-year');
+  const examMonthSelect = document.getElementById('exam-month');
+  const examTypeSelect = document.getElementById('exam-type');
+  const examScoreInput = document.getElementById('exam-score');
+  const addScoreBtn = document.getElementById('add-score-btn');
+  const scoreListEl = document.getElementById('score-list');
+
+  let selectedCode = '';
+  let selectedName = '';
+  let selectedGrade = '';
+
+  // 연도 옵션 (올해 기준 작년~올해)
+  const thisYear = new Date().getFullYear();
+  examYearSelect.innerHTML = [thisYear, thisYear - 1].map((y) => `<option value="${y}">${y}</option>`).join('');
+
+  // 월 옵션
+  examMonthSelect.innerHTML = Array.from({ length: 12 }, (_, i) => i + 1)
+    .map((m) => `<option value="${m}">${m}월</option>`).join('');
+  examMonthSelect.value = new Date().getMonth() + 1;
+
+  async function loadStudents() {
+    const { data, error } = await sb.rpc('rpc_admin_list_all_students', {
+      p_password: getAdminPassword(), p_include_withdrawn: false,
+    });
+    if (error) {
+      studentSelect.innerHTML = '<option value="">학생을 불러오지 못했습니다</option>';
+      return;
+    }
+    const students = (data || []).slice().sort((a, b) => {
+      const g = compareGrades(a.grade, b.grade);
+      if (g !== 0) return g;
+      return (a.student_name || '').localeCompare(b.student_name || '', 'ko');
+    });
+    const groups = {};
+    students.forEach((s) => {
+      const g = s.grade || '학년 미지정';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(s);
+    });
+    const optgroups = Object.keys(groups).map((g) => `
+      <optgroup label="${g}">
+        ${groups[g].map((s) => `<option value="${s.student_code}" data-name="${s.student_name || ''}" data-grade="${s.grade || ''}">${s.student_name || '(이름없음)'} (${s.student_code})</option>`).join('')}
+      </optgroup>
+    `).join('');
+    studentSelect.innerHTML = '<option value="">학생을 선택하세요</option>' + optgroups;
+  }
+  loadStudents();
+
+  function updateExamTypeOptions(grade) {
+    const level = (grade || '').charAt(0); // '초' | '중' | '고'
+    const types = EXAM_TYPES_BY_LEVEL[level] || ['월간평가', '중간고사', '기말고사', '모의고사'];
+    examTypeSelect.innerHTML = types.map((t) => `<option value="${t}">${t}</option>`).join('');
+  }
+
+  studentSelect.addEventListener('change', () => {
+    const code = studentSelect.value;
+    if (!code) {
+      entryPanel.style.display = 'none';
+      return;
+    }
+    const opt = studentSelect.selectedOptions[0];
+    selectedCode = code;
+    selectedName = opt.dataset.name;
+    selectedGrade = opt.dataset.grade;
+    updateExamTypeOptions(selectedGrade);
+    entryPanel.style.display = 'block';
+    loadScores();
+  });
+
+  async function loadScores() {
+    scoreListEl.innerHTML = '<div class="loading">불러오는 중...</div>';
+    const { data, error } = await sb.rpc('rpc_admin_list_monthly_scores', {
+      p_password: getAdminPassword(), p_student_code: selectedCode,
+    });
+    if (error) {
+      scoreListEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>';
+      return;
+    }
+    renderScores(data || []);
+  }
+
+  function renderScores(items) {
+    if (items.length === 0) {
+      scoreListEl.innerHTML = '<div class="empty">입력된 점수가 없습니다.</div>';
+      return;
+    }
+    scoreListEl.innerHTML = items.map((it) => `
+      <div class="score-row">
+        <div class="info">${it.exam_year}년 ${it.exam_month}월 <span class="type">${it.exam_type}</span></div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="val">${it.score}점</span>
+          <button type="button" class="del-btn" data-id="${it.id}"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    `).join('');
+
+    scoreListEl.querySelectorAll('.del-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 점수를 삭제할까요?')) return;
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_delete_monthly_score', {
+          p_password: getAdminPassword(), p_score_id: btn.dataset.id,
+        });
+        btn.disabled = false;
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+        loadScores();
+      });
+    });
+  }
+
+  addScoreBtn.addEventListener('click', async () => {
+    const score = examScoreInput.value;
+    if (score === '') { alert('점수를 입력해주세요.'); return; }
+    addScoreBtn.disabled = true;
+    addScoreBtn.textContent = '저장 중...';
+    const { error } = await sb.rpc('rpc_admin_add_monthly_score', {
+      p_password: getAdminPassword(),
+      p_student_code: selectedCode,
+      p_student_name: selectedName,
+      p_exam_type: examTypeSelect.value,
+      p_exam_year: examYearSelect.value,
+      p_exam_month: examMonthSelect.value,
+      p_score: score,
+    });
+    addScoreBtn.disabled = false;
+    addScoreBtn.textContent = '추가';
+    if (error) { alert('저장 실패: ' + error.message); return; }
+    examScoreInput.value = '';
+    examScoreInput.focus();
+    loadScores();
+  });
+
+  examScoreInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addScoreBtn.click();
+  });
+</script>
+
+</body>
+</html>
