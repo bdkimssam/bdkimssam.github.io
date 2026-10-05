@@ -73,7 +73,7 @@
       </div>
       <div>
         <label for="add-time">시간</label>
-        <input type="time" id="add-time">
+        <input type="time" id="add-time" step="1800">
       </div>
       <button type="button" class="add-btn" id="add-slot-btn">추가</button>
     </div>
@@ -134,7 +134,7 @@
             </div>
             <div>
               <label>시간</label>
-              <input type="time" class="e-time" data-id="${s.id}" value="${timeLabel(s.slot_time)}">
+              <input type="time" class="e-time" data-id="${s.id}" value="${timeLabel(s.slot_time)}" step="1800">
             </div>
             <div class="slot-edit-actions">
               <button type="button" class="save-btn" data-id="${s.id}">저장</button>
