@@ -273,8 +273,9 @@ order by table_name;
 #### 신청 관리자 페이지 (33 마이그레이션)
 `admin/exam-applications.html` — 관리자 홈 "학습 관리" 섹션에 "수학학력평가 신청 관리" 카드 추가. 전체/HME/KMA 필터, 신청자별 예상점수/최종점수 입력, 삭제(테스트/오신청 정리용).
 - `rpc_admin_list_exam_applications(p_password)` — 원장님 전용. 전체 신청 목록(날짜/회차/학생명 순 정렬).
-- `rpc_admin_update_exam_scores(p_password, p_id, p_predicted_score, p_final_score)` — 원장님 전용. 예상점수/최종점수 입력·수정.
+- `rpc_admin_update_exam_scores(p_password, p_id, p_predicted_score, p_final_score, p_notes)` — 원장님 전용. 예상점수/최종점수/비고 입력·수정 (35 마이그레이션에서 `p_notes` 추가, 기존 4-인자 함수는 삭제됨).
 - `rpc_admin_delete_exam_application(p_password, p_id)` — 원장님 전용. 신청 삭제.
+- `math_exam_applications.notes` — 비고(35 마이그레이션). 예: "아파서 응시 못함" 같은 메모. 관리자 페이지 수정 패널에서 입력.
 
 ### 상담 문자(SMS) 알림 — 솔라피 (31 마이그레이션)
 `consultations`에 `reminder_sent boolean NOT NULL DEFAULT false` 컬럼 추가(1시간 전 리마인더 중복 발송 방지용).

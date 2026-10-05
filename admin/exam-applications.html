@@ -46,6 +46,10 @@
   .actions .del-btn:hover { color:#DC2626; }
   .actions .edit-btn:hover { color:var(--navy-900); }
   .edit-panel { margin-top:10px; padding:14px; background: var(--gray-50); border-radius:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:end; }
+  .edit-panel textarea { width:100%; font-size:13.5px; padding:9px 11px; border-radius:10px; border:1px solid var(--gray-200); font-family:inherit; resize:vertical; min-height:56px; }
+  .edit-panel textarea:focus { outline:none; border-color: var(--navy-900); }
+  .notes-line { margin-top:8px; font-size:12.5px; color:var(--muted); background:var(--gray-50); border-radius:8px; padding:8px 10px; }
+  .notes-line .label { font-weight:700; color: var(--ink); margin-right:4px; }
   .edit-panel label { font-size:11px; }
   .edit-actions { grid-column: 1 / -1; display:flex; gap:8px; margin-top:2px; }
   .edit-actions button { flex:1; padding:9px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; }
@@ -143,6 +147,10 @@
             <label>최종점수</label>
             <input type="number" step="0.1" class="e-final" data-id="${it.id}" value="${it.final_score ?? ''}">
           </div>
+          <div style="grid-column: 1 / -1;">
+            <label>비고</label>
+            <textarea class="e-notes" data-id="${it.id}" placeholder="예) 아파서 응시 못함">${it.notes ?? ''}</textarea>
+          </div>
           <div class="edit-actions">
             <button type="button" class="save-btn" data-id="${it.id}">저장</button>
             <button type="button" class="cancel-btn">취소</button>
@@ -173,6 +181,7 @@
           <span><span class="label">예상점수</span>${it.predicted_score ?? '-'}</span>
           <span><span class="label">최종점수</span>${it.final_score ?? '-'}</span>
         </div>
+        ${it.notes ? `<div class="notes-line"><span class="label">비고</span>${it.notes}</div>` : ''}
         ${editPanel}
       </div>
     `;
@@ -189,12 +198,14 @@
         const id = btn.dataset.id;
         const predictedRaw = appListEl.querySelector(`.e-predicted[data-id="${id}"]`).value.trim();
         const finalRaw = appListEl.querySelector(`.e-final[data-id="${id}"]`).value.trim();
+        const notesRaw = appListEl.querySelector(`.e-notes[data-id="${id}"]`).value.trim();
         btn.disabled = true;
         const { error } = await sb.rpc('rpc_admin_update_exam_scores', {
           p_password: getAdminPassword(),
           p_id: id,
           p_predicted_score: predictedRaw === '' ? null : Number(predictedRaw),
           p_final_score: finalRaw === '' ? null : Number(finalRaw),
+          p_notes: notesRaw === '' ? null : notesRaw,
         });
         btn.disabled = false;
         if (error) { alert('저장 실패: ' + error.message); return; }
