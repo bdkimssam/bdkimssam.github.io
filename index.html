@@ -794,9 +794,9 @@
 
       <div class="px-6 md:px-8 py-6 overflow-y-auto">
 
-        <!-- 1단계: 간단한 문의 정보 입력 (Supabase에 기록용) -->
+        <!-- 1단계(통합): 문의 정보 + 상담 시간 선택을 한 화면에서 처리 -->
         <div id="consult-step-form">
-          <p class="text-ink/70 text-[13.5px] leading-relaxed mb-5">간단한 정보를 남겨주시면, 바로 이어서 상담 가능한 시간을 예약하실 수 있어요.</p>
+          <p class="text-ink/70 text-[13.5px] leading-relaxed mb-5">간단한 정보를 남겨주시고, 원하시는 상담 시간이 있으면 함께 선택해주세요.</p>
 
           <div class="flex flex-col gap-4">
             <div>
@@ -826,27 +826,27 @@
                 <option value="기타">기타</option>
               </select>
             </div>
+            <div>
+              <label class="block text-[12.5px] font-bold text-ink/60 mb-1.5">상담 가능 시간 (선택)</label>
+              <p class="text-ink/45 text-[12px] leading-relaxed mb-2.5">원하시는 시간을 골라주세요. 마음에 드는 시간이 없으면 그냥 신청하셔도 괜찮아요 — 전화로 시간을 조율해드릴게요.</p>
+              <div id="consult-slots-loading" class="text-ink/50 text-[13px] py-5 text-center">불러오는 중...</div>
+              <div id="consult-slots-empty" class="hidden text-ink/50 text-[13px] py-4 px-4 text-center bg-gray-50 rounded-xl leading-relaxed">
+                현재 예약 가능한 시간이 없어요.<br>그냥 신청해주시면 전화로 시간을 조율해드릴게요.
+              </div>
+              <div id="consult-slots-list" class="hidden flex flex-col gap-4 max-h-[220px] overflow-y-auto pr-1"></div>
+              <p id="consult-selected-slot-note" class="hidden text-navy-900 text-[12.5px] font-bold mt-2"></p>
+            </div>
             <p id="consult-error-msg" class="hidden text-red-600 text-[12.5px] font-bold"></p>
-            <button type="button" id="consult-submit-btn" class="w-full bg-navy-900 hover:bg-black transition-colors text-white font-bold text-[14.5px] py-3.5 rounded-xl">다음: 예약 시간 선택 →</button>
+            <button type="button" id="consult-submit-btn" class="w-full bg-navy-900 hover:bg-black transition-colors text-white font-bold text-[14.5px] py-3.5 rounded-xl">상담 신청하기</button>
           </div>
         </div>
 
-        <!-- 2단계: 상담 가능 시간 선택 — 1단계 제출 후에만 표시 -->
-        <div id="consult-step-slots" class="hidden">
-          <p class="text-ink/70 text-[13.5px] leading-relaxed mb-5">원하시는 상담 시간을 선택해주세요.</p>
-          <div id="consult-slots-loading" class="text-ink/50 text-[13.5px] py-10 text-center">불러오는 중...</div>
-          <div id="consult-slots-empty" class="hidden text-ink/60 text-[13.5px] py-10 text-center leading-relaxed">
-            현재 예약 가능한 시간이 없어요.<br>전화(053-000-0000)로 문의해주시면 빠르게 안내해드릴게요.
-          </div>
-          <div id="consult-slots-list" class="flex flex-col gap-5 max-h-[55vh] overflow-y-auto pr-1"></div>
-        </div>
-
-        <!-- 3단계: 예약 완료 -->
+        <!-- 2단계: 신청 완료 -->
         <div id="consult-step-done" class="hidden text-center py-10">
           <div class="w-14 h-14 rounded-full bg-navy-900 text-white flex items-center justify-center mx-auto mb-5">
             <i class="fa-solid fa-check text-xl"></i>
           </div>
-          <h3 class="text-navy-900 font-black text-lg mb-2">상담 예약이 완료되었어요</h3>
+          <h3 class="text-navy-900 font-black text-lg mb-2">상담 신청이 완료되었어요</h3>
           <p id="consult-done-summary" class="text-ink/70 text-[13.5px] leading-relaxed mb-6"></p>
           <button type="button" id="consult-done-close-btn" class="bg-navy-900 hover:bg-black transition-colors text-white font-bold text-[14.5px] py-3 px-8 rounded-xl">확인</button>
         </div>
@@ -1110,12 +1110,9 @@
     resetConsultModalToForm();
   }
 
-  let currentConsultationId = null;
-
-  // 모달 열릴 때마다 1단계(입력 폼)부터 다시 시작하도록 초기화
+  // 모달 열릴 때마다 입력 폼부터 다시 시작하도록 초기화 + 가능한 시간 목록도 바로 불러옴
   function resetConsultModalToForm() {
     document.getElementById('consult-step-form').classList.remove('hidden');
-    document.getElementById('consult-step-slots').classList.add('hidden');
     document.getElementById('consult-step-done').classList.add('hidden');
     document.getElementById('consult-student-name').value = '';
     document.getElementById('consult-parent-phone').value = '';
@@ -1127,8 +1124,11 @@
     errEl.textContent = '';
     const submitBtn = document.getElementById('consult-submit-btn');
     submitBtn.disabled = false;
-    submitBtn.textContent = '다음: 예약 시간 선택 →';
-    currentConsultationId = null;
+    submitBtn.textContent = '상담 신청하기';
+    selectedSlotId = null;
+    selectedSlotLabel = null;
+    updateSelectedSlotNote();
+    loadConsultSlots();
   }
 
   document.getElementById('consult-submit-btn').addEventListener('click', async () => {
@@ -1159,27 +1159,38 @@
       p_student_grade: gradeEl.value.trim(),
       p_inquiry: inquiryEl.value.trim(),
       p_referral_source: referralEl.value,
+      p_slot_id: selectedSlotId,
     });
 
     btn.disabled = false;
-    btn.textContent = '다음: 예약 시간 선택 →';
+    btn.textContent = '상담 신청하기';
 
     if (error) {
+      if (selectedSlotId && /다른 분이/.test(error.message)) {
+        // 선택한 시간이 방금 다른 분에게 선점된 경우: 폼 내용은 유지하고 시간 목록만 새로고침
+        alert('죄송해요, 방금 다른 분이 같은 시간을 예약하셨어요. 다른 시간을 선택해주세요.');
+        selectedSlotId = null;
+        selectedSlotLabel = null;
+        updateSelectedSlotNote();
+        loadConsultSlots();
+        return;
+      }
       errEl.textContent = '저장 중 문제가 발생했습니다: ' + error.message;
       errEl.classList.remove('hidden');
       return;
     }
 
-    currentConsultationId = data;
-
-    // 2단계(상담 가능 시간 선택)로 전환
     document.getElementById('consult-step-form').classList.add('hidden');
-    document.getElementById('consult-step-slots').classList.remove('hidden');
-    loadConsultSlots();
+    document.getElementById('consult-step-done').classList.remove('hidden');
+    document.getElementById('consult-done-summary').textContent = selectedSlotLabel
+      ? `${selectedSlotLabel}에 상담 예약이 확정되었어요. 해당 시간에 학원으로 전화 또는 방문해주시면 됩니다.`
+      : '상담 신청이 접수되었어요. 입력해주신 연락처로 곧 연락드려 상담 시간을 정해드릴게요.';
   });
 
-  // ---- 2단계: 상담 가능 시간 불러오기 & 선택 ----
+  // ---- 상담 가능 시간 불러오기 & 선택 (제출은 아래 '상담 신청하기' 버튼에서 한 번에 처리) ----
   const DOW_LABEL = ['일', '월', '화', '수', '목', '금', '토'];
+  let selectedSlotId = null;
+  let selectedSlotLabel = null;
 
   function pad2(n) { return String(n).padStart(2, '0'); }
   function dateToStr(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
@@ -1191,12 +1202,24 @@
     return `${ampm} ${h12}:${pad2(m)}`;
   }
 
+  function updateSelectedSlotNote() {
+    const noteEl = document.getElementById('consult-selected-slot-note');
+    if (selectedSlotLabel) {
+      noteEl.textContent = `선택한 시간: ${selectedSlotLabel} (다시 누르면 선택 취소)`;
+      noteEl.classList.remove('hidden');
+    } else {
+      noteEl.classList.add('hidden');
+      noteEl.textContent = '';
+    }
+  }
+
   async function loadConsultSlots() {
     const loadingEl = document.getElementById('consult-slots-loading');
     const emptyEl = document.getElementById('consult-slots-empty');
     const listEl = document.getElementById('consult-slots-list');
     loadingEl.classList.remove('hidden');
     emptyEl.classList.add('hidden');
+    listEl.classList.add('hidden');
     listEl.innerHTML = '';
 
     const { data, error } = await sb.rpc('rpc_get_open_consultation_slots');
@@ -1205,7 +1228,7 @@
 
     if (error) {
       emptyEl.classList.remove('hidden');
-      emptyEl.innerHTML = '시간을 불러오지 못했어요. 전화로 문의해주세요.';
+      emptyEl.innerHTML = '시간을 불러오지 못했어요. 그냥 신청해주시면 전화로 시간을 조율해드릴게요.';
       return;
     }
 
@@ -1222,6 +1245,7 @@
       groupMap.get(s.slot_date).push({ id: s.id, time: s.slot_time });
     });
 
+    listEl.classList.remove('hidden');
     listEl.innerHTML = Array.from(groupMap.entries()).map(([dateStr, times]) => {
       const d = new Date(dateStr + 'T00:00:00');
       const dateLabelStr = `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW_LABEL[d.getDay()]})`;
@@ -1229,40 +1253,37 @@
       <div>
         <div class="text-[13px] font-bold text-navy-900 mb-2">${dateLabelStr}</div>
         <div class="flex flex-wrap gap-2">
-          ${times.map((t) => `<button type="button" class="consult-time-btn px-3.5 py-2 rounded-lg border border-black/10 text-[13px] font-bold text-ink hover:border-navy-900 hover:bg-navy-900 hover:text-white transition-colors" data-slot-id="${t.id}" data-label="${dateLabelStr} ${timeToLabel(t.time)}">${timeToLabel(t.time)}</button>`).join('')}
+          ${times.map((t) => `<button type="button" class="consult-time-btn px-3.5 py-2 rounded-lg border border-black/10 text-[13px] font-bold text-ink hover:border-navy-900 transition-colors" data-slot-id="${t.id}" data-label="${dateLabelStr} ${timeToLabel(t.time)}">${timeToLabel(t.time)}</button>`).join('')}
         </div>
       </div>
     `;
     }).join('');
 
+    applySlotSelectionStyles();
     listEl.querySelectorAll('.consult-time-btn').forEach((btn) => {
-      btn.addEventListener('click', () => selectConsultSlot(btn.dataset.slotId, btn.dataset.label));
+      btn.addEventListener('click', () => {
+        if (selectedSlotId === btn.dataset.slotId) {
+          // 같은 시간을 다시 누르면 선택 취소
+          selectedSlotId = null;
+          selectedSlotLabel = null;
+        } else {
+          selectedSlotId = btn.dataset.slotId;
+          selectedSlotLabel = btn.dataset.label;
+        }
+        applySlotSelectionStyles();
+        updateSelectedSlotNote();
+      });
     });
   }
 
-  async function selectConsultSlot(slotId, label) {
-    if (!currentConsultationId) return;
-    const listEl = document.getElementById('consult-slots-list');
-    listEl.style.opacity = '0.5';
-    listEl.style.pointerEvents = 'none';
-
-    const { error } = await sb.rpc('rpc_submit_consultation_visit_time', {
-      p_id: currentConsultationId,
-      p_slot_id: slotId,
+  function applySlotSelectionStyles() {
+    document.querySelectorAll('.consult-time-btn').forEach((btn) => {
+      if (btn.dataset.slotId === selectedSlotId) {
+        btn.classList.add('bg-navy-900', 'text-white', 'border-navy-900');
+      } else {
+        btn.classList.remove('bg-navy-900', 'text-white', 'border-navy-900');
+      }
     });
-
-    listEl.style.opacity = '1';
-    listEl.style.pointerEvents = 'auto';
-
-    if (error) {
-      alert('죄송해요, 방금 다른 분이 같은 시간을 예약하셨어요. 다른 시간을 선택해주세요.');
-      loadConsultSlots();
-      return;
-    }
-
-    document.getElementById('consult-step-slots').classList.add('hidden');
-    document.getElementById('consult-step-done').classList.remove('hidden');
-    document.getElementById('consult-done-summary').textContent = `${label}에 상담 예약이 확정되었어요. 해당 시간에 학원으로 전화 또는 방문해주시면 됩니다.`;
   }
 
   document.getElementById('consult-done-close-btn').addEventListener('click', () => {
