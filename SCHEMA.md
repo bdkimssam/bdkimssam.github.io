@@ -269,6 +269,12 @@ order by table_name;
 - `rpc_get_my_exam_applications(p_student_code)` — 공개. 이미 신청한 회차 조회(버튼 "신청완료" 표시용).
 - `rpc_apply_math_exam(p_student_code, p_exam_type)` — 공개. 원클릭 신청 처리 + `notify_telegram_math_exam()` AFTER INSERT 트리거로 원장님께 텔레그램 알림.
 
+#### 신청 관리자 페이지 (33 마이그레이션)
+`admin/exam-applications.html` — 관리자 홈 "학습 관리" 섹션에 "수학학력평가 신청 관리" 카드 추가. 전체/HME/KMA 필터, 신청자별 예상점수/최종점수 입력, 삭제(테스트/오신청 정리용).
+- `rpc_admin_list_exam_applications(p_password)` — 원장님 전용. 전체 신청 목록(날짜/회차/학생명 순 정렬).
+- `rpc_admin_update_exam_scores(p_password, p_id, p_predicted_score, p_final_score)` — 원장님 전용. 예상점수/최종점수 입력·수정.
+- `rpc_admin_delete_exam_application(p_password, p_id)` — 원장님 전용. 신청 삭제.
+
 ### 상담 문자(SMS) 알림 — 솔라피 (31 마이그레이션)
 `consultations`에 `reminder_sent boolean NOT NULL DEFAULT false` 컬럼 추가(1시간 전 리마인더 중복 발송 방지용).
 - `notify_sms_consultation_confirm()` — `consultations` AFTER INSERT 트리거. 신청 직후 학부모님께 접수 확인 문자(방문시간 있으면 시간 포함, 없으면 "곧 연락드리겠습니다"). 홈페이지 신청/관리자 전화상담 직접입력 둘 다.
