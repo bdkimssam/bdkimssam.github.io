@@ -101,7 +101,7 @@
 
   function hourOptions(selectedHour) {
     let html = '';
-    for (let h = 0; h < 24; h++) {
+    for (let h = 9; h <= 22; h++) {
       const hh = String(h).padStart(2, '0');
       html += `<option value="${hh}" ${hh === selectedHour ? 'selected' : ''}>${hh}시</option>`;
     }
