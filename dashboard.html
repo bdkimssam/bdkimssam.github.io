@@ -858,14 +858,20 @@
       sb.rpc('rpc_get_exam_rounds'), // 파라미터 없음 — fetchStudentData 대신 직접 호출
       fetchStudentData('rpc_get_my_exam_applications', studentCode),
     ]);
-    const rounds = roundsRes.data || [];
+    const allRounds = roundsRes.data || [];
+    const appliedTypes = new Set(applications.map((a) => a.exam_type));
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // 접수 마감일이 지났고 아직 신청 안 한 회차는 목록에서 제외 (이미 신청한 건 "신청완료"로 계속 표시)
+    const rounds = allRounds.filter((r) => {
+      const deadlinePassed = r.apply_deadline && todayStr > r.apply_deadline;
+      return !deadlinePassed || appliedTypes.has(r.exam_type);
+    });
 
     if (rounds.length === 0) {
       renderEmptyState('card-examapply', '현재 신청 가능한 시험이 없습니다.');
       return;
     }
-
-    const appliedTypes = new Set(applications.map((a) => a.exam_type));
 
     setCardState(
       'card-examapply',

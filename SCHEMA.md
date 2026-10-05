@@ -262,7 +262,8 @@ order by table_name;
 ### 수학학력평가(KMA/HME) 원클릭 신청 (32 마이그레이션)
 초등부 학생만 대상. 학부모 대시보드에 "수학학력평가 신청" 카드 — 버튼 누르면 KMA/HME 중 선택, 학생 정보(이름/학교/학년/학부모연락처/생년월일)는 `students`에서 자동으로 가져와 저장. 서버에서도 `grade like '초%'`가 아니면 거부(이중 체크).
 
-- `math_exam_rounds` — 시험 회차+날짜 (exam_type PK: 'HME'/'KMA', exam_date, label). 2026년 2학기: HME 11/14, KMA 11/21. **학기마다 이 테이블의 exam_date만 UPDATE하면 됨** (코드 수정 불필요).
+- `math_exam_rounds` — 시험 회차+날짜 (exam_type PK: 'HME'/'KMA', exam_date, label, `apply_deadline` — 34 마이그레이션에서 추가). 2026년 2학기: HME 11/14, KMA 11/21, 접수마감 10/28. **학기마다 이 테이블의 exam_date/apply_deadline만 UPDATE하면 됨** (코드 수정 불필요).
+- 접수 마감일(`apply_deadline`)이 지나면 대시보드에서 해당 회차 신청 버튼이 사라짐(이미 신청한 학생은 "신청완료"로 계속 표시). `rpc_apply_math_exam`에서도 마감일 체크(이중 체크).
 - `math_exam_applications` — 신청 기록. student_code/student_name/school/grade/parent_phone/birth_date(신청 시점 students에서 복사) + exam_type + exam_date + `predicted_score`(예상점수, 추후 원장님이 직접 입력)/`final_score`(최종점수) + applied_at. `unique(student_code, exam_type, exam_date)`로 같은 회차 중복신청 방지.
 - `rpc_get_student_grade(p_student_code)` — 공개. 대시보드가 초등부인지 판단해서 카드 노출 여부 결정.
 - `rpc_get_exam_rounds()` — 공개. 신청 가능한 회차+날짜 목록.
