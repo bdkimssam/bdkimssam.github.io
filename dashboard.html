@@ -1269,7 +1269,7 @@
       return;
     }
 
-    const rows = data.map((post) => `
+    const rows = data.slice(0, 3).map((post) => `
       <div class="notice-item" style="cursor:pointer;" onclick="window.open('${post.link}', '_blank')">
         <div class="t">${post.title}</div>
         <div class="d">${post.published_at ? new Date(post.published_at).toLocaleDateString('ko-KR') : ''}</div>
