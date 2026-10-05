@@ -56,6 +56,25 @@
   .edit-actions .save-btn { border:none; background:var(--navy-900); color:#fff; }
   .edit-actions .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
   .empty, .loading { color: var(--muted); font-size:13px; padding:16px 4px; text-align:center; }
+  .round-card { padding:16px 2px; border-top:1px solid var(--gray-200); }
+  .round-card:first-child { border-top:none; padding-top:2px; }
+  .round-card .round-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .round-card .round-current { font-size:13.5px; margin-top:6px; color:var(--ink); }
+  .round-card .round-current .sem { color:var(--muted); font-weight:700; margin-right:6px; }
+  .round-toggle-btn { background:none; border:1px solid var(--gray-200); border-radius:9px; padding:7px 12px; font-size:12px; font-weight:700; color:var(--muted); cursor:pointer; }
+  .round-toggle-btn:hover { border-color: var(--navy-900); color: var(--navy-900); }
+  .round-form { margin-top:12px; padding:14px; background: var(--gray-50); border-radius:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:end; }
+  .round-form label { font-size:11px; }
+  .round-form .full { grid-column: 1 / -1; }
+  .round-form .form-actions { grid-column: 1 / -1; display:flex; gap:8px; margin-top:2px; }
+  .round-form .form-actions button { flex:1; padding:9px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; }
+  .round-form .save-btn { border:none; background:var(--navy-900); color:#fff; }
+  .round-form .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
+  .history-table { margin-top:14px; border-top:1px dashed var(--gray-200); padding-top:10px; }
+  .history-row { display:flex; justify-content:space-between; gap:10px; font-size:12.5px; color:var(--muted); padding:5px 0; flex-wrap:wrap; }
+  .history-row .cur-tag { color:#16A34A; font-weight:800; }
+  .history-section-title { text-align:center; margin:4px 0 0; }
+  .history-section-title button { background:none; border:none; color:var(--muted); font-size:12px; font-weight:700; cursor:pointer; text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -66,6 +85,17 @@
 </header>
 
 <main>
+  <div>
+    <h1>시험 회차 (학기별) 관리</h1>
+    <p class="sub">학기가 바뀌어 시험일·접수마감일이 바뀌면 여기서 "새 학기 회차 입력"으로 추가해주세요. 지난 학기 정보는 자동으로 이력에 남아요.</p>
+  </div>
+
+  <div class="panel">
+    <div id="rounds-current"><div class="loading">불러오는 중...</div></div>
+    <div class="history-section-title"><button type="button" id="toggle-history-btn">지난 회차 이력 보기</button></div>
+    <div class="history-table" id="rounds-history" style="display:none;"></div>
+  </div>
+
   <div>
     <h1>KMA · HME 신청 현황</h1>
     <p class="sub">초등부 학생들의 수학학력평가 신청 목록이에요. 성적이 나오면 예상점수/최종점수를 입력해주세요.</p>
@@ -111,6 +141,162 @@
     if (!iso) return '';
     const d = new Date(iso);
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // =====================================================================
+  // 시험 회차(학기별) 관리
+  // =====================================================================
+  const roundsCurrentEl = document.getElementById('rounds-current');
+  const roundsHistoryEl = document.getElementById('rounds-history');
+  const toggleHistoryBtn = document.getElementById('toggle-history-btn');
+  let allRounds = [];
+  let openFormType = null; // 'HME' | 'KMA' | null
+
+  function semesterLabel(year, term) {
+    return `${year}년 ${term}학기`;
+  }
+
+  async function loadRounds() {
+    roundsCurrentEl.innerHTML = '<div class="loading">불러오는 중...</div>';
+    const { data, error } = await sb.rpc('rpc_admin_get_exam_rounds', { p_password: getAdminPassword() });
+    if (error) {
+      roundsCurrentEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>';
+      return;
+    }
+    allRounds = data || [];
+    renderRounds();
+  }
+  loadRounds();
+
+  toggleHistoryBtn.addEventListener('click', () => {
+    const show = roundsHistoryEl.style.display === 'none';
+    roundsHistoryEl.style.display = show ? 'block' : 'none';
+    toggleHistoryBtn.textContent = show ? '지난 회차 이력 숨기기' : '지난 회차 이력 보기';
+    if (show) renderHistory();
+  });
+
+  function renderHistory() {
+    const past = allRounds.filter((r) => !r.is_current).sort((a, b) => {
+      if (a.exam_type !== b.exam_type) return a.exam_type.localeCompare(b.exam_type);
+      return b.semester_year - a.semester_year || b.semester_term - a.semester_term;
+    });
+    if (past.length === 0) {
+      roundsHistoryEl.innerHTML = '<div class="empty">지난 회차 이력이 없습니다.</div>';
+      return;
+    }
+    roundsHistoryEl.innerHTML = past.map((r) => `
+      <div class="history-row">
+        <span><span class="badge ${r.exam_type === 'HME' ? 'hme' : 'kma'}">${r.exam_type}</span> ${semesterLabel(r.semester_year, r.semester_term)}</span>
+        <span>시험일 ${dateLabel(r.exam_date)} · 마감 ${r.apply_deadline ? dateLabel(r.apply_deadline) : '-'}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderRounds() {
+    const types = ['HME', 'KMA'];
+    roundsCurrentEl.innerHTML = types.map((type) => {
+      const current = allRounds.find((r) => r.exam_type === type && r.is_current);
+      const isFormOpen = openFormType === type;
+
+      const currentInfo = current
+        ? `<div class="round-current"><span class="sem">${semesterLabel(current.semester_year, current.semester_term)}</span>${current.label} · 접수마감 ${current.apply_deadline ? dateLabel(current.apply_deadline) : '-'}</div>`
+        : `<div class="round-current" style="color:var(--muted);">등록된 회차가 없습니다.</div>`;
+
+      // 기본값: 다음 학기 추정 (현재 회차의 연도/학기 기준 +1학기)
+      let nextYear = new Date().getFullYear();
+      let nextTerm = 1;
+      if (current) {
+        nextTerm = current.semester_term === 1 ? 2 : 1;
+        nextYear = current.semester_term === 1 ? current.semester_year : current.semester_year + 1;
+      }
+
+      const form = isFormOpen ? `
+        <div class="round-form">
+          <div>
+            <label>연도</label>
+            <input type="number" class="rf-year" value="${nextYear}">
+          </div>
+          <div>
+            <label>학기</label>
+            <select class="rf-term">
+              <option value="1" ${nextTerm === 1 ? 'selected' : ''}>1학기</option>
+              <option value="2" ${nextTerm === 2 ? 'selected' : ''}>2학기</option>
+            </select>
+          </div>
+          <div>
+            <label>시험일</label>
+            <input type="date" class="rf-examdate" value="${current ? current.exam_date : ''}">
+          </div>
+          <div>
+            <label>접수마감일</label>
+            <input type="date" class="rf-deadline" value="${current && current.apply_deadline ? current.apply_deadline : ''}">
+          </div>
+          <div class="full">
+            <label>표시 문구</label>
+            <input type="text" class="rf-label" placeholder="예) HME 11월 14일(토)" value="${current ? current.label : ''}">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="save-btn" data-exam-type="${type}">저장</button>
+            <button type="button" class="cancel-btn">취소</button>
+          </div>
+        </div>
+      ` : '';
+
+      return `
+        <div class="round-card" data-exam-type="${type}">
+          <div class="round-head">
+            <div>
+              <span class="badge ${type === 'HME' ? 'hme' : 'kma'}">${type}</span>
+              ${currentInfo}
+            </div>
+            <button type="button" class="round-toggle-btn" data-exam-type="${type}">${isFormOpen ? '닫기' : '새 학기 회차 입력'}</button>
+          </div>
+          ${form}
+        </div>
+      `;
+    }).join('');
+
+    roundsCurrentEl.querySelectorAll('.round-toggle-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.examType;
+        openFormType = openFormType === type ? null : type;
+        renderRounds();
+      });
+    });
+    roundsCurrentEl.querySelectorAll('.round-form .cancel-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { openFormType = null; renderRounds(); });
+    });
+    roundsCurrentEl.querySelectorAll('.round-form .save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const type = btn.dataset.examType;
+        const card = roundsCurrentEl.querySelector(`.round-card[data-exam-type="${type}"]`);
+        const year = Number(card.querySelector('.rf-year').value);
+        const term = Number(card.querySelector('.rf-term').value);
+        const examDate = card.querySelector('.rf-examdate').value;
+        const deadline = card.querySelector('.rf-deadline').value;
+        const label = card.querySelector('.rf-label').value.trim();
+
+        if (!year || !examDate || !label) {
+          alert('연도, 시험일, 표시 문구는 필수예요.');
+          return;
+        }
+
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_add_exam_round', {
+          p_password: getAdminPassword(),
+          p_exam_type: type,
+          p_semester_year: year,
+          p_semester_term: term,
+          p_exam_date: examDate,
+          p_apply_deadline: deadline === '' ? null : deadline,
+          p_label: label,
+        });
+        btn.disabled = false;
+        if (error) { alert('저장 실패: ' + error.message); return; }
+        openFormType = null;
+        loadRounds();
+      });
+    });
   }
 
   async function loadApps() {
