@@ -558,6 +558,20 @@
       </div>
     </div>
 
+    <!-- 수학학력평가 신청 -->
+    <div class="card" id="card-examapply">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon" style="background:#DB2777;"><i class="fa-solid fa-pen-ruler"></i></span>
+          <span class="card-title">수학학력평가 신청</span>
+        </div>
+        <span class="card-tag">KMA · HME</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
     <!-- 월간평가 성적 -->
     <div class="card" id="card-grades">
       <div class="card-head">
@@ -828,6 +842,65 @@
       `<div class="state-empty"><span class="big">아직 표시할 데이터가 없어요</span>${message}</div>`,
       'empty'
     );
+  }
+
+  // ---- 수학학력평가(KMA/HME) 원클릭 신청 (초등부만 대상) ----
+  async function loadExamApply() {
+    const gradeRes = await sb.rpc('rpc_get_student_grade', { p_student_code: studentCode });
+    const grade = gradeRes.data || '';
+    if (!grade.startsWith('초')) {
+      // 초등부가 아니면 카드 자체를 숨김
+      document.getElementById('card-examapply').style.display = 'none';
+      return;
+    }
+
+    const [roundsRes, applications] = await Promise.all([
+      sb.rpc('rpc_get_exam_rounds'), // 파라미터 없음 — fetchStudentData 대신 직접 호출
+      fetchStudentData('rpc_get_my_exam_applications', studentCode),
+    ]);
+    const rounds = roundsRes.data || [];
+
+    if (rounds.length === 0) {
+      renderEmptyState('card-examapply', '현재 신청 가능한 시험이 없습니다.');
+      return;
+    }
+
+    const appliedTypes = new Set(applications.map((a) => a.exam_type));
+
+    setCardState(
+      'card-examapply',
+      `<div style="display:flex; flex-direction:column; gap:10px;">
+        ${rounds
+          .map((r) => {
+            const applied = appliedTypes.has(r.exam_type);
+            return `
+              <button type="button" class="exam-apply-btn" data-exam-type="${r.exam_type}" ${applied ? 'disabled' : ''}
+                style="width:100%; text-align:left; padding:12px 14px; border-radius:10px; border:1px solid ${applied ? 'var(--gray-200)' : 'var(--navy-900)'}; background:${applied ? 'var(--gray-50)' : '#fff'}; cursor:${applied ? 'default' : 'pointer'}; font-weight:700; font-size:13.5px; color:${applied ? 'var(--muted)' : 'var(--ink)'};">
+                ${applied ? '✅ ' : ''}${r.label}${applied ? ' — 신청완료' : ' — 신청하기'}
+              </button>
+            `;
+          })
+          .join('')}
+      </div>`
+    );
+
+    document.querySelectorAll('#card-examapply .exam-apply-btn:not([disabled])').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`${btn.textContent.trim()}\n\n신청하시겠어요?`)) return;
+        btn.disabled = true;
+        btn.textContent = '신청 중...';
+        const { error } = await sb.rpc('rpc_apply_math_exam', {
+          p_student_code: studentCode,
+          p_exam_type: btn.dataset.examType,
+        });
+        if (error) {
+          alert('신청 실패: ' + error.message);
+          loadExamApply(); // 최신 상태로 다시 불러옴
+          return;
+        }
+        loadExamApply();
+      });
+    });
   }
 
   // ---- 공지사항 ----
@@ -1210,6 +1283,7 @@
   // 4) 페이지 로드 시 모든 카드 데이터 동시 요청
   // =====================================================================
   loadNotices();
+  loadExamApply();
   loadGrades();
   loadHomeworkVerifications();
   loadProgressAndFeedback();
