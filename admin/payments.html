@@ -47,16 +47,39 @@
   .rate-save-btn { margin-top:12px; width:100%; padding:9px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; border:none; background:var(--navy-900); color:#fff; }
 
   /* 학생 목록 */
+  .search-row { position:relative; }
+  .search-row input { padding-left:34px; }
+  .search-row i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:13px; }
   .filter-row { display:flex; gap:8px; }
   .filter-row button {
     flex:1; padding:9px; border-radius:9px; border:1px solid var(--gray-200); background:#fff;
     font-weight:700; font-size:12.5px; cursor:pointer; color: var(--muted);
   }
   .filter-row button.active { background: var(--navy-900); color:#fff; border-color: var(--navy-900); }
+  .select-all-row { display:flex; align-items:center; justify-content:space-between; }
+  .select-all-row button { background:none; border:none; color: var(--navy-900); font-size:12px; font-weight:700; cursor:pointer; text-decoration:underline; padding:4px 0; }
+  .select-all-row .sel-count { font-size:12px; color:var(--muted); }
+
+  /* 일괄 저장 바 */
+  .bulk-bar {
+    position: sticky; top: 0; z-index: 5; margin: -22px -22px 14px; padding: 14px 22px;
+    background: var(--navy-950); color:#fff; border-radius: 16px 16px 0 0;
+    display:flex; flex-wrap:wrap; align-items:end; gap:10px;
+  }
+  .bulk-bar .bulk-field { flex: 1 1 110px; }
+  .bulk-bar label { color: rgba(255,255,255,0.7); margin-bottom:4px; }
+  .bulk-bar select, .bulk-bar input { background:#fff; }
+  .bulk-bar .bulk-count { font-size:12.5px; color: rgba(255,255,255,0.85); flex: 1 1 100%; }
+  .bulk-bar .bulk-actions { display:flex; gap:8px; flex: 1 1 100%; }
+  .bulk-bar .bulk-save-btn { flex:1; padding:10px; border-radius:9px; border:none; background:#fff; color:var(--navy-950); font-weight:800; font-size:13px; cursor:pointer; }
+  .bulk-bar .bulk-clear-btn { padding:10px 14px; border-radius:9px; border:1px solid rgba(255,255,255,0.3); background:none; color:#fff; font-weight:700; font-size:12.5px; cursor:pointer; }
+
   .pay-list { margin-top:4px; }
   .pay-row { padding:14px 2px; border-top:1px solid var(--gray-200); font-size:13.5px; }
   .pay-row:first-child { border-top:none; }
   .pay-row .head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .pay-row .head .left { display:flex; align-items:center; gap:10px; }
+  .pay-row .row-check { width:18px; height:18px; flex:none; accent-color: var(--navy-900); cursor:pointer; }
   .pay-row .name { font-weight:800; font-size:14.5px; }
   .pay-row .meta { color: var(--muted); font-size:12px; margin-top:3px; }
   .badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; }
@@ -115,11 +138,20 @@
     <div id="rate-panel" style="display:none;"></div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="list-panel">
+    <div id="bulk-bar"></div>
+    <div class="search-row" style="margin-bottom:10px;">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="search-input" placeholder="학생 이름 검색">
+    </div>
     <div class="filter-row">
       <button type="button" class="filter-btn active" data-filter="all">전체</button>
       <button type="button" class="filter-btn" data-filter="unpaid">미납</button>
       <button type="button" class="filter-btn" data-filter="paid">납부완료</button>
+    </div>
+    <div class="select-all-row" style="margin-top:10px;">
+      <button type="button" id="select-all-btn">전체 선택</button>
+      <span class="sel-count" id="sel-count"></span>
     </div>
     <div class="pay-list" id="pay-list"><div class="loading">불러오는 중...</div></div>
   </div>
@@ -139,6 +171,11 @@
   let currentRates = [];
   let currentFilter = 'all';
   let editingCode = null; // 지금 입력폼 열려있는 student_code
+  let searchQuery = '';
+  let selectedCodes = new Set(); // 일괄 저장용 선택된 student_code
+  let amountOverrides = new Map(); // student_code -> 수정된 금액 (등원 첫달 등 기본금액과 다를 때)
+  let bulkDate = '';
+  let bulkMethod = '현금';
 
   function monthStr(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
@@ -174,6 +211,23 @@
       editingCode = null;
       renderList();
     });
+  });
+
+  document.getElementById('search-input').addEventListener('input', (e) => {
+    searchQuery = e.target.value.trim().toLowerCase();
+    editingCode = null;
+    renderList();
+  });
+
+  document.getElementById('select-all-btn').addEventListener('click', () => {
+    const filtered = getFilteredRows();
+    const allSelected = filtered.length > 0 && filtered.every((r) => selectedCodes.has(r.student_code));
+    if (allSelected) {
+      filtered.forEach((r) => selectedCodes.delete(r.student_code));
+    } else {
+      filtered.forEach((r) => selectedCodes.add(r.student_code));
+    }
+    renderList();
   });
 
   // ===== 요금표 =====
@@ -234,10 +288,99 @@
       return;
     }
     currentRows = data || [];
+    selectedCodes = new Set();
+    amountOverrides = new Map();
     renderStats();
     renderList();
   }
   loadPayments();
+
+  function getFilteredRows() {
+    return currentRows.filter((r) => {
+      if (currentFilter === 'paid' && !r.paid) return false;
+      if (currentFilter === 'unpaid' && r.paid) return false;
+      if (searchQuery && !(r.student_name || '').toLowerCase().includes(searchQuery)) return false;
+      return true;
+    });
+  }
+
+  function defaultAmountFor(r) {
+    const base = r.default_amount !== null && r.default_amount !== undefined ? r.default_amount : '';
+    return r.paid ? r.amount : base;
+  }
+
+  function renderBulkBar() {
+    const bulkBarEl = document.getElementById('bulk-bar');
+    const selCountEl = document.getElementById('sel-count');
+    const n = selectedCodes.size;
+    selCountEl.textContent = n > 0 ? `${n}명 선택됨` : '';
+
+    const selectAllBtn = document.getElementById('select-all-btn');
+    const filtered = getFilteredRows();
+    const allSelected = filtered.length > 0 && filtered.every((r) => selectedCodes.has(r.student_code));
+    selectAllBtn.textContent = allSelected ? '전체 선택 해제' : '전체 선택';
+
+    if (n === 0) { bulkBarEl.innerHTML = ''; return; }
+    if (!bulkDate) bulkDate = todayStr();
+
+    bulkBarEl.innerHTML = `
+      <div class="bulk-bar">
+        <div class="bulk-count">선택한 ${n}명을 한 번에 납부 처리해요. 금액은 학생별로 아래 목록에서 따로 수정할 수 있어요.</div>
+        <div class="bulk-field">
+          <label>납부일</label>
+          <input type="date" id="bulk-date-input" value="${bulkDate}">
+        </div>
+        <div class="bulk-field">
+          <label>결제수단</label>
+          <select id="bulk-method-input">
+            <option value="현금" ${bulkMethod === '현금' ? 'selected' : ''}>현금(입금)</option>
+            <option value="카드" ${bulkMethod === '카드' ? 'selected' : ''}>카드</option>
+            <option value="현장납부(현금)" ${bulkMethod === '현장납부(현금)' ? 'selected' : ''}>현장납부(현금)</option>
+            <option value="현장납부(카드)" ${bulkMethod === '현장납부(카드)' ? 'selected' : ''}>현장납부(카드)</option>
+          </select>
+        </div>
+        <div class="bulk-actions">
+          <button type="button" class="bulk-save-btn" id="bulk-save-btn">선택 ${n}명 일괄 저장</button>
+          <button type="button" class="bulk-clear-btn" id="bulk-clear-btn">선택 해제</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('bulk-date-input').addEventListener('change', (e) => { bulkDate = e.target.value; });
+    document.getElementById('bulk-method-input').addEventListener('change', (e) => { bulkMethod = e.target.value; });
+    document.getElementById('bulk-clear-btn').addEventListener('click', () => { selectedCodes.clear(); renderList(); });
+    document.getElementById('bulk-save-btn').addEventListener('click', async () => {
+      if (!bulkDate) { alert('납부일을 선택해주세요.'); return; }
+      const targets = currentRows.filter((r) => selectedCodes.has(r.student_code));
+      const missingAmount = targets.find((r) => {
+        const amt = amountOverrides.has(r.student_code) ? amountOverrides.get(r.student_code) : defaultAmountFor(r);
+        return amt === '' || amt === null || amt === undefined;
+      });
+      if (missingAmount) { alert(`${missingAmount.student_name} 학생은 금액이 없어요. 목록에서 금액을 먼저 입력해주세요.`); return; }
+      if (!confirm(`선택한 ${targets.length}명을 ${bulkDate} / ${bulkMethod}(으)로 일괄 저장할까요?`)) return;
+
+      const saveBtn = document.getElementById('bulk-save-btn');
+      saveBtn.disabled = true;
+      let failCount = 0;
+      for (const r of targets) {
+        const amt = amountOverrides.has(r.student_code) ? amountOverrides.get(r.student_code) : defaultAmountFor(r);
+        const { error } = await sb.rpc('rpc_admin_save_payment', {
+          p_password: getAdminPassword(),
+          p_student_code: r.student_code,
+          p_billing_month: monthStr(currentMonth),
+          p_amount: Number(amt),
+          p_paid_date: bulkDate,
+          p_payment_method: bulkMethod,
+          p_memo: r.memo || null,
+        });
+        if (error) failCount++;
+      }
+      saveBtn.disabled = false;
+      if (failCount > 0) alert(`${failCount}명은 저장에 실패했어요. 다시 시도해주세요.`);
+      else alert('일괄 저장이 완료됐어요.');
+      loadPayments();
+    });
+  }
 
   function renderStats() {
     const paid = currentRows.filter((r) => r.paid);
@@ -249,11 +392,8 @@
   }
 
   function renderList() {
-    const filtered = currentRows.filter((r) => {
-      if (currentFilter === 'paid') return r.paid;
-      if (currentFilter === 'unpaid') return !r.paid;
-      return true;
-    });
+    renderBulkBar();
+    const filtered = getFilteredRows();
 
     if (filtered.length === 0) {
       payListEl.innerHTML = '<div class="empty">해당하는 학생이 없습니다.</div>';
@@ -262,9 +402,10 @@
 
     payListEl.innerHTML = filtered.map((r) => {
       const isEditing = editingCode === r.student_code;
-      const defaultAmount = r.default_amount !== null && r.default_amount !== undefined ? r.default_amount : '';
-      const prefillAmount = r.paid ? r.amount : defaultAmount;
+      const defaultAmount = defaultAmountFor(r);
+      const prefillAmount = amountOverrides.has(r.student_code) ? amountOverrides.get(r.student_code) : defaultAmount;
       const prefillDate = r.paid_date || todayStr();
+      const isChecked = selectedCodes.has(r.student_code);
 
       const form = isEditing ? `
         <div class="pay-form">
@@ -279,8 +420,10 @@
           <div>
             <label>결제수단</label>
             <select class="f-method">
-              <option value="카드" ${r.payment_method === '카드' ? 'selected' : ''}>카드</option>
               <option value="현금" ${r.payment_method === '현금' || !r.payment_method ? 'selected' : ''}>현금(입금)</option>
+              <option value="카드" ${r.payment_method === '카드' ? 'selected' : ''}>카드</option>
+              <option value="현장납부(현금)" ${r.payment_method === '현장납부(현금)' ? 'selected' : ''}>현장납부(현금)</option>
+              <option value="현장납부(카드)" ${r.payment_method === '현장납부(카드)' ? 'selected' : ''}>현장납부(카드)</option>
             </select>
           </div>
           <div class="full">
@@ -298,12 +441,13 @@
       return `
         <div class="pay-row" data-code="${r.student_code}">
           <div class="head">
-            <div>
+            <div class="left">
+              ${isEditing ? '' : `<input type="checkbox" class="row-check" data-code="${r.student_code}" ${isChecked ? 'checked' : ''}>`}
               <span class="badge ${r.paid ? 'paid' : 'unpaid'}">${r.paid ? '납부완료' : '미납'}</span>
               <span class="name">${r.student_name || ''}</span>
             </div>
             <div class="right">
-              <span class="amount-text">${r.paid ? fmtWon(r.amount) : fmtWon(r.default_amount)}</span>
+              ${isEditing ? '' : `<input type="number" class="amount-input" data-code="${r.student_code}" value="${prefillAmount}" style="width:92px;">`}
               <button type="button" class="action-btn toggle-btn" data-code="${r.student_code}">${isEditing ? '닫기' : (r.paid ? '수정' : '납부 입력')}</button>
             </div>
           </div>
@@ -314,6 +458,18 @@
       `;
     }).join('');
 
+    payListEl.querySelectorAll('.row-check').forEach((chk) => {
+      chk.addEventListener('change', () => {
+        const code = chk.dataset.code;
+        if (chk.checked) selectedCodes.add(code); else selectedCodes.delete(code);
+        renderList();
+      });
+    });
+    payListEl.querySelectorAll('.amount-input').forEach((inp) => {
+      inp.addEventListener('input', () => {
+        amountOverrides.set(inp.dataset.code, inp.value.trim());
+      });
+    });
     payListEl.querySelectorAll('.toggle-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const code = btn.dataset.code;
