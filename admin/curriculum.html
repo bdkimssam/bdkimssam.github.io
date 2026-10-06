@@ -78,6 +78,7 @@
       <div><label>구분</label>
         <select id="new-category">
           <option value="개념서">개념서</option>
+          <option value="연산">연산</option>
           <option value="유형서">유형서</option>
           <option value="심화서">심화서</option>
           <option value="서술형">서술형</option>
@@ -171,6 +172,14 @@
     const semester = parseInt(document.getElementById('new-semester').value, 10);
     const name = document.getElementById('new-name').value.trim();
     if (!code || !name) { alert('교재 코드와 교재명을 입력해주세요.'); return; }
+
+    if (!editingTextbookCode) {
+      const dup = allTextbooks.find((t) => t.textbook_code.toLowerCase() === code.toLowerCase());
+      if (dup) {
+        alert(`이미 사용 중인 교재 코드예요: "${dup.textbook_code}" (${dup.textbook_name})\n다른 코드를 입력해주세요.`);
+        return;
+      }
+    }
 
     const btn = document.getElementById('add-textbook-btn');
     btn.disabled = true;
