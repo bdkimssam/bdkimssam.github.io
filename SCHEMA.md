@@ -298,7 +298,7 @@ order by table_name;
 - `payments` — 학생×월(`billing_month`, 항상 해당 월 1일) 유니크. `amount`(실제 낸 금액, 기본은 요금표에서 가져오되 입력 시 수정 가능 — 신규생 첫달 비례 청구 같은 경우), `paid_date`, `memo`(예: "6개월 선납"). 선납은 자동화 없이 원장님이 해당 월들을 수동으로 하나씩 결제완료 처리.
 - `rpc_admin_get_tuition_rates(p_password)` / `rpc_admin_update_tuition_rate(p_password, p_class_type, p_amount)` — 요금표 조회/수정.
 - `payments.payment_method` — 결제수단(40 마이그레이션). '카드' | '현금'(입금 포함).
-- `rpc_admin_list_payment_status(p_password, p_billing_month)` — 해당 월 재원생 전체의 납부 상태(학생 grade로 초/중/고 자동 분류 + 기본 요금 + 실제 납부 여부/금액/날짜/결제수단/메모).
+- `rpc_admin_list_payment_status(p_password, p_billing_month)` — 해당 월 재원생 전체의 납부 상태. 학년은 `student_classrooms.grade`를 우선 사용(없으면 `students.grade` 보조) — 학년 일괄 진급 등으로 최신 상태가 `student_classrooms`에 반영되기 때문 (41 마이그레이션에서 수정). 초/중/고 자동 분류 + 기본 요금 + 실제 납부 여부/금액/날짜/결제수단/메모.
 - `rpc_admin_save_payment(p_password, p_student_code, p_billing_month, p_amount, p_paid_date, p_payment_method, p_memo)` — 납부 입력/수정(upsert, 같은 학생+같은 달이면 덮어씀). 40 마이그레이션에서 `p_payment_method` 추가, 기존 6-인자 함수는 삭제됨.
 - `rpc_admin_delete_payment(p_password, p_id)` — 납부 취소(미납 상태로 되돌림).
 - `admin/payments.html` — 관리자 홈 "결제" 섹션. 월 이동, 납부완료/미납/수납액 통계, 요금표 수정, 학생별 납부 입력.
