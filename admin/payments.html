@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>결제 관리 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 20px 60px; display:flex; flex-direction:column; gap:18px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 4px; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  label { display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:6px; }
+  select, input {
+    width:100%; font-size:14.5px; padding:9px 11px; border-radius:10px; border:1px solid var(--gray-200);
+    font-family:inherit; background:#fff;
+  }
+  select:focus, input:focus { outline:none; border-color: var(--navy-900); }
+
+  /* 월 이동 */
+  .month-nav { display:flex; align-items:center; justify-content:center; gap:16px; }
+  .month-nav button { background:none; border:1px solid var(--gray-200); border-radius:999px; width:34px; height:34px; cursor:pointer; color:var(--ink); font-size:14px; }
+  .month-nav button:hover { border-color: var(--navy-900); }
+  .month-nav .month-label { font-size:16px; font-weight:800; min-width:110px; text-align:center; }
+
+  /* 통계 */
+  .stats-row { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+  .stat-box { background: var(--gray-50); border-radius:12px; padding:14px; text-align:center; }
+  .stat-box .num { font-size:19px; font-weight:900; }
+  .stat-box .lbl { font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .stat-box.unpaid .num { color:#DC2626; }
+  .stat-box.paid .num { color:#16A34A; }
+
+  /* 요금표 */
+  .rate-toggle { text-align:center; margin-top:2px; }
+  .rate-toggle button { background:none; border:none; color:var(--muted); font-size:12px; font-weight:700; cursor:pointer; text-decoration:underline; }
+  .rate-grid { margin-top:12px; display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+  .rate-grid .rate-item label { font-size:11px; }
+  .rate-save-btn { margin-top:12px; width:100%; padding:9px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; border:none; background:var(--navy-900); color:#fff; }
+
+  /* 학생 목록 */
+  .filter-row { display:flex; gap:8px; }
+  .filter-row button {
+    flex:1; padding:9px; border-radius:9px; border:1px solid var(--gray-200); background:#fff;
+    font-weight:700; font-size:12.5px; cursor:pointer; color: var(--muted);
+  }
+  .filter-row button.active { background: var(--navy-900); color:#fff; border-color: var(--navy-900); }
+  .pay-list { margin-top:4px; }
+  .pay-row { padding:14px 2px; border-top:1px solid var(--gray-200); font-size:13.5px; }
+  .pay-row:first-child { border-top:none; }
+  .pay-row .head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .pay-row .name { font-weight:800; font-size:14.5px; }
+  .pay-row .meta { color: var(--muted); font-size:12px; margin-top:3px; }
+  .badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; }
+  .badge.paid { background:#DCFCE7; color:#15803D; }
+  .badge.unpaid { background:#FEE2E2; color:#B91C1C; }
+  .pay-row .right { display:flex; align-items:center; gap:10px; }
+  .pay-row .amount-text { font-weight:800; font-size:13.5px; }
+  .pay-row button.action-btn { padding:7px 12px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; font-size:12px; font-weight:700; cursor:pointer; color:var(--ink); }
+  .pay-row button.action-btn:hover { border-color: var(--navy-900); }
+  .pay-form { margin-top:10px; padding:14px; background: var(--gray-50); border-radius:12px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:end; }
+  .pay-form label { font-size:11px; }
+  .pay-form .full { grid-column: 1 / -1; }
+  .pay-form .form-actions { grid-column: 1 / -1; display:flex; gap:8px; margin-top:2px; }
+  .pay-form .form-actions button { flex:1; padding:9px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; }
+  .pay-form .save-btn { border:none; background:var(--navy-900); color:#fff; }
+  .pay-form .del-btn { border:1px solid #FCA5A5; background:#fff; color:#DC2626; }
+  .pay-form .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
+  .pay-row .memo-line { margin-top:6px; font-size:12px; color:var(--muted); }
+  .empty, .loading { color: var(--muted); font-size:13px; padding:16px 4px; text-align:center; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">결제 관리</span>
+</header>
+
+<main>
+  <div>
+    <h1>월별 납부 현황</h1>
+    <p class="sub">재원생 전체의 이번 달 수강료 납부 여부예요. 미납 학생은 빨간색으로 표시돼요.</p>
+  </div>
+
+  <div class="panel">
+    <div class="month-nav">
+      <button type="button" id="prev-month-btn"><i class="fa-solid fa-chevron-left"></i></button>
+      <span class="month-label" id="month-label">-</span>
+      <button type="button" id="next-month-btn"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+    <div class="stats-row" style="margin-top:16px;">
+      <div class="stat-box paid">
+        <div class="num" id="stat-paid">-</div>
+        <div class="lbl">납부완료</div>
+      </div>
+      <div class="stat-box unpaid">
+        <div class="num" id="stat-unpaid">-</div>
+        <div class="lbl">미납</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" id="stat-total">-</div>
+        <div class="lbl">이번 달 수납액</div>
+      </div>
+    </div>
+    <div class="rate-toggle"><button type="button" id="rate-toggle-btn">수강료 요금표 보기/수정</button></div>
+    <div id="rate-panel" style="display:none;"></div>
+  </div>
+
+  <div class="panel">
+    <div class="filter-row">
+      <button type="button" class="filter-btn active" data-filter="all">전체</button>
+      <button type="button" class="filter-btn" data-filter="unpaid">미납</button>
+      <button type="button" class="filter-btn" data-filter="paid">납부완료</button>
+    </div>
+    <div class="pay-list" id="pay-list"><div class="loading">불러오는 중...</div></div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireDirector();
+
+  const monthLabelEl = document.getElementById('month-label');
+  const payListEl = document.getElementById('pay-list');
+  const ratePanelEl = document.getElementById('rate-panel');
+  const rateToggleBtn = document.getElementById('rate-toggle-btn');
+
+  let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); // 이번 달 1일
+  let currentRows = [];
+  let currentRates = [];
+  let currentFilter = 'all';
+  let editingCode = null; // 지금 입력폼 열려있는 student_code
+
+  function monthStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  }
+  function monthLabel(d) {
+    return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+  }
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  function fmtWon(n) {
+    if (n === null || n === undefined || n === '') return '-';
+    return Number(n).toLocaleString('ko-KR') + '원';
+  }
+
+  document.getElementById('prev-month-btn').addEventListener('click', () => {
+    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+    editingCode = null;
+    loadPayments();
+  });
+  document.getElementById('next-month-btn').addEventListener('click', () => {
+    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+    editingCode = null;
+    loadPayments();
+  });
+
+  document.querySelectorAll('.filter-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      editingCode = null;
+      renderList();
+    });
+  });
+
+  // ===== 요금표 =====
+  rateToggleBtn.addEventListener('click', async () => {
+    const show = ratePanelEl.style.display === 'none';
+    if (show && currentRates.length === 0) await loadRates();
+    ratePanelEl.style.display = show ? 'block' : 'none';
+    rateToggleBtn.textContent = show ? '수강료 요금표 닫기' : '수강료 요금표 보기/수정';
+  });
+
+  async function loadRates() {
+    const { data, error } = await sb.rpc('rpc_admin_get_tuition_rates', { p_password: getAdminPassword() });
+    if (error) { ratePanelEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>'; return; }
+    currentRates = data || [];
+    renderRates();
+  }
+
+  function renderRates() {
+    ratePanelEl.innerHTML = `
+      <div class="rate-grid">
+        ${currentRates.map((r) => `
+          <div class="rate-item">
+            <label>${r.class_type}</label>
+            <input type="number" class="rate-input" data-class-type="${r.class_type}" value="${r.amount}">
+          </div>
+        `).join('')}
+      </div>
+      <button type="button" class="rate-save-btn" id="rate-save-btn">요금표 저장</button>
+    `;
+    document.getElementById('rate-save-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('rate-save-btn');
+      btn.disabled = true;
+      const inputs = ratePanelEl.querySelectorAll('.rate-input');
+      for (const input of inputs) {
+        const { error } = await sb.rpc('rpc_admin_update_tuition_rate', {
+          p_password: getAdminPassword(),
+          p_class_type: input.dataset.classType,
+          p_amount: Number(input.value),
+        });
+        if (error) { alert('저장 실패(' + input.dataset.classType + '): ' + error.message); btn.disabled = false; return; }
+      }
+      btn.disabled = false;
+      alert('요금표가 저장됐어요.');
+      loadPayments(); // 기본 금액이 바뀌었을 수 있으니 목록도 새로고침
+    });
+  }
+
+  // ===== 납부 현황 =====
+  async function loadPayments() {
+    monthLabelEl.textContent = monthLabel(currentMonth);
+    payListEl.innerHTML = '<div class="loading">불러오는 중...</div>';
+    const { data, error } = await sb.rpc('rpc_admin_list_payment_status', {
+      p_password: getAdminPassword(),
+      p_billing_month: monthStr(currentMonth),
+    });
+    if (error) {
+      payListEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>';
+      return;
+    }
+    currentRows = data || [];
+    renderStats();
+    renderList();
+  }
+  loadPayments();
+
+  function renderStats() {
+    const paid = currentRows.filter((r) => r.paid);
+    const unpaid = currentRows.filter((r) => !r.paid);
+    const total = paid.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+    document.getElementById('stat-paid').textContent = paid.length;
+    document.getElementById('stat-unpaid').textContent = unpaid.length;
+    document.getElementById('stat-total').textContent = total.toLocaleString('ko-KR') + '원';
+  }
+
+  function renderList() {
+    const filtered = currentRows.filter((r) => {
+      if (currentFilter === 'paid') return r.paid;
+      if (currentFilter === 'unpaid') return !r.paid;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      payListEl.innerHTML = '<div class="empty">해당하는 학생이 없습니다.</div>';
+      return;
+    }
+
+    payListEl.innerHTML = filtered.map((r) => {
+      const isEditing = editingCode === r.student_code;
+      const defaultAmount = r.default_amount !== null && r.default_amount !== undefined ? r.default_amount : '';
+      const prefillAmount = r.paid ? r.amount : defaultAmount;
+      const prefillDate = r.paid_date || todayStr();
+
+      const form = isEditing ? `
+        <div class="pay-form">
+          <div>
+            <label>금액</label>
+            <input type="number" class="f-amount" value="${prefillAmount}">
+          </div>
+          <div>
+            <label>납부일</label>
+            <input type="date" class="f-date" value="${prefillDate}">
+          </div>
+          <div class="full">
+            <label>메모</label>
+            <input type="text" class="f-memo" placeholder="예) 6개월 선납" value="${r.memo || ''}">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="save-btn" data-code="${r.student_code}">저장</button>
+            ${r.paid ? `<button type="button" class="del-btn" data-code="${r.student_code}" data-id="${r.payment_id}">납부취소</button>` : ''}
+            <button type="button" class="cancel-btn">취소</button>
+          </div>
+        </div>
+      ` : '';
+
+      return `
+        <div class="pay-row" data-code="${r.student_code}">
+          <div class="head">
+            <div>
+              <span class="badge ${r.paid ? 'paid' : 'unpaid'}">${r.paid ? '납부완료' : '미납'}</span>
+              <span class="name">${r.student_name || ''}</span>
+            </div>
+            <div class="right">
+              <span class="amount-text">${r.paid ? fmtWon(r.amount) : fmtWon(r.default_amount)}</span>
+              <button type="button" class="action-btn toggle-btn" data-code="${r.student_code}">${isEditing ? '닫기' : (r.paid ? '수정' : '납부 입력')}</button>
+            </div>
+          </div>
+          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}</div>
+          ${r.paid && r.memo ? `<div class="memo-line">메모: ${r.memo}</div>` : ''}
+          ${form}
+        </div>
+      `;
+    }).join('');
+
+    payListEl.querySelectorAll('.toggle-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const code = btn.dataset.code;
+        editingCode = editingCode === code ? null : code;
+        renderList();
+      });
+    });
+    payListEl.querySelectorAll('.cancel-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { editingCode = null; renderList(); });
+    });
+    payListEl.querySelectorAll('.save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const code = btn.dataset.code;
+        const row = payListEl.querySelector(`.pay-row[data-code="${code}"]`);
+        const amount = row.querySelector('.f-amount').value.trim();
+        const paidDate = row.querySelector('.f-date').value;
+        const memo = row.querySelector('.f-memo').value.trim();
+
+        if (amount === '' || !paidDate) { alert('금액과 납부일은 필수예요.'); return; }
+
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_save_payment', {
+          p_password: getAdminPassword(),
+          p_student_code: code,
+          p_billing_month: monthStr(currentMonth),
+          p_amount: Number(amount),
+          p_paid_date: paidDate,
+          p_memo: memo === '' ? null : memo,
+        });
+        btn.disabled = false;
+        if (error) { alert('저장 실패: ' + error.message); return; }
+        editingCode = null;
+        loadPayments();
+      });
+    });
+    payListEl.querySelectorAll('.del-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 달 납부 기록을 취소할까요? (미납 상태로 돌아가요)')) return;
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_delete_payment', {
+          p_password: getAdminPassword(), p_id: btn.dataset.id,
+        });
+        btn.disabled = false;
+        if (error) { alert('취소 실패: ' + error.message); return; }
+        editingCode = null;
+        loadPayments();
+      });
+    });
+  }
+</script>
+
+</body>
+</html>

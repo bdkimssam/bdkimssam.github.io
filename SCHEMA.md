@@ -283,4 +283,22 @@ order by table_name;
 `consultations`에 `reminder_sent boolean NOT NULL DEFAULT false` 컬럼 추가(1시간 전 리마인더 중복 발송 방지용).
 - `notify_sms_consultation_confirm()` — `consultations` AFTER INSERT 트리거. 신청 직후 학부모님께 접수 확인 문자(방문시간 있으면 시간 포함, 없으면 "곧 연락드리겠습니다"). 홈페이지 신청/관리자 전화상담 직접입력 둘 다.
 - `consultation_reminder_check()` — `pg_cron`으로 5분마다 실행(`consultation-reminder-check` job). 방문 1시간 이내로 다가온(아직 리마인더 안 보낸) 상담 건에 리마인더 문자 발송.
-- `solapi_send_sms(p_to, p_text)` — 공통 발송 함수. 솔라피 API(`api.solapi.com/messages/v4/send`), HMAC-SHA256 인증(`pgcrypto`의 `hmac()`). API Key/Secret/발신번호는 함수 안에 하드코딩(다른 비밀번호 하드코딩과 같은 패턴). 텔레그램(원장님 개인 알림)과 별개로, 학부모님께 가는 문자는 솔라피를 사용. 추후 출석체크(고용량) 쪽은 비용 때문에 알리고/반값문자 등 다른 서비스를 쓸 예정 — 서로 다른 트리거/함수라 공존 가능.
+- `solapi_send_sms(p_to, p_text)` — 공통 발송 함수. 솔라피 API(`api.solapi.com/messages/v4/send`), HMAC-SHA256 인증(`pgcrypto`의 `hmac()`). API Key/Secret/발신번호는 함수 안에 하드코딩(다른 비밀번호 하드코딩과 같은 패턴). 텔레그램(원장님 개인 알림)과 별개로, 학부모님께 가는 문자는 솔라피를 사용.
+- **(업데이트, 2026-10-06)** 출석체크/결제 미납 알림은 카카오 알림톡(실패 시 문자 대체)로 솔라피를 통해 보내기로 확정 — 알리고/반값문자 등 다른 서비스로 갈아타는 계획은 취소됨. 카카오 비즈니스 채널 연동(발신프로필 등록, 템플릿 승인)은 별도 진행 중.
+
+## 출석체크 (설계 확정, 아직 구현 전)
+- 학부모 연락처 뒷 4자리 입력 → 이름 목록에서 선택(로그인 없는 키오스크 화면) → 등원/하원 버튼.
+- 수업 시간표와 연결하지 않음(학생마다 등원 요일/시간이 달라 복잡도가 너무 커짐 — 단순화 결정). 알림톡엔 실제 찍은 시각만 표시.
+- 지각/결석/조퇴는 강사가 자기 강의실 학생만 사유와 함께 기록 (학부모 번호·결제 정보는 못 보게 권한 제한 필요). 학부모에게는 알림 안 보냄 — 내부 기록용.
+- 별도 관리 앱은 만들지 않고 이 홈페이지에 통합하기로 함(12월에 따로 만들려던 학원관리 앱 계획은 취소).
+
+## 결제 관리 (38 마이그레이션)
+원장님 전용 장부. 재원생(`student_codes.withdrawn = false`) 기준으로 매달 납부 여부를 자동 판단.
+- `tuition_rates` — 초등/중등/고등별 기본 수강료(class_type PK, amount). 현재 초등 18만/중등 26만/고등 31만. **내년에 교육청 분당단가 인상되면 이 금액만 바꾸면 됨** — 과거 납부 기록(`payments.amount`)은 그때 금액 그대로 남아있어서 영향 없음.
+- `payments` — 학생×월(`billing_month`, 항상 해당 월 1일) 유니크. `amount`(실제 낸 금액, 기본은 요금표에서 가져오되 입력 시 수정 가능 — 신규생 첫달 비례 청구 같은 경우), `paid_date`, `memo`(예: "6개월 선납"). 선납은 자동화 없이 원장님이 해당 월들을 수동으로 하나씩 결제완료 처리.
+- `rpc_admin_get_tuition_rates(p_password)` / `rpc_admin_update_tuition_rate(p_password, p_class_type, p_amount)` — 요금표 조회/수정.
+- `rpc_admin_list_payment_status(p_password, p_billing_month)` — 해당 월 재원생 전체의 납부 상태(학생 grade로 초/중/고 자동 분류 + 기본 요금 + 실제 납부 여부/금액/날짜/메모).
+- `rpc_admin_save_payment(p_password, p_student_code, p_billing_month, p_amount, p_paid_date, p_memo)` — 납부 입력/수정(upsert, 같은 학생+같은 달이면 덮어씀).
+- `rpc_admin_delete_payment(p_password, p_id)` — 납부 취소(미납 상태로 되돌림).
+- `admin/payments.html` — 관리자 홈 "결제" 섹션. 월 이동, 납부완료/미납/수납액 통계, 요금표 수정, 학생별 납부 입력.
+- 미납 학생 알림톡 발송 기능은 카카오 채널 연동 완료 후 추가 예정.
