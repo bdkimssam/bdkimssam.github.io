@@ -301,4 +301,5 @@ order by table_name;
 - `rpc_admin_save_payment(p_password, p_student_code, p_billing_month, p_amount, p_paid_date, p_memo)` — 납부 입력/수정(upsert, 같은 학생+같은 달이면 덮어씀).
 - `rpc_admin_delete_payment(p_password, p_id)` — 납부 취소(미납 상태로 되돌림).
 - `admin/payments.html` — 관리자 홈 "결제" 섹션. 월 이동, 납부완료/미납/수납액 통계, 요금표 수정, 학생별 납부 입력.
+- `notify_sms_payment_confirm()` — `payments` AFTER INSERT 트리거(39 마이그레이션). 새 납부 기록 최초 입력 시(수정/upsert 땐 재발송 안 됨) 학부모께 수납 확인 문자. 메시지엔 "오늘"이 아니라 입력된 `paid_date`를 그대로 표시(늦게 입력해도 자연스럽게). 지금은 솔라피 일반 SMS, 카카오 채널 승인되면 알림톡으로 전환 예정.
 - 미납 학생 알림톡 발송 기능은 카카오 채널 연동 완료 후 추가 예정.
