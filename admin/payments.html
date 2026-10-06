@@ -276,6 +276,13 @@
             <label>납부일</label>
             <input type="date" class="f-date" value="${prefillDate}">
           </div>
+          <div>
+            <label>결제수단</label>
+            <select class="f-method">
+              <option value="카드" ${r.payment_method === '카드' ? 'selected' : ''}>카드</option>
+              <option value="현금" ${r.payment_method === '현금' || !r.payment_method ? 'selected' : ''}>현금(입금)</option>
+            </select>
+          </div>
           <div class="full">
             <label>메모</label>
             <input type="text" class="f-memo" placeholder="예) 6개월 선납" value="${r.memo || ''}">
@@ -300,7 +307,7 @@
               <button type="button" class="action-btn toggle-btn" data-code="${r.student_code}">${isEditing ? '닫기' : (r.paid ? '수정' : '납부 입력')}</button>
             </div>
           </div>
-          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}</div>
+          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}${r.paid && r.payment_method ? ' · ' + r.payment_method : ''}</div>
           ${r.paid && r.memo ? `<div class="memo-line">메모: ${r.memo}</div>` : ''}
           ${form}
         </div>
@@ -323,6 +330,7 @@
         const row = payListEl.querySelector(`.pay-row[data-code="${code}"]`);
         const amount = row.querySelector('.f-amount').value.trim();
         const paidDate = row.querySelector('.f-date').value;
+        const method = row.querySelector('.f-method').value;
         const memo = row.querySelector('.f-memo').value.trim();
 
         if (amount === '' || !paidDate) { alert('금액과 납부일은 필수예요.'); return; }
@@ -334,6 +342,7 @@
           p_billing_month: monthStr(currentMonth),
           p_amount: Number(amount),
           p_paid_date: paidDate,
+          p_payment_method: method,
           p_memo: memo === '' ? null : memo,
         });
         btn.disabled = false;

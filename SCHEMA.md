@@ -297,8 +297,9 @@ order by table_name;
 - `tuition_rates` — 초등/중등/고등별 기본 수강료(class_type PK, amount). 현재 초등 18만/중등 26만/고등 31만. **내년에 교육청 분당단가 인상되면 이 금액만 바꾸면 됨** — 과거 납부 기록(`payments.amount`)은 그때 금액 그대로 남아있어서 영향 없음.
 - `payments` — 학생×월(`billing_month`, 항상 해당 월 1일) 유니크. `amount`(실제 낸 금액, 기본은 요금표에서 가져오되 입력 시 수정 가능 — 신규생 첫달 비례 청구 같은 경우), `paid_date`, `memo`(예: "6개월 선납"). 선납은 자동화 없이 원장님이 해당 월들을 수동으로 하나씩 결제완료 처리.
 - `rpc_admin_get_tuition_rates(p_password)` / `rpc_admin_update_tuition_rate(p_password, p_class_type, p_amount)` — 요금표 조회/수정.
-- `rpc_admin_list_payment_status(p_password, p_billing_month)` — 해당 월 재원생 전체의 납부 상태(학생 grade로 초/중/고 자동 분류 + 기본 요금 + 실제 납부 여부/금액/날짜/메모).
-- `rpc_admin_save_payment(p_password, p_student_code, p_billing_month, p_amount, p_paid_date, p_memo)` — 납부 입력/수정(upsert, 같은 학생+같은 달이면 덮어씀).
+- `payments.payment_method` — 결제수단(40 마이그레이션). '카드' | '현금'(입금 포함).
+- `rpc_admin_list_payment_status(p_password, p_billing_month)` — 해당 월 재원생 전체의 납부 상태(학생 grade로 초/중/고 자동 분류 + 기본 요금 + 실제 납부 여부/금액/날짜/결제수단/메모).
+- `rpc_admin_save_payment(p_password, p_student_code, p_billing_month, p_amount, p_paid_date, p_payment_method, p_memo)` — 납부 입력/수정(upsert, 같은 학생+같은 달이면 덮어씀). 40 마이그레이션에서 `p_payment_method` 추가, 기존 6-인자 함수는 삭제됨.
 - `rpc_admin_delete_payment(p_password, p_id)` — 납부 취소(미납 상태로 되돌림).
 - `admin/payments.html` — 관리자 홈 "결제" 섹션. 월 이동, 납부완료/미납/수납액 통계, 요금표 수정, 학생별 납부 입력.
 - `notify_sms_payment_confirm()` — `payments` AFTER INSERT 트리거(39 마이그레이션). 새 납부 기록 최초 입력 시(수정/upsert 땐 재발송 안 됨) 학부모께 수납 확인 문자. 메시지엔 "오늘"이 아니라 입력된 `paid_date`를 그대로 표시(늦게 입력해도 자연스럽게). 지금은 솔라피 일반 SMS, 카카오 채널 승인되면 알림톡으로 전환 예정.
