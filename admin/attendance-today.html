@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>등원/하원 현황 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --green:#16A34A; --red:#DC2626; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 18px; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:18px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom:16px; }
+
+  .date-nav { display:flex; align-items:center; gap:8px; }
+  .date-nav button { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:10px; width:38px; height:38px; cursor:pointer; color:var(--ink); font-size:13px; }
+  .date-nav button:hover { background: var(--gray-50); }
+  .date-nav .label { flex:1; text-align:center; font-weight:800; font-size:15px; }
+  .date-nav .today-btn { width:auto; padding:0 12px; font-size:12.5px; font-weight:700; font-family:inherit; }
+  .date-nav .refresh-btn { width:auto; padding:0 12px; font-size:12.5px; font-weight:700; font-family:inherit; }
+
+  .summary { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:14px; }
+  @media (max-width: 520px) { .summary { grid-template-columns: repeat(2, 1fr); } }
+  .sum-box { background: var(--gray-50); border-radius:12px; padding:12px; text-align:center; }
+  .sum-box .n { font-size:22px; font-weight:900; }
+  .sum-box .t { font-size:12px; color: var(--muted); font-weight:700; margin-top:2px; }
+
+  .grade-group { margin-bottom: 18px; }
+  .grade-group:last-child { margin-bottom: 0; }
+  .grade-title { font-size:12.5px; font-weight:800; color: var(--muted); margin: 0 0 8px; }
+  .st-row { display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--gray-50); font-size:14px; }
+  .st-row:last-child { border-bottom:none; }
+  .st-row .nm { font-weight:800; min-width:72px; }
+  .st-row .times { flex:1; color: var(--muted); font-size:13px; }
+  .badge { font-size:12px; font-weight:800; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+  .badge.in { background:#DCFCE7; color:#15803D; }
+  .badge.out { background:#E5E7EB; color:#374151; }
+  .badge.none { background:#FEE2E2; color:#B91C1C; }
+  .badge.none.past { background:#F3F4F6; color:#9CA3AF; }
+  .loading { color: var(--muted); font-size: 13px; padding: 24px 6px; text-align:center; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">등원/하원 현황</span>
+</header>
+
+<main>
+  <h1>등원/하원 현황</h1>
+  <p class="sub">출석체크 키오스크에서 학생들이 누른 기록이에요. 날짜를 바꿔 지난 날도 볼 수 있어요.</p>
+
+  <div class="panel">
+    <div class="date-nav">
+      <button type="button" id="prev-btn" title="전날"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="label" id="date-label"></div>
+      <button type="button" id="next-btn" title="다음날"><i class="fa-solid fa-chevron-right"></i></button>
+      <button type="button" class="today-btn" id="today-btn">오늘</button>
+      <button type="button" class="refresh-btn" id="refresh-btn"><i class="fa-solid fa-rotate"></i> 새로고침</button>
+    </div>
+    <div class="summary" id="summary"></div>
+  </div>
+
+  <div class="panel" id="list-panel"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireDirector();
+
+  let students = [];
+  let viewDate = null;   // 'YYYY-MM-DD' (한국 날짜)
+  let checks = [];
+
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function seoulToday() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()); // YYYY-MM-DD
+  }
+  function shiftDate(ymd, n) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    const x = new Date(Date.UTC(y, m - 1, d + n));
+    return x.toISOString().slice(0, 10);
+  }
+  function dateLabel(ymd) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+    return `${m}월 ${d}일 (${wd})` + (ymd === seoulToday() ? ' · 오늘' : '');
+  }
+  function hhmm(ts) {
+    return new Date(ts).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+
+  async function loadStudents() {
+    const { data, error } = await sb.rpc('rpc_admin_list_all_students', {
+      p_password: getAdminPassword(),
+      p_include_withdrawn: false,
+    });
+    if (error) throw new Error('학생 목록을 불러오지 못했습니다: ' + error.message);
+    students = (data || []).slice().sort((a, b) => {
+      const g = compareGrades(a.grade, b.grade);
+      if (g !== 0) return g;
+      return (a.student_name || '').localeCompare(b.student_name || '', 'ko');
+    });
+  }
+
+  async function loadChecks() {
+    const { data, error } = await sb.rpc('rpc_admin_list_attendance_checks', {
+      p_password: getAdminPassword(),
+      p_date: viewDate,
+    });
+    if (error) {
+      if (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '')) {
+        throw new Error('현황 조회 SQL(44)이 DB에 아직 없어요. 안내드린 SQL을 먼저 실행해 주세요.');
+      }
+      throw new Error('기록을 불러오지 못했습니다: ' + error.message);
+    }
+    checks = data || [];
+  }
+
+  async function refresh() {
+    const panel = document.getElementById('list-panel');
+    document.getElementById('date-label').textContent = dateLabel(viewDate);
+    try {
+      if (students.length === 0) await loadStudents();
+      await loadChecks();
+      render();
+    } catch (e) {
+      panel.innerHTML = `<div class="loading">${esc(e.message)}</div>`;
+    }
+  }
+
+  function render() {
+    const isToday = viewDate === seoulToday();
+    const byCode = {};
+    checks.forEach((c) => { (byCode[c.student_code] = byCode[c.student_code] || []).push(c); });
+
+    let nIn = 0, nOut = 0, nNone = 0;
+    const rows = students.map((s) => {
+      const list = byCode[s.student_code] || [];
+      const firstIn = list.find((c) => c.check_type === '등원');
+      const outs = list.filter((c) => c.check_type === '하원');
+      const lastOut = outs[outs.length - 1];
+      const last = list[list.length - 1];
+      let cls, label;
+      if (!last) { cls = 'none' + (isToday ? '' : ' past'); label = isToday ? '아직 안 옴' : '기록 없음'; nNone++; }
+      else if (last.check_type === '등원') { cls = 'in'; label = '등원 중'; nIn++; }
+      else { cls = 'out'; label = '하원'; nOut++; }
+      const times = [firstIn ? `등원 ${hhmm(firstIn.checked_at)}` : '', lastOut ? `하원 ${hhmm(lastOut.checked_at)}` : '']
+        .filter(Boolean).join(' · ');
+      return { s, cls, label, times };
+    });
+
+    document.getElementById('summary').innerHTML = `
+      <div class="sum-box"><div class="n">${students.length}</div><div class="t">재원생</div></div>
+      <div class="sum-box"><div class="n" style="color:var(--green)">${nIn}</div><div class="t">등원 중</div></div>
+      <div class="sum-box"><div class="n">${nOut}</div><div class="t">하원</div></div>
+      <div class="sum-box"><div class="n" style="color:${isToday ? 'var(--red)' : 'var(--muted)'}">${nNone}</div><div class="t">${isToday ? '아직 안 옴' : '기록 없음'}</div></div>`;
+
+    if (students.length === 0) {
+      document.getElementById('list-panel').innerHTML = '<div class="loading">재원 중인 학생이 없습니다.</div>';
+      return;
+    }
+    const groups = {};
+    rows.forEach((r) => { const g = r.s.grade || '학년 미지정'; (groups[g] = groups[g] || []).push(r); });
+    document.getElementById('list-panel').innerHTML = Object.keys(groups).map((g) => `
+      <div class="grade-group">
+        <div class="grade-title">${esc(g)} · ${groups[g].length}명</div>
+        ${groups[g].map((r) => `
+          <div class="st-row">
+            <span class="nm">${esc(r.s.student_name)}</span>
+            <span class="times">${esc(r.times)}</span>
+            <span class="badge ${r.cls}">${r.label}</span>
+          </div>`).join('')}
+      </div>`).join('');
+  }
+
+  document.getElementById('prev-btn').addEventListener('click', () => { viewDate = shiftDate(viewDate, -1); refresh(); });
+  document.getElementById('next-btn').addEventListener('click', () => { viewDate = shiftDate(viewDate, 1); refresh(); });
+  document.getElementById('today-btn').addEventListener('click', () => { viewDate = seoulToday(); refresh(); });
+  document.getElementById('refresh-btn').addEventListener('click', refresh);
+
+  viewDate = seoulToday();
+  refresh();
+</script>
+
+</body>
+</html>
