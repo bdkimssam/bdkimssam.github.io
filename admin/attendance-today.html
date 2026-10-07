@@ -49,6 +49,7 @@
   .tag { font-size:11.5px; font-weight:800; padding:3px 8px; border-radius:999px; background:#FEF3C7; color:#92400E; }
   .tag.결석 { background:#FEE2E2; color:#B91C1C; }
   .tag.조퇴 { background:#E0E7FF; color:#3730A3; }
+  .tag.보강 { background:#CFFAFE; color:#0E7490; }
   .loading { color: var(--muted); font-size: 13px; padding: 24px 6px; text-align:center; }
 </style>
 </head>
@@ -137,7 +138,7 @@
     // 선생님이 입력한 지각/조퇴/결석 (메모 SQL이 아직 없으면 조용히 건너뜀)
     notes = {};
     const nr = await sb.rpc('rpc_admin_list_attendance_v2', { p_password: getAdminPassword(), p_attendance_date: viewDate });
-    if (!nr.error) (nr.data || []).forEach((r) => { if (r.status && r.status !== '출석') notes[r.student_code] = r; });
+    if (!nr.error) (nr.data || []).forEach((r) => { if (r.status && (r.status !== '출석' || r.memo)) notes[r.student_code] = r; });
   }
 
   async function refresh() {
@@ -192,7 +193,7 @@
           <div class="st-row">
             <span class="nm">${esc(r.s.student_name)}</span>
             <span class="times">${esc(r.times)}</span>
-            ${r.note ? `<span class="tag ${esc(r.note.status)}">${esc(r.note.status)}</span>` : ''}
+            ${r.note && r.note.status !== '출석' ? `<span class="tag ${esc(r.note.status)}">${esc(r.note.status)}</span>` : ''}
             <span class="badge ${r.cls}">${r.label}</span>
             ${r.note && r.note.memo ? `<div class="memo">${esc(r.note.memo)}</div>` : ''}
           </div>`).join('')}

@@ -79,7 +79,7 @@ order by table_name;
 - `status` text NOT NULL DEFAULT '출석'
 - `checked_by` text
 - `created_at` timestamptz NOT NULL DEFAULT now()
-- `memo` text — 지각/조퇴/결석 사유 메모 (45 마이그레이션). 화면: `admin/attendance.html`(원장·강사 공통). RPC: `rpc_admin_list_attendance_v2(p_password, p_attendance_date)`(학생당 최근 1건: student_code, status, memo), `rpc_admin_mark_attendance_v2(p_password, p_student_code, p_student_name, p_attendance_date, p_status, p_checked_by, p_memo)`(같은 학생·날짜면 수정, 없으면 추가; 원장/강사 비밀번호 모두 허용). 기존 `rpc_admin_list_attendance`/`rpc_admin_mark_attendance`는 SQL 45 전 대비 폴백으로만 남김.
+- `memo` text — 출결 메모(사유·보강 내용 등, 모든 상태에서 입력 가능) (45 마이그레이션). `status`는 출석/지각/조퇴/결석/보강 — '보강'은 결석분 보강 수업에 온 날(출석 인원과 별도 집계, 메모에 어느 날 결석분인지 기록). 화면: `admin/attendance.html`(원장·강사 공통). RPC: `rpc_admin_list_attendance_v2(p_password, p_attendance_date)`(학생당 최근 1건: student_code, status, memo), `rpc_admin_mark_attendance_v2(p_password, p_student_code, p_student_name, p_attendance_date, p_status, p_checked_by, p_memo)`(같은 학생·날짜면 수정, 없으면 추가; 원장/강사 비밀번호 모두 허용). 기존 `rpc_admin_list_attendance`/`rpc_admin_mark_attendance`는 SQL 45 전 대비 폴백으로만 남김.
 
 ---
 
