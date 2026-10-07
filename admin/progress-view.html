@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주간 진도 조회 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --accent:#16A34A; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 1000px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 20px; line-height:1.6; }
+
+  .layout { display:grid; grid-template-columns: 300px 1fr; gap: 18px; align-items:start; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:18px 18px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  .list-panel { max-height: calc(100vh - 150px); overflow-y:auto; }
+  @media (max-width: 760px) { .list-panel { max-height: none; } }
+
+  .grade-group { margin-bottom: 16px; }
+  .grade-group:last-child { margin-bottom: 0; }
+  .grade-title { font-size:12.5px; font-weight:800; color: var(--muted); margin: 0 0 8px; }
+  .grade-title .cnt { font-weight:600; margin-left:4px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  button.chip {
+    appearance:none; border:1px solid var(--gray-200); background:#fff; color: var(--ink);
+    font-family:inherit; font-size:13.5px; font-weight:700; padding:7px 12px; border-radius:999px; cursor:pointer;
+  }
+  button.chip:hover { background: var(--gray-50); }
+  button.chip.active { background: var(--navy-900); border-color: var(--navy-900); color:#fff; }
+
+  .detail-panel { min-height: 240px; }
+  .placeholder { color: var(--muted); font-size:13.5px; text-align:center; padding: 60px 10px; line-height:1.7; }
+  .student-head { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom: 14px; }
+  .student-head .nm { font-size:18px; font-weight:900; }
+  .student-head .meta { font-size:12.5px; color: var(--muted); font-weight:600; }
+
+  .week-nav { display:flex; align-items:center; gap:8px; margin-bottom: 16px; }
+  .week-nav button {
+    appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:10px; width:38px; height:38px;
+    cursor:pointer; color: var(--ink); font-size:13px;
+  }
+  .week-nav button:hover:not(:disabled) { background: var(--gray-50); }
+  .week-nav button:disabled { opacity:0.4; cursor:not-allowed; }
+  .week-nav .label { flex:1; text-align:center; font-weight:800; font-size:14.5px; }
+  .week-nav .label small { display:block; font-weight:600; color: var(--muted); font-size:11.5px; margin-top:2px; }
+  .week-nav .today-btn { width:auto; padding:0 12px; font-size:12.5px; font-weight:700; font-family:inherit; }
+
+  .record { border:1px solid var(--gray-200); border-radius:12px; padding:14px 14px 4px; margin-bottom:12px; }
+  .record .rec-date { font-size:12px; color: var(--muted); font-weight:700; margin-bottom:10px; }
+  .row { margin-bottom: 12px; }
+  .row .k { font-size:12px; font-weight:700; color: var(--muted); margin-bottom:3px; }
+  .row .v { font-size:14px; line-height:1.55; word-break: keep-all; overflow-wrap:anywhere; }
+  .row .v.empty { color:#B0B6C3; }
+  .row .v.comment { white-space: pre-wrap; background: var(--gray-50); border-radius:10px; padding:10px 12px; min-height:42px; }
+  .bar-track { height:7px; background: var(--gray-200); border-radius:999px; overflow:hidden; margin-top:6px; }
+  .bar-fill { height:100%; background: var(--accent); border-radius:999px; }
+  .bar-pct { font-size:11.5px; color: var(--muted); margin-top:3px; }
+  .scores { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+
+  .loading { color: var(--muted); font-size: 13px; padding: 24px 6px; text-align:center; }
+  .count-badge { font-size:12px; color: var(--muted); font-weight:700; margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">주간 진도 조회</span>
+</header>
+
+<main>
+  <h1>학생 진도 조회</h1>
+  <p class="sub">학년별 학생 이름을 누르면 주차별 진도 기록과 선생님 피드백을 볼 수 있습니다.</p>
+
+  <div class="layout">
+    <div class="panel list-panel" id="list-panel">
+      <div class="loading" id="list-status">학생 목록 불러오는 중...</div>
+    </div>
+
+    <div class="panel detail-panel" id="detail-panel">
+      <div class="placeholder">왼쪽(모바일은 위쪽)에서 학생을 선택해 주세요.</div>
+    </div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireDirector(); // 원장님 계정이 아니면 관리자 홈으로 돌려보냄
+
+  let allStudents = [];
+  let selected = null;          // 선택된 학생 객체
+  let weekStart = null;         // 보고 있는 주의 월요일 (Date)
+  const progressCache = {};     // student_code -> weekly_progress 행 배열 (주 이동할 때 다시 안 불러오려고)
+
+  // ---------- 날짜 도우미 (문자열 'YYYY-MM-DD'를 시간대 영향 없이 다룸) ----------
+  function parseYmd(s) {
+    const [y, m, d] = String(s).slice(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  function toYmd(d) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  function mondayOf(d) {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); // 월요일 시작
+    return x;
+  }
+  function addDays(d, n) {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate() + n);
+    return x;
+  }
+  function md(d) { return `${d.getMonth() + 1}/${d.getDate()}`; }
+
+  // 사용자가 입력한 텍스트를 화면에 넣기 전에 안전하게 변환
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ---------- 학생 목록 (학년별 묶음) ----------
+  async function loadStudents() {
+    const status = document.getElementById('list-status');
+    const { data, error } = await sb.rpc('rpc_admin_list_all_students', {
+      p_password: getAdminPassword(),
+      p_include_withdrawn: false,
+    });
+    if (error) {
+      status.textContent = '학생 목록을 불러오지 못했습니다: ' + error.message;
+      return;
+    }
+    allStudents = (data || []).slice().sort((a, b) => {
+      const g = compareGrades(a.grade, b.grade);
+      if (g !== 0) return g;
+      return (a.student_name || '').localeCompare(b.student_name || '', 'ko');
+    });
+    renderList();
+  }
+
+  function renderList() {
+    const panel = document.getElementById('list-panel');
+    if (allStudents.length === 0) {
+      panel.innerHTML = '<div class="loading">재원 중인 학생이 없습니다.</div>';
+      return;
+    }
+    const groups = {};
+    allStudents.forEach((s) => {
+      const g = s.grade || '학년 미지정';
+      (groups[g] = groups[g] || []).push(s);
+    });
+    const html = Object.keys(groups).map((g) => `
+      <div class="grade-group">
+        <div class="grade-title">${esc(g)}<span class="cnt">${groups[g].length}명</span></div>
+        <div class="chips">
+          ${groups[g].map((s) => `<button type="button" class="chip" data-code="${esc(s.student_code)}">${esc(s.student_name)}</button>`).join('')}
+        </div>
+      </div>
+    `).join('');
+    panel.innerHTML = `<div class="count-badge">재원생 ${allStudents.length}명</div>` + html;
+
+    panel.querySelectorAll('.chip').forEach((btn) => {
+      btn.addEventListener('click', () => selectStudent(btn.dataset.code));
+    });
+  }
+
+  // ---------- 학생 선택 → 진도 불러오기 ----------
+  async function selectStudent(code) {
+    selected = allStudents.find((s) => s.student_code === code);
+    if (!selected) return;
+
+    document.querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.code === code));
+    weekStart = mondayOf(new Date()); // 항상 이번 주부터 보여줌
+
+    const detail = document.getElementById('detail-panel');
+    detail.innerHTML = '<div class="loading">진도 기록 불러오는 중...</div>';
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (!progressCache[code]) {
+      const { data, error } = await sb.rpc('rpc_get_weekly_progress', { p_student_code: code });
+      if (error) {
+        detail.innerHTML = `<div class="loading">진도 기록을 불러오지 못했습니다: ${esc(error.message)}</div>`;
+        return;
+      }
+      progressCache[code] = data || [];
+    }
+    // 불러오는 사이 다른 학생을 눌렀다면 그쪽 결과만 그리기
+    if (!selected || selected.student_code !== code) return;
+    renderDetail();
+  }
+
+  // ---------- 상세(주차별) 화면 ----------
+  function bar(percent) {
+    if (percent === null || percent === undefined || percent === '') return '';
+    const p = Math.max(0, Math.min(100, Number(percent)));
+    return `<div class="bar-track"><div class="bar-fill" style="width:${p}%;"></div></div><div class="bar-pct">진도율 ${p}%</div>`;
+  }
+  function textRow(label, value, extraClass) {
+    const has = value && String(value).trim();
+    return `<div class="row"><div class="k">${label}</div><div class="v ${extraClass || ''} ${has ? '' : 'empty'}">${has ? esc(value) : '-'}</div></div>`;
+  }
+
+  function renderDetail() {
+    const detail = document.getElementById('detail-panel');
+    const items = progressCache[selected.student_code] || [];
+    const weekEnd = addDays(weekStart, 6);
+    const startStr = toYmd(weekStart);
+    const endStr = toYmd(weekEnd);
+
+    // 이 주(월~일)에 기록된 것만, 최신순
+    const inWeek = items
+      .filter((it) => it.recorded_date && String(it.recorded_date).slice(0, 10) >= startStr && String(it.recorded_date).slice(0, 10) <= endStr)
+      .sort((a, b) => String(b.recorded_date).localeCompare(String(a.recorded_date)));
+
+    const thisMonday = toYmd(mondayOf(new Date()));
+    const isThisWeek = startStr === thisMonday;
+    const isFuture = startStr > thisMonday;
+
+    let recordsHtml;
+    if (inWeek.length === 0) {
+      // 기록이 없으면 빈 칸으로 보여줌
+      recordsHtml = `
+        <div class="record">
+          <div class="rec-date">이 주에는 기록이 없습니다</div>
+          ${textRow('진도책 진도', '')}
+          ${textRow('숙제책 진도', '')}
+          <div class="scores">${textRow('과제수행', '')}${textRow('수업태도', '')}</div>
+          ${textRow('선생님 피드백', '', 'comment')}
+        </div>`;
+    } else {
+      recordsHtml = inWeek.map((it) => `
+        <div class="record">
+          <div class="rec-date">${esc(String(it.recorded_date).slice(0, 10))}${it.classroom ? ' · ' + esc(it.classroom) : ''}</div>
+          <div class="row">
+            <div class="k">진도책 진도</div>
+            <div class="v ${it.textbook_progress ? '' : 'empty'}">${it.textbook_progress ? esc(it.textbook_progress) : '-'}</div>
+            ${bar(it.textbook_progress_percent)}
+          </div>
+          <div class="row">
+            <div class="k">숙제책 진도</div>
+            <div class="v ${it.homework_progress ? '' : 'empty'}">${it.homework_progress ? esc(it.homework_progress) : '-'}</div>
+            ${bar(it.homework_progress_percent)}
+          </div>
+          <div class="scores">
+            ${textRow('과제수행', it.homework_completion)}
+            ${textRow('수업태도', it.attitude)}
+          </div>
+          ${textRow('선생님 피드백', it.teacher_comment, 'comment')}
+          ${it.feedback_content && String(it.feedback_content).trim() ? textRow('추가 피드백', it.feedback_content, 'comment') : ''}
+        </div>`).join('');
+    }
+
+    detail.innerHTML = `
+      <div class="student-head">
+        <span class="nm">${esc(selected.student_name)}</span>
+        <span class="meta">${esc(selected.grade || '학년 미지정')}${selected.classroom ? ' · ' + esc(selected.classroom) : ''}</span>
+      </div>
+      <div class="week-nav">
+        <button type="button" id="prev-week" aria-label="이전 주"><i class="fa-solid fa-chevron-left"></i></button>
+        <div class="label">${md(weekStart)} ~ ${md(weekEnd)}<small>${weekStart.getFullYear()}년${isThisWeek ? ' · 이번 주' : ''}</small></div>
+        <button type="button" class="today-btn" id="this-week" ${isThisWeek ? 'disabled' : ''}>이번 주</button>
+        <button type="button" id="next-week" aria-label="다음 주" ${isThisWeek || isFuture ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+      ${recordsHtml}
+    `;
+
+    document.getElementById('prev-week').addEventListener('click', () => { weekStart = addDays(weekStart, -7); renderDetail(); });
+    document.getElementById('next-week').addEventListener('click', () => { weekStart = addDays(weekStart, 7); renderDetail(); });
+    document.getElementById('this-week').addEventListener('click', () => { weekStart = mondayOf(new Date()); renderDetail(); });
+  }
+
+  loadStudents();
+</script>
+
+</body>
+</html>
