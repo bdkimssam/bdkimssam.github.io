@@ -80,6 +80,7 @@ order by table_name;
 - `checked_by` text
 - `created_at` timestamptz NOT NULL DEFAULT now()
 - `memo` text — 출결 메모(사유·보강 내용 등, 모든 상태에서 입력 가능) (45 마이그레이션). `status`는 출석/지각/조퇴/결석/보강 — '보강'은 결석분 보강 수업에 온 날(출석 인원과 별도 집계, 메모에 어느 날 결석분인지 기록). 화면: `admin/attendance.html`(원장·강사 공통). RPC: `rpc_admin_list_attendance_v2(p_password, p_attendance_date)`(학생당 최근 1건: student_code, status, memo), `rpc_admin_mark_attendance_v2(p_password, p_student_code, p_student_name, p_attendance_date, p_status, p_checked_by, p_memo)`(같은 학생·날짜면 수정, 없으면 추가; 원장/강사 비밀번호 모두 허용). 기존 `rpc_admin_list_attendance`/`rpc_admin_mark_attendance`는 SQL 45 전 대비 폴백으로만 남김.
+- `makeup_status` text('완료'|'불필요'|NULL=아직 보강 안 받음), `makeup_date` date — 결석 기록의 보강 처리 (46 마이그레이션). 화면: `admin/makeup-pending.html`(원장·강사 공통). RPC: `rpc_admin_list_makeups(p_password, p_include_done default false)`(같은 학생·같은 날짜는 최근 1건만 보고 status='결석'인 재원생만; student_name, grade 포함), `rpc_admin_set_makeup(p_password, p_id, p_status('완료'|'불필요'|''=되돌리기), p_date)`. 보강 수업 당일 기록은 별도로 status='보강'(결석 기록과 자동 연결은 안 됨 — 원장/강사가 보강 대기 목록에서 직접 완료 처리).
 
 ---
 

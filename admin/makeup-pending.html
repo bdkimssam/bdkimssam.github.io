@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보강 대기 목록 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 720px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 16px; line-height:1.6; }
+  .toolbar { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+  .toolbar input[type="text"] { flex:1; min-width:140px; font-size:13.5px; padding:8px 10px; border-radius:8px; border:1px solid var(--gray-200); font-family:inherit; }
+  .toolbar label { font-size:13px; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .summary { font-size:12.5px; color:var(--muted); margin-bottom:12px; }
+  .notice { background:#FFF7E6; border:1px solid #FFD591; color:#8A5A00; border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; line-height:1.5; }
+  .item { background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
+  .item .top { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .item .nm { font-weight:800; font-size:14.5px; }
+  .item .meta { font-size:12px; color:var(--muted); }
+  .item .ago { margin-left:auto; font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:999px; background:#FEE2E2; color:#B91C1C; }
+  .item .ago.warn { background:#FEF3C7; color:#92400E; }
+  .item .memo { font-size:12.5px; background:var(--gray-50); border-radius:8px; padding:6px 10px; margin-top:8px; color:#374151; }
+  .item .done-info { font-size:12.5px; color:#0E7490; margin-top:8px; font-weight:700; }
+  .actions { display:flex; align-items:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .actions input[type="date"] { font-size:12.5px; padding:6px 8px; border-radius:8px; border:1px solid var(--gray-200); font-family:inherit; }
+  .actions button { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer; font-family:inherit; color:var(--ink); }
+  .actions button.primary { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .actions button:disabled { opacity:0.5; cursor:not-allowed; }
+  .loading { color:var(--muted); font-size:13px; padding:24px 6px; text-align:center; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">보강 대기 목록</span>
+</header>
+
+<main>
+  <h1>보강 안 받은 학생</h1>
+  <p class="sub">출결 화면에서 "결석"으로 기록한 학생 중 아직 보강 처리가 안 된 학생이에요. 보강을 받았으면 날짜를 확인하고 "보강 완료"를, 보강이 필요 없으면 "보강 불필요"를 눌러 주세요.</p>
+
+  <div class="toolbar">
+    <input type="text" id="search-box" placeholder="이름으로 찾기">
+    <label><input type="checkbox" id="show-done"> 처리한 것도 보기</label>
+  </div>
+  <div id="notice"></div>
+  <div class="summary" id="summary"></div>
+  <div id="list"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireAdminAuth(); // 원장님/강사쌤 모두 사용
+
+  let items = [];
+
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function seoulToday() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+  }
+  function utcDay(ymd) {
+    const [y, m, d] = String(ymd).slice(0, 10).split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  }
+  function fmtDate(ymd) {
+    const [y, m, d] = String(ymd).slice(0, 10).split('-').map(Number);
+    const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+    return `${m}/${d}(${wd})`;
+  }
+  function daysAgo(ymd) {
+    return Math.round((utcDay(seoulToday()) - utcDay(ymd)) / 86400000);
+  }
+
+  async function load() {
+    const list = document.getElementById('list');
+    const { data, error } = await sb.rpc('rpc_admin_list_makeups', {
+      p_password: getAdminPassword(),
+      p_include_done: document.getElementById('show-done').checked,
+    });
+    if (error) {
+      const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+      list.innerHTML = `<div class="loading">${missing
+        ? '보강 목록 SQL(46)이 DB에 아직 없어요. 안내드린 SQL을 먼저 실행해 주세요.'
+        : esc('불러오지 못했습니다: ' + error.message)}</div>`;
+      return;
+    }
+    items = data || [];
+    render();
+  }
+
+  function render() {
+    const q = document.getElementById('search-box').value.trim();
+    const showDone = document.getElementById('show-done').checked;
+    const shown = items.filter((r) => !q || (r.student_name || '').includes(q));
+    const pending = items.filter((r) => !r.makeup_status).length;
+    document.getElementById('summary').textContent = `보강 대기 ${pending}명(건)` + (showDone ? ` · 처리 완료 ${items.length - pending}건` : '');
+
+    const list = document.getElementById('list');
+    if (shown.length === 0) {
+      list.innerHTML = `<div class="loading">${q ? '찾는 학생이 없어요.' : '보강 대기 중인 학생이 없어요.'}</div>`;
+      return;
+    }
+    list.innerHTML = shown.map((r) => {
+      const ago = daysAgo(r.attendance_date);
+      const done = !!r.makeup_status;
+      return `
+      <div class="item">
+        <div class="top">
+          <span class="nm">${esc(r.student_name)}</span>
+          <span class="meta">${esc(r.grade || '')} · ${esc(fmtDate(r.attendance_date))} 결석</span>
+          ${done ? '' : `<span class="ago ${ago >= 14 ? '' : 'warn'}">${ago <= 0 ? '오늘' : ago + '일 지남'}</span>`}
+        </div>
+        ${r.memo ? `<div class="memo">${esc(r.memo)}</div>` : ''}
+        ${done ? `
+          <div class="done-info">${r.makeup_status === '완료' ? '보강 완료' + (r.makeup_date ? ' · ' + esc(fmtDate(r.makeup_date)) : '') : '보강 불필요'}</div>
+          <div class="actions"><button type="button" data-act="undo" data-id="${esc(r.id)}">되돌리기</button></div>
+        ` : `
+          <div class="actions">
+            <input type="date" value="${seoulToday()}" data-date-for="${esc(r.id)}">
+            <button type="button" class="primary" data-act="done" data-id="${esc(r.id)}">보강 완료</button>
+            <button type="button" data-act="skip" data-id="${esc(r.id)}">보강 불필요</button>
+          </div>
+        `}
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const act = btn.dataset.act;
+        const dateEl = list.querySelector(`[data-date-for="${CSS.escape(id)}"]`);
+        const status = act === 'done' ? '완료' : act === 'skip' ? '불필요' : '';
+        btn.parentElement.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+        const { error } = await sb.rpc('rpc_admin_set_makeup', {
+          p_password: getAdminPassword(),
+          p_id: id,
+          p_status: status,
+          p_date: act === 'done' && dateEl && dateEl.value ? dateEl.value : null,
+        });
+        if (error) {
+          alert('저장 실패: ' + error.message);
+          btn.parentElement.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+          return;
+        }
+        load();
+      });
+    });
+  }
+
+  document.getElementById('search-box').addEventListener('input', render);
+  document.getElementById('show-done').addEventListener('change', load);
+  load();
+</script>
+
+</body>
+</html>
