@@ -47,7 +47,7 @@
 
 <main>
   <h1>보강 안 받은 학생</h1>
-  <p class="sub">출결 화면에서 "결석"으로 기록한 학생 중 아직 보강 처리가 안 된 학생이에요. 보강을 받았으면 날짜를 확인하고 "보강 완료"를, 보강이 필요 없으면 "보강 불필요"를 눌러 주세요.</p>
+  <p class="sub">출결 화면에서 "결석" 또는 "조퇴"로 기록한 학생 중 아직 보강 처리가 안 된 학생이에요. 보강을 받았으면 날짜를 확인하고 "보강 완료"를, 보강이 필요 없으면 "보강 불필요"를 눌러 주세요.</p>
 
   <div class="toolbar">
     <input type="text" id="search-box" placeholder="이름으로 찾기">
@@ -121,7 +121,7 @@
       <div class="item">
         <div class="top">
           <span class="nm">${esc(r.student_name)}</span>
-          <span class="meta">${esc(r.grade || '')} · ${esc(fmtDate(r.attendance_date))} 결석</span>
+          <span class="meta">${esc(r.grade || '')} · ${esc(fmtDate(r.attendance_date))} ${esc(r.status || '결석')}</span>
           ${done ? '' : `<span class="ago ${ago >= 14 ? '' : 'warn'}">${ago <= 0 ? '오늘' : ago + '일 지남'}</span>`}
         </div>
         ${r.memo ? `<div class="memo">${esc(r.memo)}</div>` : ''}
