@@ -26,6 +26,7 @@
   .date-nav .today-btn { width:auto; padding:0 12px; font-size:12.5px; font-weight:700; font-family:inherit; }
   .date-nav .refresh-btn { width:auto; padding:0 12px; font-size:12.5px; font-weight:700; font-family:inherit; }
 
+  .show-all { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted); font-weight:600; margin-top:12px; cursor:pointer; }
   .summary { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:14px; }
   @media (max-width: 520px) { .summary { grid-template-columns: repeat(2, 1fr); } }
   .sum-box { background: var(--gray-50); border-radius:12px; padding:12px; text-align:center; }
@@ -72,6 +73,7 @@
       <button type="button" class="today-btn" id="today-btn">오늘</button>
       <button type="button" class="refresh-btn" id="refresh-btn"><i class="fa-solid fa-rotate"></i> 새로고침</button>
     </div>
+    <label class="show-all"><input type="checkbox" id="show-all"> 기록 없는 학생도 모두 보기</label>
     <div class="summary" id="summary"></div>
   </div>
 
@@ -158,7 +160,8 @@
     const byCode = {};
     checks.forEach((c) => { (byCode[c.student_code] = byCode[c.student_code] || []).push(c); });
 
-    let nIn = 0, nOut = 0, nNone = 0;
+    let nIn = 0, nOut = 0, nNone = 0, nNote = 0;
+    const showAll = document.getElementById('show-all').checked;
     const rows = students.map((s) => {
       const list = byCode[s.student_code] || [];
       const firstIn = list.find((c) => c.check_type === '등원');
@@ -166,26 +169,34 @@
       const lastOut = outs[outs.length - 1];
       const last = list[list.length - 1];
       let cls, label;
-      if (!last) { cls = 'none' + (isToday ? '' : ' past'); label = isToday ? '아직 안 옴' : '기록 없음'; nNone++; }
+      if (!last) { cls = 'none past'; label = '기록 없음'; nNone++; }
       else if (last.check_type === '등원') { cls = 'in'; label = '등원 중'; nIn++; }
       else { cls = 'out'; label = '하원'; nOut++; }
       const times = [firstIn ? `등원 ${hhmm(firstIn.checked_at)}` : '', lastOut ? `하원 ${hhmm(lastOut.checked_at)}` : '']
         .filter(Boolean).join(' · ');
-      return { s, cls, label, times, note: notes[s.student_code] };
+      const note = notes[s.student_code];
+      if (note && note.status !== '출석') nNote++;
+      return { s, cls, label, times, note };
     });
+    // 학생마다 등원 요일이 달라서, 기록이 있는 학생(또는 선생님이 지각/결석 등을 적은 학생)만 기본으로 보여줌
+    const visible = rows.filter((r) => showAll || r.cls !== 'none past' || r.note);
 
     document.getElementById('summary').innerHTML = `
-      <div class="sum-box"><div class="n">${students.length}</div><div class="t">재원생</div></div>
+      <div class="sum-box"><div class="n">${nIn + nOut}</div><div class="t">등원한 학생</div></div>
       <div class="sum-box"><div class="n" style="color:var(--green)">${nIn}</div><div class="t">등원 중</div></div>
       <div class="sum-box"><div class="n">${nOut}</div><div class="t">하원</div></div>
-      <div class="sum-box"><div class="n" style="color:${isToday ? 'var(--red)' : 'var(--muted)'}">${nNone}</div><div class="t">${isToday ? '아직 안 옴' : '기록 없음'}</div></div>`;
+      <div class="sum-box"><div class="n" style="color:var(--muted)">${nNote}</div><div class="t">지각·조퇴·결석·보강</div></div>`;
 
     if (students.length === 0) {
       document.getElementById('list-panel').innerHTML = '<div class="loading">재원 중인 학생이 없습니다.</div>';
       return;
     }
+    if (visible.length === 0) {
+      document.getElementById('list-panel').innerHTML = `<div class="loading">${isToday ? '아직 오늘 등원 기록이 없어요.' : '이 날은 등원 기록이 없어요.'}</div>`;
+      return;
+    }
     const groups = {};
-    rows.forEach((r) => { const g = r.s.grade || '학년 미지정'; (groups[g] = groups[g] || []).push(r); });
+    visible.forEach((r) => { const g = r.s.grade || '학년 미지정'; (groups[g] = groups[g] || []).push(r); });
     document.getElementById('list-panel').innerHTML = Object.keys(groups).map((g) => `
       <div class="grade-group">
         <div class="grade-title">${esc(g)} · ${groups[g].length}명</div>
@@ -204,6 +215,7 @@
   document.getElementById('next-btn').addEventListener('click', () => { viewDate = shiftDate(viewDate, 1); refresh(); });
   document.getElementById('today-btn').addEventListener('click', () => { viewDate = seoulToday(); refresh(); });
   document.getElementById('refresh-btn').addEventListener('click', refresh);
+  document.getElementById('show-all').addEventListener('change', render);
 
   viewDate = seoulToday();
   refresh();
