@@ -178,6 +178,7 @@
     <div class="field"><label>학생 연락처</label><input type="tel" id="edit-student-phone"></div>
     <div class="field"><label>부모 연락처</label><input type="tel" id="edit-parent-phone"></div>
     <div class="field"><label>출석용 학부모 전화번호 (출석체크 키오스크 조회용 · 가입 여부와 무관)</label><input type="tel" id="edit-attendance-phone" placeholder="예: 010-1234-5678"></div>
+    <div class="field"><label>추가 번호 (선택 · 엄마/아빠 두 분 다 쓸 때)</label><input type="tel" id="edit-attendance-phone2" placeholder="예: 010-9876-5432"></div>
     <div class="field"><label>부모 이메일 (카카오 로그인용)</label><input type="email" id="edit-parent-email"></div>
     <div class="field"><label>학생 생년월일 (예: 20150321)</label><input type="text" id="edit-birth-date"></div>
     <div class="field"><label>주소</label><input type="text" id="edit-address"></div>
@@ -195,7 +196,7 @@
 
   const TEACHER_CLASSROOMS = CLASSROOMS.filter((c) => c !== DIRECTOR_LABEL);
   let allStudents = [];
-  let attendancePhones = {};      // student_code -> 출석용 전화번호(숫자만)
+  let attendancePhones = {};      // student_code -> { p1: 기본 번호, p2: 추가 번호 } (숫자만)
   let attendancePhoneReady = false; // 출석용 번호 기능(SQL)이 DB에 있는지
 
   loadStudents();
@@ -249,7 +250,7 @@
     const phoneRes = await sb.rpc('rpc_admin_list_attendance_phones', { p_password: getAdminPassword() });
     attendancePhones = {};
     attendancePhoneReady = !phoneRes.error;
-    if (!phoneRes.error) (phoneRes.data || []).forEach((r) => { attendancePhones[r.student_code] = r.attendance_phone; });
+    if (!phoneRes.error) (phoneRes.data || []).forEach((r) => { attendancePhones[r.student_code] = { p1: r.attendance_phone || '', p2: r.attendance_phone2 || '' }; });
   }
 
   function render() {
@@ -386,9 +387,13 @@
     });
     document.getElementById('edit-privacy-consent').checked = false;
     const phoneInput = document.getElementById('edit-attendance-phone');
-    phoneInput.value = formatPhone(attendancePhones[code]);
-    phoneInput.disabled = !attendancePhoneReady;
+    const phoneInput2 = document.getElementById('edit-attendance-phone2');
+    const curPhones = attendancePhones[code] || { p1: '', p2: '' };
+    phoneInput.value = formatPhone(curPhones.p1);
+    phoneInput2.value = formatPhone(curPhones.p2);
+    phoneInput.disabled = phoneInput2.disabled = !attendancePhoneReady;
     phoneInput.placeholder = attendancePhoneReady ? '예: 010-1234-5678' : '출석용 전화번호 SQL을 실행한 뒤 사용할 수 있어요';
+    phoneInput2.placeholder = attendancePhoneReady ? '예: 010-9876-5432' : '';
     editModal.classList.add('open');
 
     const { data, error } = await sb.rpc('rpc_admin_get_student_detail', {
@@ -434,6 +439,17 @@
     saveBtn.textContent = '저장 중...';
 
     const code = document.getElementById('edit-student-code').value;
+
+    // 출석용 전화번호는 휴대폰 형식만 허용 (저장 전에 미리 확인)
+    const MOBILE_RE = /^01[016789]\d{7,8}$/;
+    const chk1 = document.getElementById('edit-attendance-phone').value.replace(/\D/g, '').replace(/^82/, '0');
+    const chk2 = document.getElementById('edit-attendance-phone2').value.replace(/\D/g, '').replace(/^82/, '0');
+    if ((chk1 && !MOBILE_RE.test(chk1)) || (chk2 && !MOBILE_RE.test(chk2))) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '저장';
+      alert('출석용 전화번호는 휴대폰 번호로 입력해 주세요 (예: 010-1234-5678)');
+      return;
+    }
     const { error } = await sb.rpc('rpc_admin_update_student_detail', {
       p_password: getAdminPassword(),
       p_student_code: code,
@@ -457,16 +473,22 @@
 
     // 출석용 전화번호: 값이 바뀐 경우에만 저장 (숫자만 비교)
     const phoneInput = document.getElementById('edit-attendance-phone');
-    const newDigits = phoneInput.value.replace(/\D/g, '');
-    const oldDigits = attendancePhones[code] || '';
+    const phoneInput2 = document.getElementById('edit-attendance-phone2');
+    const new1 = phoneInput.value.replace(/\D/g, '');
+    const new2 = phoneInput2.value.replace(/\D/g, '');
+    const cur = attendancePhones[code] || { p1: '', p2: '' };
     let phoneError = null;
-    if (!phoneInput.disabled && newDigits !== oldDigits) {
+    if (!phoneInput.disabled && (new1 !== (cur.p1 || '') || new2 !== (cur.p2 || ''))) {
       const phoneRes = await sb.rpc('rpc_admin_set_attendance_phone', {
         p_password: getAdminPassword(),
         p_student_code: code,
-        p_phone: newDigits,
+        p_phone: new1,
+        p_phone2: new2,
       });
       phoneError = phoneRes.error;
+      if (phoneError && (phoneError.code === 'PGRST202' || /Could not find the function/i.test(phoneError.message || ''))) {
+        phoneError = { message: '번호 2개 기능 SQL(43)이 DB에 아직 없어요. 안내드린 SQL을 먼저 실행해 주세요.' };
+      }
     }
 
     saveBtn.disabled = false;

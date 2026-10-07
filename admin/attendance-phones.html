@@ -70,8 +70,8 @@
   <!-- 일괄 붙여넣기 -->
   <div class="panel">
     <h2>일괄 붙여넣기</h2>
-    <textarea id="paste" placeholder="김하늘 010-1234-5678&#10;김바다 01098765432&#10;이도윤&#9;010 5555 6666"></textarea>
-    <div class="hint">한 줄에 한 명씩 "이름 전화번호"를 붙여넣어 주세요. 엑셀이나 아이출첵에서 이름·번호 두 열을 복사해서 붙여넣어도 돼요. 이름이 같은 학생이 둘 이상이면 건너뛰니, 그 학생은 학생 목록에서 한 명씩 고쳐주세요.</div>
+    <textarea id="paste" placeholder="김하늘 010-1234-5678&#10;김바다 01098765432 010-7777-8888&#10;이도윤&#9;010 5555 6666"></textarea>
+    <div class="hint">한 줄에 한 명씩 "이름 전화번호"를 붙여넣어 주세요. 엄마·아빠 번호가 둘 다 필요하면 같은 줄에 번호를 두 개 써주세요(예: 김바다 010-1111-2222 010-3333-4444, 첫 번째가 기본 번호, 두 번째가 추가 번호). 엑셀이나 아이출첵에서 복사해서 붙여넣어도 돼요. 이름이 같은 학생이 둘 이상이면 건너뛰니, 그 학생은 학생 목록에서 한 명씩 고쳐주세요.</div>
     <div class="btn-row">
       <button type="button" class="btn" id="preview-btn">확인하기</button>
       <button type="button" class="btn ghost" id="clear-btn">지우기</button>
@@ -128,6 +128,12 @@
     if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
     return d;
   }
+  // 현황 표의 번호 칸: 기본 번호 / 추가 번호
+  function cellPhones(code) {
+    const m = phoneMap[code];
+    if (!m || (!m.p1 && !m.p2)) return '<span style="color:#B0B6C3;">없음</span>';
+    return [m.p1, m.p2].filter(Boolean).map((d) => esc(fmtPhone(d))).join('<br>');
+  }
   function normName(s) { return String(s || '').replace(/\s+/g, '').trim(); }
 
   // ---------- 불러오기 ----------
@@ -149,17 +155,17 @@
       if (missing) document.getElementById('sql-banner').style.display = 'block';
       else status.textContent = '전화번호 목록을 불러오지 못했습니다: ' + phoneRes.error.message;
     } else {
-      (phoneRes.data || []).forEach((r) => { phoneMap[r.student_code] = r.attendance_phone; });
+      (phoneRes.data || []).forEach((r) => { phoneMap[r.student_code] = { p1: r.attendance_phone || '', p2: r.attendance_phone2 || '' }; });
     }
     renderStatus();
   }
 
   function renderStatus() {
     const only = document.getElementById('only-missing').checked;
-    const has = students.filter((s) => phoneMap[s.student_code]).length;
+    const has = students.filter((s) => phoneMap[s.student_code] && phoneMap[s.student_code].p1).length;
     document.getElementById('status-count').textContent =
       `재원생 ${students.length}명 중 번호 입력 ${has}명 · 없음 ${students.length - has}명`;
-    const list = only ? students.filter((s) => !phoneMap[s.student_code]) : students;
+    const list = only ? students.filter((s) => !(phoneMap[s.student_code] && phoneMap[s.student_code].p1)) : students;
     const table = document.getElementById('status-table');
     const area = document.getElementById('status-area');
     if (list.length === 0) {
@@ -175,20 +181,27 @@
         <td>${esc(s.grade || '-')}</td>
         <td class="name">${esc(s.student_name)}</td>
         <td class="code">${esc(s.student_code)}</td>
-        <td>${phoneMap[s.student_code] ? esc(fmtPhone(phoneMap[s.student_code])) : '<span style="color:#B0B6C3;">없음</span>'}</td>
+        <td>${cellPhones(s.student_code)}</td>
       </tr>`).join('');
   }
   document.getElementById('only-missing').addEventListener('change', renderStatus);
 
   // ---------- 붙여넣은 내용 분석 ----------
-  // 한 줄에서 전화번호로 보이는 부분을 찾아 숫자만 뽑고, 남은 글자를 이름으로 봄
+  // 한 줄에서 전화번호로 보이는 부분을 모두 찾아(최대 2개: 기본 + 추가) 숫자만 뽑고, 남은 글자를 이름으로 봄
+  const PHONE_RE = /(?:\+?82[\s.\-]*)?0?\d{1,2}[\s.\-]?\d{3,4}[\s.\-]?\d{4}/g;
+
   function parseLine(line) {
-    const m = line.match(/\+?\d[\d\s.\-]{7,}\d/);
-    if (!m) return { raw: line, name: normName(line), digits: '', hasDigits: /\d/.test(line) };
-    let digits = m[0].replace(/\D/g, '');
-    if (digits.startsWith('82') && digits.length >= 11) digits = '0' + digits.slice(2);
-    const name = normName(line.replace(m[0], ' ').replace(/[,\t;|]/g, ' '));
-    return { raw: line, name, digits, hasDigits: true };
+    const found = [...line.matchAll(PHONE_RE)];
+    let name = line;
+    found.forEach((m) => { name = name.replace(m[0], ' '); });
+    name = normName(name.replace(/[,\t;|\/]/g, ' '));
+    const digits = [];
+    found.forEach((m) => {
+      let d = m[0].replace(/\D/g, '');
+      if (d.startsWith('82') && d.length >= 11) d = '0' + d.slice(2);
+      if (!digits.includes(d)) digits.push(d); // 같은 번호를 두 번 쓴 경우는 하나로
+    });
+    return { raw: line, name, digits, hasDigits: /\d/.test(line) };
   }
 
   function analyze(text) {
@@ -197,16 +210,20 @@
 
     const parsed = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map(parseLine);
 
-    // 같은 학생이 여러 줄에 나오는 경우를 찾기 위해 먼저 매칭
     const result = parsed.map((p) => {
-      const r = { ...p, status: '', cls: '', note: '', student: null, ok: false };
-      if (!p.digits) {
+      const r = { ...p, status: '', cls: '', note: '', student: null, ok: false, d1: '', d2: undefined };
+      if (p.digits.length === 0) {
         if (!p.hasDigits) { r.status = '건너뜀'; r.cls = 'skip'; r.note = '전화번호가 없는 줄 (제목 줄이면 괜찮아요)'; }
         else { r.status = '형식 오류'; r.cls = 'bad'; r.note = '전화번호를 읽지 못했어요'; }
         return r;
       }
-      if (p.digits.length < 9 || p.digits.length > 11) {
-        r.status = '번호 확인'; r.cls = 'bad'; r.note = `숫자 ${p.digits.length}자리예요 (9~11자리)`;
+      if (p.digits.length > 2) {
+        r.status = '번호 3개 이상'; r.cls = 'bad'; r.note = '번호는 기본 + 추가, 2개까지만 넣을 수 있어요';
+        return r;
+      }
+      const badNum = p.digits.find((d) => !/^01[016789]\d{7,8}$/.test(d));
+      if (badNum) {
+        r.status = '번호 확인'; r.cls = 'bad'; r.note = `${fmtPhone(badNum)} — 휴대폰 번호(010 등)가 아니에요 (알림톡은 휴대폰으로만 가요)`;
         return r;
       }
       const found = byName[p.name] || [];
@@ -215,7 +232,7 @@
       else if (found.length > 1) {
         r.status = '동명이인'; r.cls = 'warn';
         r.note = `같은 이름 ${found.length}명 (${found.map((s) => s.student_code).join(', ')}) — 학생 목록에서 따로 입력`;
-      } else { r.student = found[0]; r.ok = true; }
+      } else { r.student = found[0]; r.ok = true; r.d1 = p.digits[0]; r.d2 = p.digits[1]; }
       return r;
     });
 
@@ -224,15 +241,26 @@
     result.forEach((r) => { if (r.ok) count[r.student.student_code] = (count[r.student.student_code] || 0) + 1; });
     result.forEach((r) => {
       if (r.ok && count[r.student.student_code] > 1) {
-        r.ok = false; r.status = '중복 입력'; r.cls = 'warn'; r.note = '같은 학생이 여러 줄에 있어요. 한 줄만 남기고 다시 확인해 주세요';
+        r.ok = false; r.status = '중복 입력'; r.cls = 'warn'; r.note = '같은 학생이 여러 줄에 있어요. 한 줄로 합쳐서 다시 확인해 주세요 (엄마·아빠 번호는 한 줄에 같이 쓰면 돼요)';
       }
     });
+
     result.forEach((r) => {
       if (!r.ok) return;
-      const cur = phoneMap[r.student.student_code];
-      if (!cur) { r.status = '저장 예정'; r.cls = 'ok'; }
-      else if (cur === r.digits) { r.status = '변경 없음'; r.cls = 'skip'; r.note = '이미 같은 번호예요'; r.ok = false; }
-      else { r.status = '번호 변경'; r.cls = 'ok'; r.note = `기존 ${fmtPhone(cur)} → 새 번호로 바뀝니다`; }
+      const cur = phoneMap[r.student.student_code] || { p1: '', p2: '' };
+      const hadAny = cur.p1 || cur.p2;
+      // 번호 1개만 붙여넣었는데 이미 '추가 번호'로 들어 있으면 바꿀 것이 없음 (기본 번호를 덮어쓰지 않도록)
+      const singleAlreadyExtra = r.d2 === undefined && r.d1 === cur.p2 && r.d1 !== '';
+      const same = singleAlreadyExtra || (r.d1 === cur.p1 && (r.d2 === undefined || r.d2 === (cur.p2 || '')));
+      if (!hadAny) { r.status = '저장 예정'; r.cls = 'ok'; }
+      else if (same) { r.status = '변경 없음'; r.cls = 'skip'; r.note = '이미 같은 번호예요'; r.ok = false; }
+      else {
+        r.status = '번호 변경'; r.cls = 'ok';
+        const old = [cur.p1, cur.p2].filter(Boolean).map(fmtPhone).join(' / ');
+        r.note = r.d2 === undefined
+          ? `기본 번호만 바뀌어요 (기존 ${old})`
+          : `기존 ${old} → 새 번호로 바뀝니다`;
+      }
     });
     return result;
   }
@@ -248,7 +276,7 @@
       <tr>
         <td><span class="st ${r.cls}">${esc(r.status)}</span></td>
         <td class="name">${esc(r.name || r.raw)}</td>
-        <td>${r.digits ? esc(fmtPhone(r.digits)) : '-'}</td>
+        <td>${r.digits.length ? r.digits.map((d) => esc(fmtPhone(d))).join('<br>') : '-'}</td>
         <td>${r.student ? `${esc(r.student.student_name)} <span class="note" style="display:inline;">${esc(r.student.grade || '')} · ${esc(r.student.student_code)}</span>` : '-'}${r.note ? `<span class="note">${esc(r.note)}</span>` : ''}</td>
       </tr>`).join('');
     const saveBtn = document.getElementById('save-btn');
@@ -272,7 +300,11 @@
   });
 
   document.getElementById('save-btn').addEventListener('click', async () => {
-    const items = rows.filter((r) => r.ok).map((r) => ({ student_code: r.student.student_code, phone: r.digits }));
+    const items = rows.filter((r) => r.ok).map((r) => {
+      const it = { student_code: r.student.student_code, phone: r.d1 };
+      if (r.d2 !== undefined) it.phone2 = r.d2; // 번호를 두 개 쓴 줄만 추가 번호도 함께 저장
+      return it;
+    });
     if (items.length === 0) return;
     const btn = document.getElementById('save-btn');
     const msg = document.getElementById('save-msg');
