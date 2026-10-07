@@ -103,6 +103,12 @@
     <div class="field-row wide">
       <div><label>교재명</label><input type="text" id="new-name" placeholder="예: CORE 레벨1"></div>
     </div>
+    <div class="field-row wide" id="copy-units-row">
+      <div>
+        <label>단원 복사 (선택) — 같은 학년·학기 교재의 단원을 그대로 가져옵니다</label>
+        <select id="copy-units-from"><option value="">복사 안 함 (단원은 나중에 직접 입력)</option></select>
+      </div>
+    </div>
     <button type="button" class="add-btn" id="add-textbook-btn">교재 추가</button>
     <span class="cancel-edit-link" id="cancel-textbook-edit" style="display:none;">수정 취소</span>
   </div>
@@ -160,6 +166,20 @@
 
   loadTextbooks();
 
+  // 선택한 학년·학기의 교재 중 단원이 있는 것만 '단원 복사' 후보로 보여줌
+  function refreshCopyOptions() {
+    const select = document.getElementById('copy-units-from');
+    const grade = document.getElementById('new-grade').value;
+    const semester = parseInt(document.getElementById('new-semester').value, 10);
+    const prev = select.value;
+    const candidates = allTextbooks.filter((t) => t.grade === grade && Number(t.semester) === semester && Number(t.unit_count) > 0);
+    select.innerHTML = '<option value="">복사 안 함 (단원은 나중에 직접 입력)</option>' +
+      candidates.map((t) => `<option value="${t.textbook_code}">[${t.category || '-'}] ${t.textbook_name} (단원 ${t.unit_count}개)</option>`).join('');
+    if (candidates.some((t) => t.textbook_code === prev)) select.value = prev;
+  }
+  document.getElementById('new-grade').addEventListener('change', refreshCopyOptions);
+  document.getElementById('new-semester').addEventListener('change', refreshCopyOptions);
+
   document.getElementById('grade-semester-filter').addEventListener('change', (e) => {
     currentFilter = e.target.value;
     renderTextbooks();
@@ -195,11 +215,42 @@
         p_textbook_code: code, p_category: category, p_grade: grade, p_semester: semester, p_textbook_name: name,
       }));
     }
-    btn.disabled = false;
     if (error) {
+      btn.disabled = false;
       alert((editingTextbookCode ? '교재 수정 실패: ' : '교재 추가 실패: ') + error.message);
       return;
     }
+
+    // 새 교재를 추가한 경우에만: 고른 교재의 단원을 새 교재로 복사
+    let copyMessage = '';
+    const copyFrom = editingTextbookCode ? '' : document.getElementById('copy-units-from').value;
+    if (copyFrom) {
+      btn.textContent = '단원 복사 중...';
+      const { data: srcUnits, error: listError } = await sb.rpc('rpc_admin_list_curriculum_units', {
+        p_password: getAdminPassword(), p_textbook_code: copyFrom,
+      });
+      if (listError) {
+        copyMessage = '교재는 추가됐지만 단원을 불러오지 못해 복사하지 못했어요: ' + listError.message;
+      } else {
+        const units = (srcUnits || []).slice().sort((a, b) => a.unit_order - b.unit_order);
+        let done = 0;
+        for (const u of units) {
+          const { error: addError } = await sb.rpc('rpc_admin_add_curriculum_unit', {
+            p_password: getAdminPassword(),
+            p_textbook_code: code, p_unit_order: u.unit_order, p_major_unit: u.major_unit, p_minor_unit: u.minor_unit || '',
+          });
+          if (addError) {
+            copyMessage = `교재는 추가됐지만 단원 복사가 ${done}/${units.length}개에서 멈췄어요: ${addError.message}\n나머지는 "단원 관리"에서 직접 추가해 주세요.`;
+            break;
+          }
+          done++;
+        }
+        if (!copyMessage) copyMessage = `교재가 추가되었고 단원 ${done}개를 복사했어요.`;
+      }
+    }
+    btn.disabled = false;
+    btn.textContent = '교재 추가';
+    if (copyMessage) alert(copyMessage);
     exitTextbookEditMode();
     loadTextbooks();
   });
@@ -217,6 +268,7 @@
     document.getElementById('new-semester').value = String(t.semester || 1);
     document.getElementById('new-name').value = t.textbook_name;
     document.getElementById('add-textbook-btn').textContent = '수정 저장';
+    document.getElementById('copy-units-row').style.display = 'none';
     document.getElementById('textbook-form-title').textContent = '교재 수정';
     document.getElementById('textbook-edit-badge').style.display = 'inline-block';
     document.getElementById('cancel-textbook-edit').style.display = 'block';
@@ -229,6 +281,8 @@
     document.getElementById('new-code').disabled = false;
     document.getElementById('new-name').value = '';
     document.getElementById('add-textbook-btn').textContent = '교재 추가';
+    document.getElementById('copy-units-row').style.display = '';
+    document.getElementById('copy-units-from').value = '';
     document.getElementById('textbook-form-title').textContent = '교재 등록';
     document.getElementById('textbook-edit-badge').style.display = 'none';
     document.getElementById('cancel-textbook-edit').style.display = 'none';
@@ -244,6 +298,7 @@
     allTextbooks = data || [];
     updateFilterOptions();
     renderTextbooks();
+    refreshCopyOptions();
   }
 
   function updateFilterOptions() {
