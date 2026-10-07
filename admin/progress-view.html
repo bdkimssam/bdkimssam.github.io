@@ -180,7 +180,7 @@
     if (!selected) return;
 
     document.querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.code === code));
-    weekStart = mondayOf(new Date()); // 항상 이번 주부터 보여줌
+    if (!weekStart) weekStart = mondayOf(new Date()); // 처음 한 번만 이번 주로 시작, 이후엔 보던 주차 유지
 
     const detail = document.getElementById('detail-panel');
     detail.innerHTML = '<div class="loading">진도 기록 불러오는 중...</div>';
@@ -189,7 +189,14 @@
     }
 
     if (!progressCache[code]) {
-      const { data, error } = await sb.rpc('rpc_get_weekly_progress', { p_student_code: code });
+      // 원장님 전용 조회(전체 기록)를 먼저 시도하고, DB에 아직 없으면 기존 조회로 대신함
+      let { data, error } = await sb.rpc('rpc_admin_list_weekly_progress', {
+        p_password: getAdminPassword(),
+        p_student_code: code,
+      });
+      if (error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || ''))) {
+        ({ data, error } = await sb.rpc('rpc_get_weekly_progress', { p_student_code: code }));
+      }
       if (error) {
         detail.innerHTML = `<div class="loading">진도 기록을 불러오지 못했습니다: ${esc(error.message)}</div>`;
         return;
