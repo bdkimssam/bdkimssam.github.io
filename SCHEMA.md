@@ -79,6 +79,7 @@ order by table_name;
 - `status` text NOT NULL DEFAULT '출석'
 - `checked_by` text
 - `created_at` timestamptz NOT NULL DEFAULT now()
+- `memo` text — 지각/조퇴/결석 사유 메모 (45 마이그레이션). 화면: `admin/attendance.html`(원장·강사 공통). RPC: `rpc_admin_list_attendance_v2(p_password, p_attendance_date)`(학생당 최근 1건: student_code, status, memo), `rpc_admin_mark_attendance_v2(p_password, p_student_code, p_student_name, p_attendance_date, p_status, p_checked_by, p_memo)`(같은 학생·날짜면 수정, 없으면 추가; 원장/강사 비밀번호 모두 허용). 기존 `rpc_admin_list_attendance`/`rpc_admin_mark_attendance`는 SQL 45 전 대비 폴백으로만 남김.
 
 ---
 
@@ -312,3 +313,5 @@ order by table_name;
 - `admin/payments.html` — 관리자 홈 "결제" 섹션. 월 이동, 납부완료/미납/수납액 통계, 요금표 수정, 학생별 납부 입력.
 - `notify_sms_payment_confirm()` — `payments` AFTER INSERT 트리거(39 마이그레이션). 새 납부 기록 최초 입력 시(수정/upsert 땐 재발송 안 됨) 학부모께 수납 확인 문자. 메시지엔 "오늘"이 아니라 입력된 `paid_date`를 그대로 표시(늦게 입력해도 자연스럽게). 지금은 솔라피 일반 SMS, 카카오 채널 승인되면 알림톡으로 전환 예정.
 - 미납 학생 알림톡 발송 기능은 카카오 채널 연동 완료 후 추가 예정.
+
+- `rpc_admin_list_attendance_checks(p_password, p_date)` — 원장님 전용, 특정 날짜의 `attendance_checks` 기록 조회 (44 마이그레이션, `admin/attendance-today.html`)

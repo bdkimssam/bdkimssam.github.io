@@ -35,6 +35,12 @@
   .status-btns button.active[data-status="지각"] { background:#FFF3E0; border-color:#FFCC80; color:#B5651D; }
   .status-btns button.active[data-status="결석"] { background:#FDECEC; border-color:#F5B7B1; color:#C0392B; }
   .status-btns button.active[data-status="조퇴"] { background:#EEF2FF; border-color:#C5CAE9; color:#364293; }
+  .student-row { flex-wrap: wrap; }
+  .memo-wrap { flex-basis:100%; }
+  .memo-wrap input { width:100%; font-size:13px; padding:8px 10px; border-radius:8px; border:1px solid var(--gray-200); font-family:inherit; }
+  .memo-wrap input:focus { outline:none; border-color: var(--navy-900); }
+  .memo-state { font-size:11px; color: var(--muted); margin-top:3px; min-height:13px; }
+  .notice { background:#FFF7E6; border:1px solid #FFD591; color:#8A5A00; border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; line-height:1.5; }
   .loading { color: var(--muted); font-size: 13px; }
 </style>
 </head>
@@ -51,6 +57,7 @@
     <input type="date" id="attendance-date">
     <input type="text" id="search-box" placeholder="이름으로 찾기">
   </div>
+  <div id="notice"></div>
   <div class="summary" id="summary"></div>
   <div id="student-list"><div class="loading">불러오는 중...</div></div>
 </main>
@@ -60,10 +67,21 @@
   requireAdminAuth();
 
   const dateInput = document.getElementById('attendance-date');
-  dateInput.valueAsDate = new Date();
+  dateInput.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()); // 한국 날짜
 
   let allStudents = [];
   let statusMap = {}; // student_code -> status
+  let memoMap = {};   // student_code -> 메모
+  let memoReady = true; // 메모 기능 SQL(45)이 DB에 있는지
+
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function isMissingFn(error) {
+    return error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || ''));
+  }
 
   async function loadStudents() {
     const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword() });
@@ -72,19 +90,57 @@
   }
 
   async function loadAttendanceForDate(dateStr) {
-    const { data, error } = await sb.rpc('rpc_admin_list_attendance', {
+    statusMap = {}; memoMap = {};
+    let res = await sb.rpc('rpc_admin_list_attendance_v2', {
       p_password: getAdminPassword(), p_attendance_date: dateStr,
     });
-    if (error) { console.error(error); return {}; }
-    const map = {};
-    (data || []).forEach((row) => { map[row.student_code] = row.status; });
-    return map;
+    if (isMissingFn(res.error)) {
+      // 메모 SQL이 아직 없으면 예전 방식(메모 없이)으로 동작
+      memoReady = false;
+      res = await sb.rpc('rpc_admin_list_attendance', {
+        p_password: getAdminPassword(), p_attendance_date: dateStr,
+      });
+    } else {
+      memoReady = true;
+    }
+    if (res.error) { console.error(res.error); return; }
+    (res.data || []).forEach((row) => {
+      statusMap[row.student_code] = row.status;
+      if (row.memo) memoMap[row.student_code] = row.memo;
+    });
   }
+
+  function saveRow(code, name, status, memo) {
+    if (memoReady) {
+      return sb.rpc('rpc_admin_mark_attendance_v2', {
+        p_password: getAdminPassword(),
+        p_student_code: code,
+        p_student_name: name,
+        p_attendance_date: dateInput.value,
+        p_status: status,
+        p_checked_by: getAdminClassroom(),
+        p_memo: memo || '',
+      });
+    }
+    return sb.rpc('rpc_admin_mark_attendance', {
+      p_password: getAdminPassword(),
+      p_student_code: code,
+      p_student_name: name,
+      p_attendance_date: dateInput.value,
+      p_status: status,
+      p_checked_by: getAdminClassroom(),
+    });
+  }
+
+  function needsMemo(status) { return status === '지각' || status === '조퇴' || status === '결석'; }
 
   function renderList() {
     const q = document.getElementById('search-box').value.trim();
     const listEl = document.getElementById('student-list');
     const filtered = q ? allStudents.filter((s) => s.student_name && s.student_name.includes(q)) : allStudents;
+
+    document.getElementById('notice').innerHTML = memoReady ? '' :
+      '<div class="notice">사유 메모 칸을 쓰려면 안내드린 SQL(45)을 먼저 실행해 주세요. 지금은 출결 버튼만 저장돼요.</div>';
 
     if (filtered.length === 0) {
       listEl.innerHTML = '<div class="loading">학생이 없습니다.</div>';
@@ -94,15 +150,20 @@
     listEl.innerHTML = filtered.map((s) => {
       const current = statusMap[s.student_code] || '';
       const statuses = ['출석', '지각', '조퇴', '결석'];
+      const showMemo = memoReady && needsMemo(current);
       return `
-        <div class="student-row">
+        <div class="student-row" data-row="${esc(s.student_code)}">
           <div>
-            <div class="name">${s.student_name}</div>
-            <div class="meta">${s.grade || ''} · ${s.student_code}</div>
+            <div class="name">${esc(s.student_name)}</div>
+            <div class="meta">${esc(s.grade || '')} · ${esc(s.student_code)}</div>
           </div>
-          <div class="status-btns" data-code="${s.student_code}" data-name="${s.student_name}">
+          <div class="status-btns" data-code="${esc(s.student_code)}" data-name="${esc(s.student_name)}">
             ${statuses.map((st) => `<button type="button" data-status="${st}" class="${current === st ? 'active' : ''}">${st}</button>`).join('')}
           </div>
+          ${showMemo ? `<div class="memo-wrap">
+            <input type="text" maxlength="200" data-memo="${esc(s.student_code)}" value="${esc(memoMap[s.student_code] || '')}" placeholder="사유 메모 (예: 20분 늦음, 병원 진료, 학교 행사)">
+            <div class="memo-state" data-memo-state="${esc(s.student_code)}"></div>
+          </div>` : ''}
         </div>
       `;
     }).join('');
@@ -115,24 +176,37 @@
           const code = wrap.dataset.code;
           const name = wrap.dataset.name;
           const status = btn.dataset.status;
+          const prevStatus = statusMap[code];
 
-          wrap.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
-          btn.classList.add('active');
           statusMap[code] = status;
+          if (!needsMemo(status)) delete memoMap[code]; // 출석으로 바꾸면 사유 메모는 비움
           updateSummary();
 
-          const { error } = await sb.rpc('rpc_admin_mark_attendance', {
-            p_password: getAdminPassword(),
-            p_student_code: code,
-            p_student_name: name,
-            p_attendance_date: dateInput.value,
-            p_status: status,
-            p_checked_by: getAdminClassroom(),
-          });
+          const { error } = await saveRow(code, name, status, memoMap[code] || '');
           if (error) {
+            if (prevStatus) statusMap[code] = prevStatus; else delete statusMap[code];
             alert('저장 실패: ' + error.message);
           }
+          renderList();
+          if (!error && memoReady && needsMemo(status)) {
+            const inp = listEl.querySelector(`[data-memo="${CSS.escape(code)}"]`);
+            if (inp && !inp.value) inp.focus();
+          }
         });
+      });
+    });
+
+    // 메모는 입력칸을 벗어나거나 Enter를 누르면 저장
+    listEl.querySelectorAll('input[data-memo]').forEach((inp) => {
+      inp.addEventListener('change', async () => {
+        const code = inp.dataset.memo;
+        const row = allStudents.find((s) => s.student_code === code);
+        const stateEl = listEl.querySelector(`[data-memo-state="${CSS.escape(code)}"]`);
+        memoMap[code] = inp.value.trim(); // 곧바로 반영 (바로 이어서 상태 버튼을 눌러도 메모가 유지되게)
+        stateEl.textContent = '저장 중...';
+        const { error } = await saveRow(code, row ? row.student_name : '', statusMap[code], inp.value);
+        if (error) { stateEl.textContent = '저장 실패: ' + error.message; return; }
+        stateEl.textContent = '저장됨';
       });
     });
   }
@@ -148,7 +222,7 @@
 
   async function refresh() {
     document.getElementById('student-list').innerHTML = '<div class="loading">불러오는 중...</div>';
-    statusMap = await loadAttendanceForDate(dateInput.value);
+    await loadAttendanceForDate(dateInput.value);
     renderList();
   }
 
