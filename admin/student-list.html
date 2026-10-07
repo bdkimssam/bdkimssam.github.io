@@ -177,6 +177,7 @@
     <div class="field"><label>학교</label><input type="text" id="edit-school"></div>
     <div class="field"><label>학생 연락처</label><input type="tel" id="edit-student-phone"></div>
     <div class="field"><label>부모 연락처</label><input type="tel" id="edit-parent-phone"></div>
+    <div class="field"><label>출석용 학부모 전화번호 (출석체크 키오스크 조회용 · 가입 여부와 무관)</label><input type="tel" id="edit-attendance-phone" placeholder="예: 010-1234-5678"></div>
     <div class="field"><label>부모 이메일 (카카오 로그인용)</label><input type="email" id="edit-parent-email"></div>
     <div class="field"><label>학생 생년월일 (예: 20150321)</label><input type="text" id="edit-birth-date"></div>
     <div class="field"><label>주소</label><input type="text" id="edit-address"></div>
@@ -194,6 +195,8 @@
 
   const TEACHER_CLASSROOMS = CLASSROOMS.filter((c) => c !== DIRECTOR_LABEL);
   let allStudents = [];
+  let attendancePhones = {};      // student_code -> 출석용 전화번호(숫자만)
+  let attendancePhoneReady = false; // 출석용 번호 기능(SQL)이 DB에 있는지
 
   loadStudents();
 
@@ -241,6 +244,12 @@
     }
     allStudents = data || [];
     render();
+
+    // 출석용 전화번호도 함께 불러옴 (수정창에서 사용)
+    const phoneRes = await sb.rpc('rpc_admin_list_attendance_phones', { p_password: getAdminPassword() });
+    attendancePhones = {};
+    attendancePhoneReady = !phoneRes.error;
+    if (!phoneRes.error) (phoneRes.data || []).forEach((r) => { attendancePhones[r.student_code] = r.attendance_phone; });
   }
 
   function render() {
@@ -376,6 +385,10 @@
       document.getElementById(id).value = '';
     });
     document.getElementById('edit-privacy-consent').checked = false;
+    const phoneInput = document.getElementById('edit-attendance-phone');
+    phoneInput.value = formatPhone(attendancePhones[code]);
+    phoneInput.disabled = !attendancePhoneReady;
+    phoneInput.placeholder = attendancePhoneReady ? '예: 010-1234-5678' : '출석용 전화번호 SQL을 실행한 뒤 사용할 수 있어요';
     editModal.classList.add('open');
 
     const { data, error } = await sb.rpc('rpc_admin_get_student_detail', {
@@ -397,6 +410,13 @@
     document.getElementById('edit-birth-date').value = detail.birth_date || '';
     document.getElementById('edit-address').value = detail.address || '';
     document.getElementById('edit-privacy-consent').checked = !!detail.privacy_consent;
+  }
+
+  function formatPhone(d) {
+    d = String(d || '');
+    if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+    if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+    return d;
   }
 
   function closeEditModal() {
@@ -428,11 +448,32 @@
       p_privacy_consent: document.getElementById('edit-privacy-consent').checked,
     });
 
+    if (error) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '저장';
+      alert('저장 실패: ' + error.message);
+      return;
+    }
+
+    // 출석용 전화번호: 값이 바뀐 경우에만 저장 (숫자만 비교)
+    const phoneInput = document.getElementById('edit-attendance-phone');
+    const newDigits = phoneInput.value.replace(/\D/g, '');
+    const oldDigits = attendancePhones[code] || '';
+    let phoneError = null;
+    if (!phoneInput.disabled && newDigits !== oldDigits) {
+      const phoneRes = await sb.rpc('rpc_admin_set_attendance_phone', {
+        p_password: getAdminPassword(),
+        p_student_code: code,
+        p_phone: newDigits,
+      });
+      phoneError = phoneRes.error;
+    }
+
     saveBtn.disabled = false;
     saveBtn.textContent = '저장';
-
-    if (error) {
-      alert('저장 실패: ' + error.message);
+    if (phoneError) {
+      alert('학생 정보는 저장됐지만 출석용 전화번호는 저장하지 못했어요: ' + phoneError.message);
+      loadStudents();
       return;
     }
     closeEditModal();

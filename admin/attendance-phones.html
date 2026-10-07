@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>출석용 전화번호 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --green:#16A34A; --red:#C0392B; --amber:#B45309; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  h2 { font-size: 15px; font-weight: 900; margin: 0 0 10px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 18px; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:20px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom:18px; }
+  textarea {
+    width:100%; min-height:150px; font-size:14px; font-family:inherit; line-height:1.6; padding:12px 14px;
+    border-radius:10px; border:1px solid var(--gray-200); resize:vertical;
+  }
+  textarea:focus { outline:none; border-color: var(--navy-900); }
+  .hint { font-size:12px; color:#98A1B3; margin:8px 0 12px; line-height:1.6; }
+  button.btn { padding:11px 18px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
+  button.btn:hover { background:#000; }
+  button.btn:disabled { opacity:.5; cursor:not-allowed; }
+  button.btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--gray-200); }
+  .btn-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+  .summary { display:flex; gap:8px; flex-wrap:wrap; margin: 4px 0 12px; }
+  .chip { font-size:12.5px; font-weight:800; padding:5px 11px; border-radius:999px; background:var(--gray-50); border:1px solid var(--gray-200); }
+  .chip.ok { color:var(--green); } .chip.bad { color:var(--red); } .chip.warn { color:var(--amber); }
+
+  table { width:100%; border-collapse: collapse; }
+  th, td { text-align:left; padding: 9px 6px; font-size: 13px; border-top: 1px solid var(--gray-200); vertical-align: top; }
+  th { color: var(--muted); font-weight:700; font-size:12px; border-top:none; }
+  tr:first-child td { border-top:none; }
+  td.name { font-weight:700; }
+  td.code { color: var(--muted); font-family: 'SFMono-Regular', Consolas, monospace; font-size:12px; }
+  .st { font-weight:800; font-size:12px; white-space:nowrap; }
+  .st.ok { color:var(--green); } .st.bad { color:var(--red); } .st.warn { color:var(--amber); } .st.skip { color:var(--muted); }
+  .note { display:block; font-weight:600; font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .scroll { overflow-x:auto; }
+  .loading, .empty { color: var(--muted); font-size: 13px; padding: 22px 6px; text-align:center; }
+  .toolbar { display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .toolbar label { font-size:13px; font-weight:700; color:var(--muted); display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .banner { background:#FFF7ED; border:1px solid #FED7AA; color:#9A3412; border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.6; margin-bottom:18px; display:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">출석용 전화번호</span>
+</header>
+
+<main>
+  <h1>출석용 학부모 전화번호</h1>
+  <p class="sub">출석체크 키오스크에서 학부모님 전화번호 뒷 4자리로 학생을 찾을 때 쓰는 번호예요. 홈페이지 가입 여부와 상관없이 여기서 관리해요.<br>
+  (가입하신 학부모님은 가입할 때 입력한 번호로도 조회되니, 아래 목록에서 "없음"이어도 키오스크에서 나올 수 있어요.)</p>
+
+  <div class="banner" id="sql-banner">
+    출석용 전화번호 기능이 DB에 아직 없습니다. 안내드린 SQL을 Supabase에서 먼저 실행해 주세요.
+  </div>
+
+  <!-- 일괄 붙여넣기 -->
+  <div class="panel">
+    <h2>일괄 붙여넣기</h2>
+    <textarea id="paste" placeholder="김하늘 010-1234-5678&#10;김바다 01098765432&#10;이도윤&#9;010 5555 6666"></textarea>
+    <div class="hint">한 줄에 한 명씩 "이름 전화번호"를 붙여넣어 주세요. 엑셀이나 아이출첵에서 이름·번호 두 열을 복사해서 붙여넣어도 돼요. 이름이 같은 학생이 둘 이상이면 건너뛰니, 그 학생은 학생 목록에서 한 명씩 고쳐주세요.</div>
+    <div class="btn-row">
+      <button type="button" class="btn" id="preview-btn">확인하기</button>
+      <button type="button" class="btn ghost" id="clear-btn">지우기</button>
+    </div>
+
+    <div id="preview-area" style="display:none; margin-top:18px;">
+      <div class="summary" id="summary"></div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>상태</th><th>붙여넣은 이름</th><th>전화번호</th><th>매칭된 학생</th></tr></thead>
+          <tbody id="preview-tbody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row" style="margin-top:14px;">
+        <button type="button" class="btn" id="save-btn" disabled>저장</button>
+        <span id="save-msg" style="font-size:13px; font-weight:700;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 현재 현황 -->
+  <div class="panel">
+    <h2>재원생 번호 현황</h2>
+    <div class="toolbar">
+      <span id="status-count" style="font-size:13px; font-weight:800;"></span>
+      <label><input type="checkbox" id="only-missing" checked> 번호 없는 학생만 보기</label>
+    </div>
+    <div class="scroll">
+      <table id="status-table" style="display:none;">
+        <thead><tr><th>학년</th><th>이름</th><th>학생코드</th><th>출석용 번호</th></tr></thead>
+        <tbody id="status-tbody"></tbody>
+      </table>
+    </div>
+    <div class="loading" id="status-area">불러오는 중...</div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js"></script>
+<script>
+  requireDirector(); // 개인정보(전화번호)라서 원장님 전용
+
+  let students = [];        // 재원생
+  let phoneMap = {};        // student_code -> 숫자만 저장된 번호
+  let rows = [];            // 미리보기 결과
+
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function fmtPhone(d) {
+    d = String(d || '');
+    if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+    if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+    return d;
+  }
+  function normName(s) { return String(s || '').replace(/\s+/g, '').trim(); }
+
+  // ---------- 불러오기 ----------
+  async function loadAll() {
+    const [stuRes, phoneRes] = await Promise.all([
+      sb.rpc('rpc_admin_list_all_students', { p_password: getAdminPassword(), p_include_withdrawn: false }),
+      sb.rpc('rpc_admin_list_attendance_phones', { p_password: getAdminPassword() }),
+    ]);
+    const status = document.getElementById('status-area');
+    if (stuRes.error) { status.textContent = '학생 목록을 불러오지 못했습니다: ' + stuRes.error.message; return; }
+    students = (stuRes.data || []).slice().sort((a, b) => {
+      const g = compareGrades(a.grade, b.grade);
+      if (g !== 0) return g;
+      return (a.student_name || '').localeCompare(b.student_name || '', 'ko');
+    });
+    phoneMap = {};
+    if (phoneRes.error) {
+      const missing = phoneRes.error.code === 'PGRST202' || /Could not find the function/i.test(phoneRes.error.message || '');
+      if (missing) document.getElementById('sql-banner').style.display = 'block';
+      else status.textContent = '전화번호 목록을 불러오지 못했습니다: ' + phoneRes.error.message;
+    } else {
+      (phoneRes.data || []).forEach((r) => { phoneMap[r.student_code] = r.attendance_phone; });
+    }
+    renderStatus();
+  }
+
+  function renderStatus() {
+    const only = document.getElementById('only-missing').checked;
+    const has = students.filter((s) => phoneMap[s.student_code]).length;
+    document.getElementById('status-count').textContent =
+      `재원생 ${students.length}명 중 번호 입력 ${has}명 · 없음 ${students.length - has}명`;
+    const list = only ? students.filter((s) => !phoneMap[s.student_code]) : students;
+    const table = document.getElementById('status-table');
+    const area = document.getElementById('status-area');
+    if (list.length === 0) {
+      table.style.display = 'none';
+      area.style.display = 'block';
+      area.textContent = only ? '번호가 없는 학생이 없어요.' : '재원생이 없습니다.';
+      return;
+    }
+    area.style.display = 'none';
+    table.style.display = 'table';
+    document.getElementById('status-tbody').innerHTML = list.map((s) => `
+      <tr>
+        <td>${esc(s.grade || '-')}</td>
+        <td class="name">${esc(s.student_name)}</td>
+        <td class="code">${esc(s.student_code)}</td>
+        <td>${phoneMap[s.student_code] ? esc(fmtPhone(phoneMap[s.student_code])) : '<span style="color:#B0B6C3;">없음</span>'}</td>
+      </tr>`).join('');
+  }
+  document.getElementById('only-missing').addEventListener('change', renderStatus);
+
+  // ---------- 붙여넣은 내용 분석 ----------
+  // 한 줄에서 전화번호로 보이는 부분을 찾아 숫자만 뽑고, 남은 글자를 이름으로 봄
+  function parseLine(line) {
+    const m = line.match(/\+?\d[\d\s.\-]{7,}\d/);
+    if (!m) return { raw: line, name: normName(line), digits: '', hasDigits: /\d/.test(line) };
+    let digits = m[0].replace(/\D/g, '');
+    if (digits.startsWith('82') && digits.length >= 11) digits = '0' + digits.slice(2);
+    const name = normName(line.replace(m[0], ' ').replace(/[,\t;|]/g, ' '));
+    return { raw: line, name, digits, hasDigits: true };
+  }
+
+  function analyze(text) {
+    const byName = {};
+    students.forEach((s) => { (byName[normName(s.student_name)] = byName[normName(s.student_name)] || []).push(s); });
+
+    const parsed = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map(parseLine);
+
+    // 같은 학생이 여러 줄에 나오는 경우를 찾기 위해 먼저 매칭
+    const result = parsed.map((p) => {
+      const r = { ...p, status: '', cls: '', note: '', student: null, ok: false };
+      if (!p.digits) {
+        if (!p.hasDigits) { r.status = '건너뜀'; r.cls = 'skip'; r.note = '전화번호가 없는 줄 (제목 줄이면 괜찮아요)'; }
+        else { r.status = '형식 오류'; r.cls = 'bad'; r.note = '전화번호를 읽지 못했어요'; }
+        return r;
+      }
+      if (p.digits.length < 9 || p.digits.length > 11) {
+        r.status = '번호 확인'; r.cls = 'bad'; r.note = `숫자 ${p.digits.length}자리예요 (9~11자리)`;
+        return r;
+      }
+      const found = byName[p.name] || [];
+      if (!p.name) { r.status = '이름 없음'; r.cls = 'bad'; r.note = '이름을 찾지 못했어요'; }
+      else if (found.length === 0) { r.status = '학생 없음'; r.cls = 'bad'; r.note = '재원생 중 같은 이름이 없어요'; }
+      else if (found.length > 1) {
+        r.status = '동명이인'; r.cls = 'warn';
+        r.note = `같은 이름 ${found.length}명 (${found.map((s) => s.student_code).join(', ')}) — 학생 목록에서 따로 입력`;
+      } else { r.student = found[0]; r.ok = true; }
+      return r;
+    });
+
+    // 같은 학생이 두 줄 이상이면 어느 번호가 맞는지 알 수 없으니 모두 제외
+    const count = {};
+    result.forEach((r) => { if (r.ok) count[r.student.student_code] = (count[r.student.student_code] || 0) + 1; });
+    result.forEach((r) => {
+      if (r.ok && count[r.student.student_code] > 1) {
+        r.ok = false; r.status = '중복 입력'; r.cls = 'warn'; r.note = '같은 학생이 여러 줄에 있어요. 한 줄만 남기고 다시 확인해 주세요';
+      }
+    });
+    result.forEach((r) => {
+      if (!r.ok) return;
+      const cur = phoneMap[r.student.student_code];
+      if (!cur) { r.status = '저장 예정'; r.cls = 'ok'; }
+      else if (cur === r.digits) { r.status = '변경 없음'; r.cls = 'skip'; r.note = '이미 같은 번호예요'; r.ok = false; }
+      else { r.status = '번호 변경'; r.cls = 'ok'; r.note = `기존 ${fmtPhone(cur)} → 새 번호로 바뀝니다`; }
+    });
+    return result;
+  }
+
+  function renderPreview() {
+    const willSave = rows.filter((r) => r.ok).length;
+    const skipped = rows.length - willSave;
+    document.getElementById('summary').innerHTML = `
+      <span class="chip ok">저장할 학생 ${willSave}명</span>
+      <span class="chip ${skipped ? 'bad' : ''}">저장 안 함 ${skipped}줄</span>
+      <span class="chip">전체 ${rows.length}줄</span>`;
+    document.getElementById('preview-tbody').innerHTML = rows.map((r) => `
+      <tr>
+        <td><span class="st ${r.cls}">${esc(r.status)}</span></td>
+        <td class="name">${esc(r.name || r.raw)}</td>
+        <td>${r.digits ? esc(fmtPhone(r.digits)) : '-'}</td>
+        <td>${r.student ? `${esc(r.student.student_name)} <span class="note" style="display:inline;">${esc(r.student.grade || '')} · ${esc(r.student.student_code)}</span>` : '-'}${r.note ? `<span class="note">${esc(r.note)}</span>` : ''}</td>
+      </tr>`).join('');
+    const saveBtn = document.getElementById('save-btn');
+    saveBtn.disabled = willSave === 0;
+    saveBtn.textContent = willSave ? `${willSave}명 저장` : '저장할 학생이 없어요';
+    document.getElementById('save-msg').textContent = '';
+    document.getElementById('preview-area').style.display = 'block';
+  }
+
+  document.getElementById('preview-btn').addEventListener('click', () => {
+    const text = document.getElementById('paste').value;
+    if (!text.trim()) { alert('이름과 전화번호를 붙여넣어 주세요.'); return; }
+    if (students.length === 0) { alert('재원생 목록이 아직 없어요. 잠시 후 다시 해주세요.'); return; }
+    rows = analyze(text);
+    renderPreview();
+  });
+  document.getElementById('clear-btn').addEventListener('click', () => {
+    document.getElementById('paste').value = '';
+    document.getElementById('preview-area').style.display = 'none';
+    rows = [];
+  });
+
+  document.getElementById('save-btn').addEventListener('click', async () => {
+    const items = rows.filter((r) => r.ok).map((r) => ({ student_code: r.student.student_code, phone: r.digits }));
+    if (items.length === 0) return;
+    const btn = document.getElementById('save-btn');
+    const msg = document.getElementById('save-msg');
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+    msg.style.color = '';
+    msg.textContent = '';
+    const { data, error } = await sb.rpc('rpc_admin_bulk_set_attendance_phones', {
+      p_password: getAdminPassword(),
+      p_items: items,
+    });
+    if (error) {
+      const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+      alert(missing ? '출석용 전화번호 기능이 DB에 아직 없습니다. 안내드린 SQL을 Supabase에서 먼저 실행해 주세요.' : '저장 실패 (아무것도 저장되지 않았어요): ' + error.message);
+      btn.disabled = false;
+      btn.textContent = `${items.length}명 저장`;
+      return;
+    }
+    msg.style.color = '#16A34A';
+    msg.textContent = `${data ?? items.length}명 저장했어요.`;
+    document.getElementById('paste').value = '';
+    rows = [];
+    document.getElementById('preview-area').style.display = 'block';
+    document.getElementById('preview-tbody').innerHTML = '';
+    document.getElementById('summary').innerHTML = '';
+    btn.textContent = '저장 완료';
+    await loadAll(); // 현황 새로고침
+  });
+
+  loadAll();
+</script>
+
+</body>
+</html>

@@ -291,7 +291,9 @@ order by table_name;
 - **구현 (42 마이그레이션, 2026-10-07)**: `attendance-kiosk.html`(홈페이지 루트, 로그인 없음).
   - `attendance_checks` — 등원/하원 기록(쌓기만 함). `student_code`, `student_name`, `check_type`('등원'|'하원'), `checked_at` timestamptz, `check_date` date(한국 날짜 기준 기본값). RLS 켜져 있고 정책 없음 → 화면에서 직접 접근 불가, 아래 함수로만 접근. 기존 `attendance` 테이블(선생님이 입력하는 출석/지각/결석)과는 별개.
   - `rpc_kiosk_verify(p_kiosk_code)` — 출석체크 기기 비밀번호 확인. **비밀번호는 이 함수 안에 하드코딩**(다른 RPC 비밀번호와 같은 패턴). 바꾸려면 함수 안 값만 수정하고, 태블릿은 주소 뒤에 `?lock=1`을 붙여 열어 다시 잠금해제.
-  - `rpc_kiosk_find_students(p_kiosk_code, p_last4)` — `students.parent_phone`(숫자만 추려 뒷 4자리)이 일치하는 **재원생**(`student_codes.withdrawn=false`)과 오늘의 마지막 등원/하원 기록을 돌려줌. 학년은 `student_classrooms.grade` 우선. **`students`에 행이 없는 학생(맞춤 학습 등록서 미제출)은 전화번호가 없어 조회되지 않음.**
+  - `rpc_kiosk_find_students(p_kiosk_code, p_last4)` — `student_codes.attendance_phone` **또는** `students.parent_phone`(둘 다 숫자만 추려 뒷 4자리)이 일치하는 **재원생**(`student_codes.withdrawn=false`)과 오늘의 마지막 등원/하원 기록을 돌려줌. 학년은 `student_classrooms.grade` 우선. 홈페이지 가입(맞춤 학습 등록서)은 자율이라 `students`에 행이 없을 수 있어서, `students`는 있으면 보조로만 쓰고 없어도 조회됨(그 경우 학년은 `student_classrooms`에 없으면 빈 값).
+  - `student_codes.attendance_phone` text — **출석용 학부모 전화번호**(숫자만 저장, 9~11자리). 가입 여부와 무관하게 원장님이 관리. 입력은 `admin/attendance-phones.html`(일괄 붙여넣기 + 현황) 또는 학생 목록 수정창.
+  - `rpc_admin_list_attendance_phones(p_password)` / `rpc_admin_set_attendance_phone(p_password, p_student_code, p_phone)` / `rpc_admin_bulk_set_attendance_phones(p_password, p_items jsonb)` — **원장님 전용**(개인정보라 강사 비밀번호 불가). 저장 시 숫자만 남기고 자릿수 검사, 빈 값이면 삭제. 일괄 저장은 한 건이라도 오류면 전체 취소. `p_items` 예: `[{"student_code":"26H-001","phone":"010-1234-5678"}]`.
   - `rpc_kiosk_check(p_kiosk_code, p_student_code, p_check_type)` — 기록 추가. 같은 학생·같은 구분을 2분 안에 또 보내면 새로 쌓지 않고 기존 기록을 돌려줌(중복 터치 방지). 반환 컬럼은 `r_check_type`, `r_checked_at`, `r_student_name`.
   - 기기 잠금: 태블릿에서 비밀번호를 한 번 입력하면 그 브라우저(localStorage)에 저장됨.
 - 수업 시간표와 연결하지 않음(학생마다 등원 요일/시간이 달라 복잡도가 너무 커짐 — 단순화 결정). 알림톡엔 실제 찍은 시각만 표시.
