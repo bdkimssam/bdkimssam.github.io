@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>출석체크 | 봉덕김쌤수학학원</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --green:#16A34A; --orange:#EA580C; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height:100%; }
+  body {
+    margin:0; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; user-select:none; -webkit-user-select:none; touch-action: manipulation;
+  }
+  header { width:100%; background:var(--navy-950); color:#fff; padding:16px 20px; text-align:center; font-weight:800; font-size:17px; }
+  main { width:100%; max-width:520px; flex:1; padding:24px 20px 32px; display:flex; flex-direction:column; justify-content:center; }
+  .screen { display:none; }
+  .screen.active { display:block; }
+  h1 { font-size:24px; font-weight:900; margin:0 0 6px; text-align:center; }
+  p.sub { font-size:15px; color:var(--muted); text-align:center; margin:0 0 20px; line-height:1.6; }
+
+  /* 잠금해제 */
+  input.code { width:100%; font-size:20px; padding:14px 16px; border-radius:12px; border:1px solid var(--gray-200); font-family:inherit; margin-bottom:12px; user-select:text; -webkit-user-select:text; }
+  button.primary { width:100%; padding:16px; border-radius:14px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:18px; font-family:inherit; cursor:pointer; }
+  button.primary:disabled { opacity:.5; }
+
+  /* 번호판 */
+  .dots { display:flex; justify-content:center; gap:14px; margin:6px 0 22px; }
+  .dot { width:58px; height:70px; border-radius:14px; border:2px solid var(--gray-200); background:#fff; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:900; }
+  .dot.filled { border-color:var(--navy-900); }
+  .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .pad button { height:78px; border-radius:18px; border:1px solid var(--gray-200); background:#fff; font-size:30px; font-weight:800; font-family:inherit; color:var(--ink); cursor:pointer; box-shadow:0 4px 12px rgba(11,18,32,.05); }
+  .pad button:active { background:var(--gray-50); transform:scale(.98); }
+  .pad button.fn { font-size:17px; color:var(--muted); }
+
+  /* 학생 선택 */
+  .student-list { display:flex; flex-direction:column; gap:12px; margin-bottom:16px; }
+  button.student { width:100%; padding:20px; border-radius:18px; border:1px solid var(--gray-200); background:#fff; font-family:inherit; font-size:24px; font-weight:900; color:var(--ink); cursor:pointer; box-shadow:0 4px 12px rgba(11,18,32,.05); display:flex; align-items:center; justify-content:space-between; }
+  button.student small { font-size:15px; font-weight:700; color:var(--muted); }
+  button.student:active { background:var(--gray-50); }
+
+  /* 등원/하원 */
+  .who { text-align:center; font-size:34px; font-weight:900; margin-bottom:6px; }
+  .state { text-align:center; font-size:16px; color:var(--muted); margin-bottom:22px; min-height:24px; }
+  .actions { display:grid; gap:12px; }
+  button.act { width:100%; height:104px; border-radius:22px; border:2px solid; font-family:inherit; font-size:34px; font-weight:900; cursor:pointer; }
+  button.act.in  { border-color:var(--green); color:var(--green); background:#fff; }
+  button.act.out { border-color:var(--orange); color:var(--orange); background:#fff; }
+  button.act.suggested.in  { background:var(--green); color:#fff; }
+  button.act.suggested.out { background:var(--orange); color:#fff; }
+  button.act:disabled { opacity:.5; }
+  button.act:not(.suggested) { height:76px; font-size:24px; }
+  button.link { margin:18px auto 0; display:block; background:none; border:none; color:var(--muted); font-family:inherit; font-size:16px; font-weight:700; padding:10px 16px; cursor:pointer; }
+
+  .msg { text-align:center; font-size:15px; margin-top:12px; min-height:22px; color:#C0392B; font-weight:700; }
+
+  /* 완료 */
+  .done-mark { width:96px; height:96px; border-radius:50%; background:var(--green); color:#fff; font-size:54px; font-weight:900; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; }
+  .done-mark.out { background:var(--orange); }
+  .done-text { text-align:center; font-size:30px; font-weight:900; margin-bottom:8px; line-height:1.4; }
+  .done-time { text-align:center; font-size:18px; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<header>봉덕김쌤수학학원 출석체크</header>
+
+<main>
+
+  <!-- 1) 태블릿 잠금해제 (처음 한 번만) -->
+  <section class="screen" id="screen-unlock">
+    <h1>출석체크 기기 설정</h1>
+    <p class="sub">원장님이 처음 한 번만 입력하면 이 기기에 저장돼요.</p>
+    <input type="password" class="code" id="unlock-code" placeholder="출석체크 비밀번호" autocomplete="off">
+    <button type="button" class="primary" id="unlock-btn">확인</button>
+    <div class="msg" id="unlock-msg"></div>
+  </section>
+
+  <!-- 2) 번호 입력 -->
+  <section class="screen" id="screen-keypad">
+    <h1>학부모님 전화번호 뒷 4자리</h1>
+    <p class="sub">숫자를 눌러주세요</p>
+    <div class="dots" id="dots"></div>
+    <div class="pad" id="pad"></div>
+    <div class="msg" id="keypad-msg"></div>
+  </section>
+
+  <!-- 3) 학생 선택 -->
+  <section class="screen" id="screen-pick">
+    <h1>누구인가요?</h1>
+    <p class="sub">이름을 눌러주세요</p>
+    <div class="student-list" id="student-list"></div>
+    <button type="button" class="link" id="pick-back">다시 입력</button>
+  </section>
+
+  <!-- 4) 등원/하원 -->
+  <section class="screen" id="screen-action">
+    <div class="who" id="who"></div>
+    <div class="state" id="state"></div>
+    <div class="actions" id="actions"></div>
+    <div class="msg" id="action-msg"></div>
+    <button type="button" class="link" id="action-back">처음으로</button>
+  </section>
+
+  <!-- 5) 완료 -->
+  <section class="screen" id="screen-done">
+    <div class="done-mark" id="done-mark">✓</div>
+    <div class="done-text" id="done-text"></div>
+    <div class="done-time" id="done-time"></div>
+  </section>
+
+</main>
+
+<script src="assets/js/supabase-client.js"></script>
+<script>
+  // ------------------------------------------------------------
+  // 출석 키오스크
+  //  - 학부모 전화번호 뒷 4자리 → 이름 선택 → 등원/하원
+  //  - 로그인은 없고, 태블릿에 '출석체크 비밀번호'를 한 번 저장해서 그 기기에서만 동작
+  //  - 다시 잠그려면 주소 뒤에 ?lock=1 을 붙여 열기 (예: .../attendance-kiosk.html?lock=1)
+  // ------------------------------------------------------------
+  const STORE_KEY = 'kiosk_code';
+  const IDLE_MS = 30000;      // 선택/등원하원 화면에서 30초 가만히 있으면 처음으로
+  const DONE_MS = 4000;       // 완료 화면 보여주는 시간
+
+  function readCode() { try { return localStorage.getItem(STORE_KEY) || ''; } catch (e) { return ''; } }
+  function saveCode(v) { try { localStorage.setItem(STORE_KEY, v); } catch (e) {} }
+  function clearCode() { try { localStorage.removeItem(STORE_KEY); } catch (e) {} }
+
+  if (new URLSearchParams(location.search).get('lock') === '1') {
+    clearCode();
+    history.replaceState(null, '', location.pathname);
+  }
+
+  let kioskCode = readCode();
+  let digits = '';
+  let busy = false;
+  let timers = { idle: null, done: null };
+  let currentStudent = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  function show(name) {
+    document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+    $('screen-' + name).classList.add('active');
+    clearTimeout(timers.idle);
+    // 이름이 보이는 화면은 일정 시간 지나면 자동으로 처음으로 (다른 사람이 보지 않도록)
+    if (name === 'pick' || name === 'action') {
+      timers.idle = setTimeout(resetToKeypad, IDLE_MS);
+    }
+  }
+  document.addEventListener('pointerdown', () => {
+    const active = document.querySelector('.screen.active');
+    if (active && (active.id === 'screen-pick' || active.id === 'screen-action')) {
+      clearTimeout(timers.idle);
+      timers.idle = setTimeout(resetToKeypad, IDLE_MS);
+    }
+  });
+
+  function fmtTime(iso) {
+    return new Date(iso).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: 'numeric', minute: '2-digit' });
+  }
+
+  // 비밀번호가 틀렸거나 바뀌었으면 다시 잠금해제 화면으로
+  function handleAuthError(error) {
+    if (error && /키오스크 인증 실패/.test(error.message || '')) {
+      clearCode();
+      kioskCode = '';
+      show('unlock');
+      $('unlock-msg').textContent = '비밀번호가 맞지 않아요. 다시 입력해 주세요.';
+      return true;
+    }
+    return false;
+  }
+
+  // ---------- 잠금해제 ----------
+  $('unlock-btn').addEventListener('click', async () => {
+    const code = $('unlock-code').value.trim();
+    if (!code) return;
+    const btn = $('unlock-btn');
+    btn.disabled = true;
+    $('unlock-msg').textContent = '';
+    const { data, error } = await sb.rpc('rpc_kiosk_verify', { p_kiosk_code: code });
+    btn.disabled = false;
+    if (error) { $('unlock-msg').textContent = '확인하지 못했어요: ' + error.message; return; }
+    if (data !== true) { $('unlock-msg').textContent = '비밀번호가 맞지 않아요.'; return; }
+    kioskCode = code;
+    saveCode(code);
+    $('unlock-code').value = '';
+    resetToKeypad();
+  });
+  $('unlock-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('unlock-btn').click(); });
+
+  // ---------- 번호판 ----------
+  function renderDots() {
+    $('dots').innerHTML = [0, 1, 2, 3].map((i) =>
+      `<div class="dot ${digits[i] ? 'filled' : ''}">${digits[i] || ''}</div>`).join('');
+  }
+  function buildPad() {
+    const keys = ['1','2','3','4','5','6','7','8','9','지움','0','처음부터'];
+    const pad = $('pad');
+    pad.innerHTML = '';
+    keys.forEach((k) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = k;
+      if (k === '지움' || k === '처음부터') b.className = 'fn';
+      b.addEventListener('click', () => onKey(k));
+      pad.appendChild(b);
+    });
+  }
+  function onKey(k) {
+    if (busy) return;
+    $('keypad-msg').textContent = '';
+    if (k === '지움') digits = digits.slice(0, -1);
+    else if (k === '처음부터') digits = '';
+    else if (digits.length < 4) digits += k;
+    renderDots();
+    if (digits.length === 4) search();
+  }
+
+  function resetToKeypad() {
+    clearTimeout(timers.done);
+    digits = '';
+    busy = false;
+    currentStudent = null;
+    $('keypad-msg').textContent = '';
+    renderDots();
+    show('keypad');
+  }
+
+  // ---------- 학생 찾기 ----------
+  async function search() {
+    busy = true;
+    $('keypad-msg').style.color = '#6B7280';
+    $('keypad-msg').textContent = '찾는 중...';
+    const { data, error } = await sb.rpc('rpc_kiosk_find_students', { p_kiosk_code: kioskCode, p_last4: digits });
+    busy = false;
+    $('keypad-msg').style.color = '';
+    if (error) {
+      if (handleAuthError(error)) return;
+      $('keypad-msg').textContent = '조회하지 못했어요. 잠시 후 다시 해주세요.';
+      digits = ''; renderDots();
+      return;
+    }
+    const list = data || [];
+    if (list.length === 0) {
+      $('keypad-msg').textContent = '일치하는 학생이 없어요. 번호를 다시 확인해 주세요.';
+      digits = ''; renderDots();
+      return;
+    }
+    if (list.length === 1) { pickStudent(list[0]); return; }
+    renderPick(list);
+  }
+
+  function renderPick(list) {
+    const box = $('student-list');
+    box.innerHTML = '';
+    list.forEach((s) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'student';
+      const name = document.createElement('span');
+      name.textContent = s.student_name || '';
+      const grade = document.createElement('small');
+      grade.textContent = s.grade || '';
+      b.appendChild(name); b.appendChild(grade);
+      b.addEventListener('click', () => pickStudent(s));
+      box.appendChild(b);
+    });
+    show('pick');
+  }
+  $('pick-back').addEventListener('click', resetToKeypad);
+  $('action-back').addEventListener('click', resetToKeypad);
+
+  // ---------- 등원/하원 ----------
+  function pickStudent(s) {
+    currentStudent = s;
+    $('who').textContent = s.student_name || '';
+    $('action-msg').textContent = '';
+    if (s.last_check_type && s.last_checked_at) {
+      $('state').textContent = `오늘 ${fmtTime(s.last_checked_at)} ${s.last_check_type} 완료`;
+    } else {
+      $('state').textContent = '오늘은 아직 기록이 없어요';
+    }
+    // 마지막 기록이 '등원'이면 하원을, 그 외에는 등원을 크게 보여줌
+    const suggested = s.last_check_type === '등원' ? '하원' : '등원';
+    const order = suggested === '등원' ? ['등원', '하원'] : ['하원', '등원'];
+    const box = $('actions');
+    box.innerHTML = '';
+    order.forEach((type) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'act ' + (type === '등원' ? 'in' : 'out') + (type === suggested ? ' suggested' : '');
+      b.textContent = type;
+      b.addEventListener('click', () => doCheck(type));
+      box.appendChild(b);
+    });
+    show('action');
+  }
+
+  async function doCheck(type) {
+    if (busy || !currentStudent) return;
+    busy = true;
+    document.querySelectorAll('#actions button').forEach((b) => { b.disabled = true; });
+    $('action-msg').textContent = '';
+    const { data, error } = await sb.rpc('rpc_kiosk_check', {
+      p_kiosk_code: kioskCode, p_student_code: currentStudent.student_code, p_check_type: type,
+    });
+    busy = false;
+    if (error) {
+      if (handleAuthError(error)) return;
+      $('action-msg').textContent = '기록하지 못했어요. 다시 눌러주세요.';
+      document.querySelectorAll('#actions button').forEach((b) => { b.disabled = false; });
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    $('done-mark').className = 'done-mark' + (type === '하원' ? ' out' : '');
+    $('done-text').textContent = `${currentStudent.student_name} ${type} 완료!`;
+    $('done-time').textContent = row && row.r_checked_at ? fmtTime(row.r_checked_at) : '';
+    show('done');
+    timers.done = setTimeout(resetToKeypad, DONE_MS);
+  }
+
+  // ---------- 시작 ----------
+  buildPad();
+  renderDots();
+  if (kioskCode) resetToKeypad(); else show('unlock');
+</script>
+
+</body>
+</html>
