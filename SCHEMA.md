@@ -266,6 +266,9 @@ order by table_name;
 - `retry_failed_telegram()` — pg_cron이 1분마다 실행(`retry-telegram` 작업). 90초 지난 미성공 건 중 `net._http_response`에서 status 200이 아니거나 응답이 없는 것을 `(재발송)` 접두어로 다시 보냄(최대 5회, 1시간 이내 건만). 7일 지난 기록 삭제.
 - 상담·수학학력평가 알림은 아직 이전 방식(재발송 없음).
 
+### 숙제인증 확인 화면 페이지 나누기 (49 마이그레이션)
+`admin/homework-review.html`이 예전에는 `rpc_admin_list_homework_verifications`로 **전체 제출을 한 번에** 받아 사진까지 전부 그렸음(PostgREST 기본 최대 1000행 제한에 걸려 오래된 건이 잘릴 위험도 있었음). 지금은 `rpc_admin_list_homework_page(p_password, p_status, p_search, p_date, p_limit=20, p_offset=0)` — **원장님 전용**. 반환에 `total_count`(조건에 맞는 전체 건수) 포함, 제출일(한국 날짜)·상태·이름 검색 필터, 최신순, `p_limit`은 1~50으로 제한. 화면은 기본으로 오늘 제출분을 보여주고 날짜 이동(◀ ▶/달력/'전체 날짜')·20건씩 이전/다음. 49를 아직 안 돌렸으면(PGRST202) 예전 함수로 폴백하고 안내 문구 표시. 사진은 `loading="lazy"`.
+
 ### 상담 신청 1단계 통합 (30 마이그레이션)
 `rpc_submit_consultation`에 `p_slot_id uuid default null` 파라미터 추가 — 상담 정보 입력과 시간 선택을 홈페이지에서 한 번에 처리(제출 한 번으로 `consultations` insert + 선택한 `consultation_open_slots` 행 삭제가 원자적으로 처리됨). `p_slot_id`가 없으면 방문날짜/시간 없이 신청만 접수(전화로 추후 조율). 옛 2단계용 `rpc_submit_consultation_visit_time`는 더 이상 호출되지 않지만 아직 삭제 안 함.
 

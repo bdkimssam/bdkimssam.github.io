@@ -16,6 +16,20 @@
   .brand { font-weight:800; font-size:15px; }
   main { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
   h1 { font-size: 19px; font-weight: 900; margin: 0 0 18px; }
+  .date-bar { display:flex; align-items:center; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+  .date-bar button { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:10px; height:38px; min-width:38px; padding:0 12px; cursor:pointer; color:var(--ink); font-size:13px; font-weight:700; font-family:inherit; }
+  .date-bar button:hover:not(:disabled) { background:var(--gray-50); }
+  .date-bar button:disabled { opacity:0.4; cursor:not-allowed; }
+  .date-bar button.active { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .date-bar input[type="date"] { height:38px; font-size:13.5px; font-weight:700; padding:0 10px; border-radius:10px; border:1px solid var(--gray-200); font-family:inherit; }
+  .search-row { margin-bottom:14px; }
+  .search-row input { width:100%; font-size:13.5px; padding:9px 12px; border-radius:10px; border:1px solid var(--gray-200); font-family:inherit; }
+  .notice { background:#FFF7E6; border:1px solid #FFD591; color:#8A5A00; border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; line-height:1.5; }
+  .list-summary { font-size:12.5px; color:var(--muted); font-weight:600; margin-bottom:12px; }
+  .pager { display:flex; align-items:center; justify-content:center; gap:12px; margin:16px 0; }
+  .pager button { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:10px; height:38px; padding:0 16px; cursor:pointer; font-weight:800; font-size:13px; font-family:inherit; color:var(--ink); }
+  .pager button:disabled { opacity:0.4; cursor:not-allowed; }
+  .pager .pg { font-size:13px; font-weight:800; }
   .filter-tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
   .filter-tabs button {
     border:1px solid var(--gray-200); background:#fff; border-radius:999px; padding:7px 14px; font-size:12.5px; font-weight:700; color:var(--muted); cursor:pointer;
@@ -59,13 +73,24 @@
 
 <main>
   <h1>숙제인증 제출 확인</h1>
+  <div class="date-bar">
+    <button type="button" id="date-prev" title="전날"><i class="fa-solid fa-chevron-left"></i></button>
+    <input type="date" id="date-input">
+    <button type="button" id="date-next" title="다음날"><i class="fa-solid fa-chevron-right"></i></button>
+    <button type="button" id="date-today">오늘</button>
+    <button type="button" id="date-all">전체 날짜</button>
+  </div>
+  <div class="search-row"><input type="text" id="search-box" placeholder="학생 이름으로 찾기"></div>
+  <div id="notice"></div>
   <div class="filter-tabs">
     <button type="button" class="active" data-filter="all">전체</button>
     <button type="button" data-filter="pending">대기중</button>
     <button type="button" data-filter="approved">확인완료</button>
     <button type="button" data-filter="redo">미흡</button>
   </div>
+  <div class="list-summary" id="list-summary"></div>
   <div id="list"><div class="loading">불러오는 중...</div></div>
+  <div class="pager" id="pager"></div>
 </main>
 
 <div class="lightbox-overlay" id="lightbox">
@@ -76,22 +101,105 @@
 <script>
   requireDirector();
 
-  let allItems = [];
+  let allItems = [];      // 지금 화면에 보이는 (한 페이지) 목록
   let currentFilter = 'all';
+  const PAGE_SIZE = 20;
+  let page = 0;           // 0부터 시작
+  let total = 0;          // 조건에 맞는 전체 건수
+  let dateStr = '';       // 'YYYY-MM-DD' (한국 날짜), 빈 값이면 전체 날짜
+  let searchText = '';
+  let pagingReady = true; // 페이지 나누기 SQL(49)이 DB에 있는지
+  let loadSeq = 0;        // 늦게 도착한 응답이 최신 화면을 덮어쓰지 않게
   const STATUS_LABEL = { pending: '대기중', approved: '확인완료', redo: '미흡' };
+
+  function seoulToday() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+  }
+  function shiftDate(ymd, n) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+  }
+  function seoulDateOf(iso) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(iso));
+  }
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // 한 페이지 분량을 가져옴 → { items, total }
+  async function fetchPage() {
+    if (pagingReady) {
+      const { data, error } = await sb.rpc('rpc_admin_list_homework_page', {
+        p_password: getAdminPassword(),
+        p_status: currentFilter,
+        p_search: searchText,
+        p_date: dateStr || null,
+        p_limit: PAGE_SIZE,
+        p_offset: page * PAGE_SIZE,
+      });
+      if (!error) {
+        const rows = data || [];
+        return { items: rows, total: rows.length ? Number(rows[0].total_count) : 0 };
+      }
+      if (!(error.code === 'PGRST202' || /Could not find the function/i.test(error.message || ''))) throw error;
+      pagingReady = false; // SQL(49)이 아직 없음 → 예전 방식으로 대신 처리
+    }
+    // 예전 방식: 전부 받아서 화면에서 거름 (SQL 49를 실행하면 자동으로 새 방식 사용)
+    const { data, error } = await sb.rpc('rpc_admin_list_homework_verifications', { p_password: getAdminPassword() });
+    if (error) throw error;
+    const q = searchText.trim();
+    const filtered = (data || []).filter((it) =>
+      (currentFilter === 'all' || it.review_status === currentFilter) &&
+      (!q || (it.student_name || '').includes(q)) &&
+      (!dateStr || (it.submitted_at && seoulDateOf(it.submitted_at) === dateStr)));
+    return { items: filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), total: filtered.length };
+  }
 
   async function load() {
     const listEl = document.getElementById('list');
+    const seq = ++loadSeq;
     listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
-
-    const { data, error } = await sb.rpc('rpc_admin_list_homework_verifications', { p_password: getAdminPassword() });
-    if (error) {
+    try {
+      const res = await fetchPage();
+      if (seq !== loadSeq) return;
+      // 마지막 쪽에서 항목이 줄어 빈 페이지가 되면 한 쪽 앞으로
+      if (res.items.length === 0 && res.total > 0 && page > 0) {
+        page = Math.max(0, Math.ceil(res.total / PAGE_SIZE) - 1);
+        return load();
+      }
+      allItems = res.items;
+      total = res.total;
+    } catch (error) {
+      if (seq !== loadSeq) return;
       console.error(error);
       listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>';
       return;
     }
-    allItems = data || [];
+    document.getElementById('notice').innerHTML = pagingReady ? '' :
+      '<div class="notice">페이지 나누기 SQL(49)을 실행하면 훨씬 빨라져요. 지금은 예전 방식으로 전체를 받아 화면에서 나누고 있어요.</div>';
     render();
+  }
+
+  function syncDateUi() {
+    document.getElementById('date-input').value = dateStr;
+    document.getElementById('date-all').classList.toggle('active', !dateStr);
+    document.getElementById('date-today').classList.toggle('active', dateStr === seoulToday());
+    document.getElementById('date-prev').disabled = !dateStr;
+    document.getElementById('date-next').disabled = !dateStr;
+  }
+
+  function renderPager() {
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const el = document.getElementById('pager');
+    if (total <= PAGE_SIZE) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+      <button type="button" id="pg-prev" ${page <= 0 ? 'disabled' : ''}>이전</button>
+      <span class="pg">${page + 1} / ${pages}</span>
+      <button type="button" id="pg-next" ${page >= pages - 1 ? 'disabled' : ''}>다음</button>`;
+    document.getElementById('pg-prev').addEventListener('click', () => { page--; load(); window.scrollTo(0, 0); });
+    document.getElementById('pg-next').addEventListener('click', () => { page++; load(); window.scrollTo(0, 0); });
   }
 
   function fmtDateTime(iso) {
@@ -102,7 +210,11 @@
 
   function render() {
     const listEl = document.getElementById('list');
-    const items = allItems.filter((it) => currentFilter === 'all' || it.review_status === currentFilter);
+    const items = allItems;
+    syncDateUi();
+    const dayLabel = dateStr ? dateStr.replace(/^\d+-0?(\d+)-0?(\d+)$/, '$1월 $2일') : '전체 날짜';
+    document.getElementById('list-summary').textContent = `${dayLabel} · 총 ${total}건` + (total > PAGE_SIZE ? ` (${page * PAGE_SIZE + 1}~${page * PAGE_SIZE + items.length}번째)` : '');
+    renderPager();
 
     if (items.length === 0) {
       listEl.innerHTML = '<div class="loading">해당하는 제출 내역이 없습니다.</div>';
@@ -120,7 +232,7 @@
           <span class="status-badge ${it.review_status}">${STATUS_LABEL[it.review_status] || '대기중'}</span>
         </div>
         <div class="photo-grid">
-          ${(it.image_urls || []).map((url) => `<img src="${url}" alt="숙제 사진" data-full="${url}">`).join('')}
+          ${(it.image_urls || []).map((url) => `<img src="${esc(url)}" alt="숙제 사진" data-full="${esc(url)}" loading="lazy">`).join('')}
         </div>
         <div class="review-row">
           <button type="button" class="approve-btn ${it.review_status === 'approved' ? 'active' : ''}" data-id="${it.id}" data-status="approved">확인완료</button>
@@ -152,7 +264,7 @@
         btn.disabled = false;
         if (error) { alert('처리 실패: ' + error.message); return; }
         item.review_status = nextStatus;
-        render();
+        if (currentFilter === 'all') render(); else load();
       });
     });
 
@@ -183,10 +295,23 @@
       document.querySelectorAll('.filter-tabs button').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       currentFilter = btn.dataset.filter;
-      render();
+      page = 0;
+      load();
     });
   });
 
+  document.getElementById('date-input').addEventListener('change', (e) => { dateStr = e.target.value || ''; page = 0; load(); });
+  document.getElementById('date-prev').addEventListener('click', () => { if (dateStr) { dateStr = shiftDate(dateStr, -1); page = 0; load(); } });
+  document.getElementById('date-next').addEventListener('click', () => { if (dateStr) { dateStr = shiftDate(dateStr, 1); page = 0; load(); } });
+  document.getElementById('date-today').addEventListener('click', () => { dateStr = seoulToday(); page = 0; load(); });
+  document.getElementById('date-all').addEventListener('click', () => { dateStr = ''; page = 0; load(); });
+  let searchTimer = null;
+  document.getElementById('search-box').addEventListener('input', (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { searchText = e.target.value; page = 0; load(); }, 300);
+  });
+
+  dateStr = seoulToday(); // 처음에는 오늘 제출분부터
   load();
 </script>
 
