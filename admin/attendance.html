@@ -148,7 +148,7 @@
     const filtered = q ? allStudents.filter((s) => s.student_name && s.student_name.includes(q)) : allStudents;
 
     document.getElementById('notice').innerHTML = memoReady ? '' :
-      '<div class="notice">메모 칸과 '보강' 버튼을 쓰려면 안내드린 SQL(45, 보강 수정분 포함)을 먼저 실행해 주세요. 지금은 출석/지각/조퇴/결석 버튼만 저장돼요.</div>';
+      '<div class="notice">메모 칸과 보강 버튼을 쓰려면 안내드린 SQL(45, 보강 수정분 포함)을 먼저 실행해 주세요. 지금은 출석/지각/조퇴/결석 버튼만 저장돼요.</div>';
 
     if (filtered.length === 0) {
       listEl.innerHTML = '<div class="loading">학생이 없습니다.</div>';
