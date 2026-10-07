@@ -40,6 +40,9 @@
     font-size:12.5px; font-family:inherit; color: var(--ink); width:128px;
   }
   .loading, .empty { color: var(--muted); font-size: 13px; padding: 30px 6px; text-align:center; }
+  .sg { display:inline-block; font-size:11px; font-weight:800; padding:3px 7px; border-radius:999px; }
+  .sg.ok { background:#DCFCE7; color:#15803D; }
+  .sg.no { background:#F3F4F6; color:#9CA3AF; }
   .count-badge { font-size:12px; color: var(--muted); font-weight:700; }
   .issue-panel {
     background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding: 18px 20px;
@@ -144,6 +147,12 @@
       <option value="졸업">졸업</option>
       <option value="미지정">미지정</option>
     </select>
+    <label for="signup-filter">가입</label>
+    <select class="grade-filter" id="signup-filter">
+      <option value="">전체</option>
+      <option value="noreg">등록서 미제출</option>
+      <option value="nologin">카카오 로그인 기록 없음</option>
+    </select>
     <span class="count-badge" id="count-badge"></span>
     <label class="withdrawn-toggle"><input type="checkbox" id="withdrawn-toggle"> 퇴원생도 보기</label>
   </div>
@@ -151,7 +160,7 @@
   <div class="panel">
     <table id="student-table" style="display:none;">
       <thead>
-        <tr><th>강의실</th><th>이름</th><th>학생코드</th><th>학년</th><th>첫 등원일</th><th></th></tr>
+        <tr><th>강의실</th><th>이름</th><th>학생코드</th><th>학년</th><th>첫 등원일</th><th>가입</th><th></th></tr>
       </thead>
       <tbody id="student-tbody"></tbody>
     </table>
@@ -202,6 +211,7 @@
   loadStudents();
 
   document.getElementById('grade-filter').addEventListener('change', render);
+  document.getElementById('signup-filter').addEventListener('change', render);
   document.getElementById('withdrawn-toggle').addEventListener('change', loadStudents);
 
   document.getElementById('issue-btn').addEventListener('click', async () => {
@@ -244,6 +254,12 @@
       return;
     }
     allStudents = data || [];
+
+    // 홈페이지 가입 현황 (등록서 제출 / 카카오 로그인)
+    const sRes = await sb.rpc('rpc_admin_list_signup_status', { p_password: getAdminPassword() });
+    signupMap = {};
+    signupReady = !sRes.error;
+    if (!sRes.error) (sRes.data || []).forEach((r) => { signupMap[r.student_code] = r; });
     render();
 
     // 출석용 전화번호도 함께 불러옴 (수정창에서 사용)
@@ -253,12 +269,36 @@
     if (!phoneRes.error) (phoneRes.data || []).forEach((r) => { attendancePhones[r.student_code] = { p1: r.attendance_phone || '', p2: r.attendance_phone2 || '' }; });
   }
 
+  let signupMap = {};
+  let signupReady = false;
+  function fmtShort(ts) {
+    const d = new Date(ts);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  }
+  function signupCell(code) {
+    if (!signupReady) return '<span style="color:#B0B6C3;" title="가입 현황 SQL(47)을 실행하면 표시돼요">-</span>';
+    const r = signupMap[code] || {};
+    const reg = r.registered
+      ? `<span class="sg ok" title="등록서 제출 ${r.registered_at ? fmtShort(r.registered_at) : ''}">등록서 ✓</span>`
+      : '<span class="sg no">등록서 ✗</span>';
+    const login = r.last_login_at
+      ? `<span class="sg ok" title="마지막 로그인 ${fmtShort(r.last_login_at)}">로그인 ✓</span>`
+      : '<span class="sg no">로그인 ✗</span>';
+    return reg + ' ' + login;
+  }
+
   function render() {
     const grade = document.getElementById('grade-filter').value;
-    const filtered = (
+    const sf = document.getElementById('signup-filter').value;
+    const byGrade = (
       grade === '미지정' ? allStudents.filter((s) => !s.grade) :
       grade ? allStudents.filter((s) => s.grade === grade) :
       allStudents.slice()
+    );
+    const filtered = (
+      !signupReady || !sf ? byGrade :
+      sf === 'noreg' ? byGrade.filter((s) => !(signupMap[s.student_code] || {}).registered) :
+      byGrade.filter((s) => !(signupMap[s.student_code] || {}).last_login_at)
     )
       .sort((a, b) => {
         const ca = a.classroom || '￿'; // 미지정은 맨 뒤로
@@ -296,6 +336,7 @@
         <td>
           <input type="date" class="attend-date" data-code="${s.student_code}" value="${s.first_attend_date || ''}" ${s.withdrawn ? 'disabled' : ''}>
         </td>
+        <td style="white-space:nowrap;">${signupCell(s.student_code)}</td>
         <td style="white-space:nowrap;">
           <button type="button" class="edit-btn" data-code="${s.student_code}">수정</button>
           <button type="button" class="withdraw-btn ${s.withdrawn ? 'is-restore' : ''}" data-code="${s.student_code}" data-withdrawn="${s.withdrawn ? 'true' : 'false'}">

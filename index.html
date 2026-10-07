@@ -952,6 +952,9 @@
         return;
       }
 
+      // 원장님 화면의 '가입 현황'용 로그인 기록 (실패해도 로그인에는 영향 없음)
+      sb.rpc('rpc_record_parent_login', { p_email: kakao_email }).then(() => {}, () => {});
+
       // 형제자매 전체 목록을 저장해두면, 대시보드의 '다른 자녀 선택'에서 다시 활용할 수 있음
       localStorage.setItem('family_students', JSON.stringify(students));
       localStorage.setItem('kakao_email', kakao_email);
