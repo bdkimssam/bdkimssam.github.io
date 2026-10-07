@@ -66,6 +66,22 @@
   .bar-pct { font-size:11.5px; color: var(--muted); margin-top:3px; }
   .scores { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
 
+  button.edit-fb {
+    appearance:none; border:1px solid var(--gray-200); background:#fff; color: var(--ink); font-family:inherit;
+    font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:8px; cursor:pointer; margin-left:6px;
+  }
+  button.edit-fb:hover { background: var(--gray-50); }
+  textarea.fb-edit {
+    width:100%; min-height:110px; font-size:14px; font-family:inherit; line-height:1.55; padding:10px 12px;
+    border-radius:10px; border:1px solid var(--navy-900); resize:vertical;
+  }
+  textarea.fb-edit:focus { outline:none; }
+  .fb-actions { display:flex; gap:8px; margin-top:8px; }
+  .fb-actions button { flex:1; padding:10px; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer; font-family:inherit; }
+  .fb-actions .fb-save { background: var(--navy-900); color:#fff; border:none; }
+  .fb-actions .fb-save:disabled { opacity:0.5; cursor:not-allowed; }
+  .fb-actions .fb-cancel { background:#fff; color: var(--ink); border:1px solid var(--gray-200); }
+
   .loading { color: var(--muted); font-size: 13px; padding: 24px 6px; text-align:center; }
   .count-badge { font-size:12px; color: var(--muted); font-weight:700; margin-bottom:12px; }
 </style>
@@ -219,6 +235,57 @@
     return `<div class="row"><div class="k">${label}</div><div class="v ${extraClass || ''} ${has ? '' : 'empty'}">${has ? esc(value) : '-'}</div></div>`;
   }
 
+  // 선생님 피드백 칸 (기록 id가 있을 때만 '수정' 버튼 표시)
+  function commentBlock(it) {
+    const has = it.teacher_comment && String(it.teacher_comment).trim();
+    const editBtn = it.id ? `<button type="button" class="edit-fb" data-id="${esc(it.id)}">수정</button>` : '';
+    return `<div class="row" data-fb-row="${esc(it.id || '')}">
+      <div class="k">선생님 피드백${editBtn}</div>
+      <div class="v comment ${has ? '' : 'empty'}">${has ? esc(it.teacher_comment) : '-'}</div>
+    </div>`;
+  }
+
+  // '수정' 버튼 → 그 자리에서 입력칸으로 바꾸기 (원장님이 [원장피드백] 등을 직접 입력)
+  function openFeedbackEditor(id) {
+    const items = progressCache[selected.student_code] || [];
+    const item = items.find((x) => String(x.id) === String(id));
+    if (!item) return;
+    const row = document.querySelector(`[data-fb-row="${CSS.escape(String(id))}"]`);
+    row.innerHTML = `
+      <div class="k">선생님 피드백 수정</div>
+      <textarea class="fb-edit" id="fb-textarea"></textarea>
+      <div class="fb-actions">
+        <button type="button" class="fb-cancel" id="fb-cancel">취소</button>
+        <button type="button" class="fb-save" id="fb-save">저장</button>
+      </div>`;
+    const ta = document.getElementById('fb-textarea');
+    ta.value = item.teacher_comment || '';
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length); // 커서를 맨 뒤로 → 이어서 [원장피드백] 입력
+
+    document.getElementById('fb-cancel').addEventListener('click', renderDetail);
+    document.getElementById('fb-save').addEventListener('click', async () => {
+      const saveBtn = document.getElementById('fb-save');
+      saveBtn.disabled = true;
+      saveBtn.textContent = '저장 중...';
+      const text = ta.value.trim();
+      const { error } = await sb.rpc('rpc_admin_update_weekly_comment', {
+        p_password: getAdminPassword(),
+        p_id: id,
+        p_teacher_comment: text,
+      });
+      if (error) {
+        const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+        alert(missing ? '피드백 수정 기능이 DB에 아직 없습니다. 안내드린 SQL을 Supabase에서 먼저 실행해 주세요.' : '저장 실패: ' + error.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = '저장';
+        return;
+      }
+      item.teacher_comment = text || null;
+      renderDetail();
+    });
+  }
+
   function renderDetail() {
     const detail = document.getElementById('detail-panel');
     const items = progressCache[selected.student_code] || [];
@@ -264,7 +331,7 @@
             ${textRow('과제수행', it.homework_completion)}
             ${textRow('수업태도', it.attitude)}
           </div>
-          ${textRow('선생님 피드백', it.teacher_comment, 'comment')}
+          ${commentBlock(it)}
           ${it.feedback_content && String(it.feedback_content).trim() ? textRow('추가 피드백', it.feedback_content, 'comment') : ''}
         </div>`).join('');
     }
@@ -283,6 +350,9 @@
       ${recordsHtml}
     `;
 
+    detail.querySelectorAll('.edit-fb').forEach((btn) => {
+      btn.addEventListener('click', () => openFeedbackEditor(btn.dataset.id));
+    });
     document.getElementById('prev-week').addEventListener('click', () => { weekStart = addDays(weekStart, -7); renderDetail(); });
     document.getElementById('next-week').addEventListener('click', () => { weekStart = addDays(weekStart, 7); renderDetail(); });
     document.getElementById('this-week').addEventListener('click', () => { weekStart = mondayOf(new Date()); renderDetail(); });
