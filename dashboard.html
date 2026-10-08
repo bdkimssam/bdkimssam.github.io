@@ -834,7 +834,25 @@
     const body = card.querySelector('.card-body');
     body.innerHTML = html;
     body.setAttribute('data-state', state);
+    refreshFeedbackMore(body);
   }
+
+  // 글자 수가 아니라 '화면에서 실제로 잘렸는지'로 더보기 버튼 표시 (폰/PC 글자 폭이 달라도 정확)
+  function refreshFeedbackMore(root) {
+    (root || document).querySelectorAll('.feedback-item .comment').forEach((c) => {
+      const btn = c.nextElementSibling;
+      if (!btn || !btn.classList.contains('feedback-more-btn')) return;
+      if (c.classList.contains('expanded')) { btn.hidden = false; return; }
+      btn.hidden = !(c.scrollHeight > c.clientHeight + 1);
+    });
+  }
+  function toggleFeedbackMore(btn) {
+    const c = btn.previousElementSibling;
+    const isOpen = c.classList.toggle('expanded');
+    btn.textContent = isOpen ? '접기' : '더보기';
+  }
+  window.addEventListener('resize', () => refreshFeedbackMore());
+  window.addEventListener('load', () => refreshFeedbackMore());
 
   function renderEmptyState(cardId, message) {
     setCardState(
@@ -1030,8 +1048,6 @@
       feedbackItems
         .map((item) => {
           const commentText = item.teacher_comment || '코멘트가 없습니다.';
-          // 대략 3줄(약 60자) 넘는 긴 코멘트만 '더보기' 버튼 표시
-          const needsMoreBtn = commentText.length > 60;
           return `
           <div class="feedback-item">
             <div class="teacher">
@@ -1039,15 +1055,7 @@
               <span class="date">${item.recorded_date || ''}</span>
             </div>
             <div class="comment">${commentText}</div>
-            ${
-              needsMoreBtn
-                ? `<button type="button" class="feedback-more-btn" onclick="
-                    const c = this.previousElementSibling;
-                    const isOpen = c.classList.toggle('expanded');
-                    this.textContent = isOpen ? '접기' : '더보기';
-                  ">더보기</button>`
-                : ''
-            }
+            <button type="button" class="feedback-more-btn" hidden onclick="toggleFeedbackMore(this)">더보기</button>
           </div>
         `;
         })
@@ -1179,7 +1187,6 @@
       .join('');
 
     const commentText = result.comment || '';
-    const needsMoreBtn = commentText.length > 60;
 
     setCardState(
       'card-tlp',
@@ -1192,15 +1199,7 @@
         <div class="feedback-item" style="border-top:1px solid var(--gray-100); margin-top:8px; padding-top:8px;">
           <div class="teacher"><span>원장님 코멘트</span></div>
           <div class="comment">${commentText}</div>
-          ${
-            needsMoreBtn
-              ? `<button type="button" class="feedback-more-btn" onclick="
-                  const c = this.previousElementSibling;
-                  const isOpen = c.classList.toggle('expanded');
-                  this.textContent = isOpen ? '접기' : '더보기';
-                ">더보기</button>`
-              : ''
-          }
+          <button type="button" class="feedback-more-btn" hidden onclick="toggleFeedbackMore(this)">더보기</button>
         </div>
       `
           : ''
