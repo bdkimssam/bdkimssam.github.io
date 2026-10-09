@@ -70,7 +70,7 @@
   // 강사쌤은 자기 강의실 학생만 보이게 — 학생 목록을 못 받으면 아무것도 보여주지 않음(전체가 보이는 것보다 안전)
   async function loadMyCodes() {
     if (isAdminDirector()) { myCodes = null; return true; }
-    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
+    const { data, error } = await fetchActiveStudents();
     if (error) { console.error(error); return false; }
     myCodes = new Set((data || []).map((s) => s.student_code));
     return true;

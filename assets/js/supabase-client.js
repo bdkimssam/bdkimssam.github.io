@@ -107,3 +107,17 @@ function matchesGrade(grade, filterValue) {
   if (filterValue === GRADE_FILTER_NONE) return !grade;
   return grade === filterValue;
 }
+
+// ------------------------------------------------------------
+// 재원생 목록 가져오기 (퇴원생 제외, 강사쌤은 내 강의실만, 원장님은 전체)
+//  - 새 함수(rpc_admin_list_active_students, 51 마이그레이션)를 먼저 쓰고,
+//    DB에 아직 없으면 예전 함수(rpc_admin_list_students)로 돌아갑니다.
+// ------------------------------------------------------------
+async function fetchActiveStudents() {
+  const args = { p_password: getAdminPassword(), p_classroom: getAdminClassroom() };
+  let res = await sb.rpc('rpc_admin_list_active_students', args);
+  if (res.error && (res.error.code === 'PGRST202' || /Could not find the function/i.test(res.error.message || ''))) {
+    res = await sb.rpc('rpc_admin_list_students', args);
+  }
+  return res;
+}

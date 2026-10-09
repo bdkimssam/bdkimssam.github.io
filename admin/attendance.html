@@ -87,7 +87,7 @@
   }
 
   async function loadStudents() {
-    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
+    const { data, error } = await fetchActiveStudents();
     if (error) { console.error(error); return []; }
     // 학년(초→중→고) → 이름 순으로 정렬
     return (data || []).slice().sort((a, b) => {

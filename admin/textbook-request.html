@@ -124,7 +124,7 @@
   const studentSelect = document.getElementById('student-select');
   let allStudents = [];
   async function loadStudents() {
-    const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
+    const { data, error } = await fetchActiveStudents();
     if (error) { console.error(error); return; }
     allStudents = (data || []).slice().sort((a, b) => {
       const g = compareGrades(a.grade, b.grade);
