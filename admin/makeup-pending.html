@@ -60,7 +60,7 @@
   <div id="list"><div class="loading">불러오는 중...</div></div>
 </main>
 
-<script src="../assets/js/supabase-client.js"></script>
+<script src="../assets/js/supabase-client.js?v=20261009a"></script>
 <script>
   requireAdminAuth(); // 원장님/강사쌤 모두 사용
 
@@ -98,6 +98,15 @@
   }
 
   async function load() {
+    try {
+      await loadInner();
+    } catch (e) {
+      console.error(e);
+      document.getElementById('list').innerHTML = '<div class="loading">' + esc('불러오지 못했습니다: ' + (e && e.message ? e.message : e)) + '</div>';
+    }
+  }
+
+  async function loadInner() {
     const list = document.getElementById('list');
     const { data, error } = await sb.rpc('rpc_admin_list_makeups', {
       p_password: getAdminPassword(),
