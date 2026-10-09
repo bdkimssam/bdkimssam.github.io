@@ -323,6 +323,8 @@ order by table_name;
 - `rpc_admin_list_payment_status(p_password, p_billing_month)` — 해당 월 재원생 전체의 납부 상태. 학년은 `student_classrooms.grade`를 우선 사용(없으면 `students.grade` 보조) — 학년 일괄 진급 등으로 최신 상태가 `student_classrooms`에 반영되기 때문 (41 마이그레이션에서 수정). 초/중/고 자동 분류 + 기본 요금 + 실제 납부 여부/금액/날짜/결제수단/메모.
 - `rpc_admin_save_payment(p_password, p_student_code, p_billing_month, p_amount, p_paid_date, p_payment_method, p_memo)` — 납부 입력/수정(upsert, 같은 학생+같은 달이면 덮어씀). 40 마이그레이션에서 `p_payment_method` 추가, 기존 6-인자 함수는 삭제됨.
 - `rpc_admin_delete_payment(p_password, p_id)` — 납부 취소(미납 상태로 되돌림).
+- `payment_history` (53) — `payments` 의 입력/수정/취소를 AFTER INSERT/UPDATE/DELETE 트리거(`log_payment_change`)가 자동 기록. 변경 전/후 행 전체를 jsonb(`old_data`/`new_data`)로 저장하므로 payments 컬럼이 늘어도 그대로 동작. 내용이 안 바뀐 upsert는 기록 안 함. 최초 실행 시 기존 납부분은 action='기존기록'으로 1회 적재. RLS 켜짐/정책 없음. **원칙: 돈·신청 등 기록성 테이블은 처음부터 변경 이력을 남긴다 (방학특강·알림톡 발송 기록도 동일).**
+- `rpc_admin_list_payment_history(p_password, p_student_code default null, p_limit default 300)` — 원장님 전용 이력 조회. `admin/payments.html` 의 학생별 "이력" 버튼 / "전체 변경 이력" 버튼.
 - `admin/payments.html` — 관리자 홈 "결제" 섹션. 월 이동, 납부완료/미납/수납액 통계, 요금표 수정, 학생별 납부 입력.
 - `notify_sms_payment_confirm()` — `payments` AFTER INSERT 트리거(39 마이그레이션). 새 납부 기록 최초 입력 시(수정/upsert 땐 재발송 안 됨) 학부모께 수납 확인 문자. 메시지엔 "오늘"이 아니라 입력된 `paid_date`를 그대로 표시(늦게 입력해도 자연스럽게). 지금은 솔라피 일반 SMS, 카카오 채널 승인되면 알림톡으로 전환 예정.
 - 미납 학생 알림톡 발송 기능은 카카오 채널 연동 완료 후 추가 예정.

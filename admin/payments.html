@@ -98,6 +98,18 @@
   .pay-form .del-btn { border:1px solid #FCA5A5; background:#fff; color:#DC2626; }
   .pay-form .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
   .pay-row .memo-line { margin-top:6px; font-size:12px; color:var(--muted); }
+  .hist-btn { padding:7px 10px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; font-size:12px; font-weight:700; cursor:pointer; color:var(--muted); }
+  .hist-overlay { position:fixed; inset:0; background:rgba(11,18,32,0.45); display:none; align-items:center; justify-content:center; z-index:50; padding:16px; }
+  .hist-box { background:#fff; border-radius:16px; width:100%; max-width:560px; max-height:82vh; display:flex; flex-direction:column; }
+  .hist-head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--gray-200); font-weight:800; font-size:15px; }
+  .hist-head button { border:none; background:none; font-size:20px; cursor:pointer; color:var(--muted); }
+  .hist-body { overflow:auto; padding:6px 18px 18px; }
+  .hist-item { padding:12px 0; border-bottom:1px solid var(--gray-200); font-size:13px; line-height:1.6; }
+  .hist-item:last-child { border-bottom:none; }
+  .hist-item .t { color:var(--muted); font-size:11.5px; }
+  .hist-item .act { display:inline-block; font-weight:800; font-size:11.5px; padding:2px 8px; border-radius:999px; margin-right:6px; }
+  .act-in { background:#DCFCE7; color:#15803D; } .act-mod { background:#FEF3C7; color:#92400E; }
+  .act-del { background:#FEE2E2; color:#B91C1C; } .act-old { background:var(--gray-100,#F3F4F6); color:var(--muted); }
   .empty, .loading { color: var(--muted); font-size:13px; padding:16px 4px; text-align:center; }
 </style>
 </head>
@@ -148,6 +160,7 @@
       <button type="button" class="filter-btn active" data-filter="all">전체</button>
       <button type="button" class="filter-btn" data-filter="unpaid">미납</button>
       <button type="button" class="filter-btn" data-filter="paid">납부완료</button>
+      <button type="button" class="hist-btn" id="hist-all-btn" style="margin-left:auto;">전체 변경 이력</button>
     </div>
     <div class="select-all-row" style="margin-top:10px;">
       <button type="button" id="select-all-btn">전체 선택</button>
@@ -156,6 +169,13 @@
     <div class="pay-list" id="pay-list"><div class="loading">불러오는 중...</div></div>
   </div>
 </main>
+
+<div class="hist-overlay" id="hist-overlay">
+  <div class="hist-box">
+    <div class="hist-head"><span id="hist-title">변경 이력</span><button type="button" id="hist-close">&times;</button></div>
+    <div class="hist-body" id="hist-body"></div>
+  </div>
+</div>
 
 <script src="../assets/js/supabase-client.js?v=20261009b"></script>
 <script>
@@ -448,6 +468,7 @@
             </div>
             <div class="right">
               ${isEditing ? '' : `<input type="number" class="amount-input" data-code="${r.student_code}" value="${prefillAmount}" style="width:92px;">`}
+              <button type="button" class="hist-btn" data-code="${r.student_code}" data-name="${r.student_name || ''}">이력</button>
               <button type="button" class="action-btn toggle-btn" data-code="${r.student_code}">${isEditing ? '닫기' : (r.paid ? '수정' : '납부 입력')}</button>
             </div>
           </div>
@@ -458,6 +479,9 @@
       `;
     }).join('');
 
+    payListEl.querySelectorAll('.pay-row .hist-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openHistory(btn.dataset.code, btn.dataset.name));
+    });
     payListEl.querySelectorAll('.row-check').forEach((chk) => {
       chk.addEventListener('change', () => {
         const code = chk.dataset.code;
@@ -521,6 +545,55 @@
       });
     });
   }
+
+  // ---- 결제 변경 이력 ----
+  const HIST_LABELS = { amount: '금액', paid_date: '납부일', payment_method: '결제수단', memo: '메모' };
+  function histEsc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function histVal(k, v) {
+    if (v == null || v === '') return '(없음)';
+    return k === 'amount' ? Number(v).toLocaleString('ko-KR') + '원' : histEsc(v);
+  }
+  function histSummary(h) {
+    const o = h.old_data || {}, n = h.new_data || {};
+    const keys = ['amount', 'paid_date', 'payment_method', 'memo'];
+    if (h.action === '수정') {
+      const diffs = keys.filter((k) => (o[k] ?? null) !== (n[k] ?? null))
+        .map((k) => `${HIST_LABELS[k]}: ${histVal(k, o[k])} → <b>${histVal(k, n[k])}</b>`);
+      return diffs.join('<br>') || '(내용 변경 없음)';
+    }
+    const src = h.action === '취소' ? o : n;
+    const parts = keys.filter((k) => src[k] != null && src[k] !== '').map((k) => `${HIST_LABELS[k]} ${histVal(k, src[k])}`);
+    return parts.join(' · ');
+  }
+  async function openHistory(code, name) {
+    const overlay = document.getElementById('hist-overlay');
+    const body = document.getElementById('hist-body');
+    document.getElementById('hist-title').textContent = code ? `${name || code} 결제 변경 이력` : '전체 결제 변경 이력 (최근 300건)';
+    body.innerHTML = '<div class="loading">불러오는 중...</div>';
+    overlay.style.display = 'flex';
+    const { data, error } = await sb.rpc('rpc_admin_list_payment_history', {
+      p_password: getAdminPassword(), p_student_code: code || null, p_limit: 300,
+    });
+    if (error) {
+      const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+      body.innerHTML = `<div class="empty">${missing ? '이력 기능 SQL(53)이 아직 실행되지 않았어요.' : '불러오지 못했어요: ' + histEsc(error.message)}</div>`;
+      return;
+    }
+    if (!data || !data.length) { body.innerHTML = '<div class="empty">기록된 이력이 없어요.</div>'; return; }
+    const cls = { '입력': 'act-in', '수정': 'act-mod', '취소': 'act-del', '기존기록': 'act-old' };
+    body.innerHTML = data.map((h) => {
+      const when = new Date(h.changed_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const month = h.billing_month ? Number(String(h.billing_month).slice(5, 7)) + '월분' : '';
+      return `<div class="hist-item">
+        <div class="t">${histEsc(when)}</div>
+        <div><span class="act ${cls[h.action] || ''}">${histEsc(h.action)}</span>${code ? '' : '<b>' + histEsc(h.student_name || h.student_code) + '</b> '}${month}</div>
+        <div>${histSummary(h)}</div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('hist-close').addEventListener('click', () => { document.getElementById('hist-overlay').style.display = 'none'; });
+  document.getElementById('hist-overlay').addEventListener('click', (e) => { if (e.target.id === 'hist-overlay') e.currentTarget.style.display = 'none'; });
+  document.getElementById('hist-all-btn').addEventListener('click', () => openHistory(null, null));
 </script>
 
 </body>
