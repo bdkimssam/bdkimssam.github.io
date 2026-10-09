@@ -34,6 +34,7 @@
     padding:7px 10px; border-radius:8px; border:1px solid var(--gray-200); background:#fff;
     font-size:13px; font-family:inherit; color: var(--ink); cursor:pointer;
   }
+  tr.unassigned-row td { background:#FEF3C7; }
   select.classroom-select.saving, input.attend-date.saving { opacity:0.5; }
   input.attend-date {
     padding:6px 8px; border-radius:8px; border:1px solid var(--gray-200); background:#fff;
@@ -153,6 +154,11 @@
       <option value="noreg">등록서 미제출</option>
       <option value="nologin">카카오 로그인 기록 없음</option>
     </select>
+    <label for="room-filter">강의실</label>
+    <select class="grade-filter" id="room-filter">
+      <option value="">전체</option>
+      <option value="none">⚠ 미배정만</option>
+    </select>
     <span class="count-badge" id="count-badge"></span>
     <label class="withdrawn-toggle"><input type="checkbox" id="withdrawn-toggle"> 퇴원생도 보기</label>
   </div>
@@ -212,6 +218,11 @@
 
   document.getElementById('grade-filter').addEventListener('change', render);
   document.getElementById('signup-filter').addEventListener('change', render);
+  document.getElementById('room-filter').addEventListener('change', render);
+  // 관리자 첫 화면의 "미배정" 알림에서 넘어온 경우 미배정만 보여줌
+  if (new URLSearchParams(location.search).get('room') === 'none') {
+    document.getElementById('room-filter').value = 'none';
+  }
   document.getElementById('withdrawn-toggle').addEventListener('change', loadStudents);
 
   document.getElementById('issue-btn').addEventListener('click', async () => {
@@ -290,10 +301,13 @@
   function render() {
     const grade = document.getElementById('grade-filter').value;
     const sf = document.getElementById('signup-filter').value;
+    const room = document.getElementById('room-filter').value;
+    const isUnassigned = (s) => !s.withdrawn && !s.classroom;
+    const base = room === 'none' ? allStudents.filter(isUnassigned) : allStudents;
     const byGrade = (
-      grade === '미지정' ? allStudents.filter((s) => !s.grade) :
-      grade ? allStudents.filter((s) => s.grade === grade) :
-      allStudents.slice()
+      grade === '미지정' ? base.filter((s) => !s.grade) :
+      grade ? base.filter((s) => s.grade === grade) :
+      base.slice()
     );
     const filtered = (
       !signupReady || !sf ? byGrade :
@@ -301,7 +315,10 @@
       byGrade.filter((s) => !(signupMap[s.student_code] || {}).last_login_at)
     )
       .sort((a, b) => {
-        const ca = a.classroom || '￿'; // 미지정은 맨 뒤로
+        // 강의실 미배정(재원생)은 맨 위로, 나머지는 강의실 순
+        const ua = isUnassigned(a) ? 0 : 1, ub = isUnassigned(b) ? 0 : 1;
+        if (ua !== ub) return ua - ub;
+        const ca = a.classroom || '￿';
         const cb = b.classroom || '￿';
         if (ca !== cb) return ca.localeCompare(cb, 'ko');
         return (a.student_name || '').localeCompare(b.student_name || '', 'ko');
@@ -323,7 +340,7 @@
     statusArea.style.display = 'none';
 
     tbody.innerHTML = filtered.map((s) => `
-      <tr class="${s.withdrawn ? 'withdrawn-row' : ''}">
+      <tr class="${s.withdrawn ? 'withdrawn-row' : ''}${isUnassigned(s) ? ' unassigned-row' : ''}">
         <td>
           <select class="classroom-select" data-code="${s.student_code}" data-name="${s.student_name || ''}" ${s.withdrawn ? 'disabled' : ''}>
             <option value="">미지정</option>
