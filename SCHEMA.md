@@ -37,7 +37,7 @@ order by table_name;
 - `withdrawn` boolean NOT NULL DEFAULT false
 - `withdrawn_at` timestamptz
 - `last_login_at` timestamptz — 학부모 카카오 로그인 마지막 성공 시각 (47 마이그레이션). `index.html`의 로그인 성공 직후 `rpc_record_parent_login(p_email)`이 같은 이메일(대소문자·공백 무시)의 재원생 행에 기록 — **47 이전의 로그인은 기록 없음**.
-- 가입 현황: `rpc_admin_list_signup_status(p_password)` — 원장님 전용, student_code별 `registered`(students에 행 있음=맞춤 학습 등록서 제출), `registered_at`, `last_login_at`. 화면: `admin/student-list.html`의 '가입' 열 + 필터.
+- 가입 현황: `rpc_admin_list_signup_status(p_password)` — 원장님 전용, student_code별 `registered`(students에 행이 있고 `privacy_consent=true`일 때만 맞춤 학습 등록서 제출로 봄 — 원장님이 정보 수정 창에서 저장해 행이 생겨도 동의 체크 전에는 미제출, 52 마이그레이션), `registered_at`, `last_login_at`. 화면: `admin/student-list.html`의 '가입' 열 + 필터.
 
 ### `students` — 학생 상세 정보 (맞춤 학습 등록서로 채워짐)
 - `id` uuid NOT NULL DEFAULT gen_random_uuid()
