@@ -86,7 +86,14 @@
         </div>
         <div>
           <label for="deadline">제작 기한</label>
-          <input type="text" id="deadline" placeholder="예: 10/10까지">
+          <select id="deadline">
+            <option value="">선택 안 함</option>
+            <option value="3">3일 이내</option>
+            <option value="7">7일 이내</option>
+            <option value="14">2주 이내</option>
+            <option value="date">날짜 직접 선택</option>
+          </select>
+          <input type="date" id="deadline-date" style="display:none; margin-top:8px;">
         </div>
       </div>
 
@@ -151,6 +158,36 @@
   }
   document.getElementById('grade-filter').addEventListener('change', renderStudentOptions);
   loadStudents();
+
+  // ---- 제작 기한: 3일/7일/2주 이내 또는 캘린더 날짜 ----
+  const deadlineSel = document.getElementById('deadline');
+  const deadlineDate = document.getElementById('deadline-date');
+  function seoulTodayStr() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+  }
+  function addDaysStr(ymd, n) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d + n));
+    return dt.getUTCFullYear() + '-' + String(dt.getUTCMonth() + 1).padStart(2, '0') + '-' + String(dt.getUTCDate()).padStart(2, '0');
+  }
+  function shortDate(ymd) {
+    const [, m, d] = ymd.split('-').map(Number);
+    return m + '/' + d;
+  }
+  function updateDeadlineUI() {
+    deadlineDate.style.display = deadlineSel.value === 'date' ? 'block' : 'none';
+    if (deadlineSel.value === 'date' && !deadlineDate.value) deadlineDate.value = addDaysStr(seoulTodayStr(), 7);
+    if (deadlineSel.value !== 'date') deadlineDate.value = '';
+  }
+  deadlineSel.addEventListener('change', updateDeadlineUI);
+  // 저장할 글자 (예: "10/16까지 (7일 이내)" / "10/20까지")
+  function deadlineText() {
+    const v = deadlineSel.value;
+    if (!v) return '';
+    if (v === 'date') return deadlineDate.value ? shortDate(deadlineDate.value) + '까지' : '';
+    const label = deadlineSel.selectedOptions[0].textContent;
+    return shortDate(addDaysStr(seoulTodayStr(), parseInt(v, 10))) + '까지 (' + label + ')';
+  }
 
   // ---- 교재 선택 (학년학기 → 교재명 2단계) ----
   const gradeSemesterSelect = document.getElementById('grade-semester');
@@ -291,7 +328,7 @@
       p_classroom: classroomSelect.value,
       p_requested_textbook: `[${category}] ${textbookName}`,
       p_expected_textbook: '',
-      p_deadline: document.getElementById('deadline').value.trim(),
+      p_deadline: deadlineText(),
       p_copies: parseInt(document.getElementById('copies').value || '1', 10),
       p_notes: document.getElementById('notes').value.trim(),
     });
@@ -305,6 +342,7 @@
     }
 
     e.target.reset();
+    updateDeadlineUI();
     document.getElementById('copies').value = 1;
     classroomSelect.value = getAdminClassroom() || CLASSROOMS[0];
     studentSelect.value = '';
