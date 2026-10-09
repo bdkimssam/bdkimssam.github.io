@@ -129,7 +129,7 @@
   </div>
 </main>
 
-<script src="../assets/js/supabase-client.js?v=20261009a"></script>
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
 <script>
   requireAdminAuth();
 
@@ -212,7 +212,7 @@
       if (!gradeSemesterGroups[key]) gradeSemesterGroups[key] = [];
       gradeSemesterGroups[key].push(t);
     });
-    const keys = Object.keys(gradeSemesterGroups);
+    const keys = sortGradeSemesterKeys(Object.keys(gradeSemesterGroups));
     const optionsHtml = '<option value="">학년학기 선택</option>' + keys.map((k) => `<option value="${k}">${k}</option>`).join('');
     document.getElementById('progress-grade-semester').innerHTML = optionsHtml;
     document.getElementById('homework-grade-semester').innerHTML = optionsHtml;

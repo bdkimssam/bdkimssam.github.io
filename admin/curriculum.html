@@ -91,6 +91,7 @@
         <select id="new-grade">
           <option value="초3">초3</option><option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option>
           <option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option>
+          <option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option>
         </select>
       </div>
       <div><label>학기</label>
@@ -155,7 +156,7 @@
   </div>
 </main>
 
-<script src="../assets/js/supabase-client.js?v=20261009a"></script>
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
 <script>
   requireDirector();
 
@@ -311,7 +312,7 @@
       if (!seen.has(key)) { seen.add(key); keys.push(key); }
     });
     select.innerHTML = '<option value="">전체 학년학기</option>' +
-      keys.map((k) => `<option value="${k}">${k}</option>`).join('');
+      sortGradeSemesterKeys(keys).map((k) => `<option value="${k}">${k}</option>`).join('');
     if (keys.includes(prev)) select.value = prev;
   }
 

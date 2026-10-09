@@ -121,3 +121,16 @@ async function fetchActiveStudents() {
   }
   return res;
 }
+
+// "초3-1", "중2-2", "고1-1" 같은 학년학기 키를 초→중→고, 학기 순으로 정렬 (교재 선택 목록용)
+function sortGradeSemesterKeys(keys) {
+  const parse = (k) => {
+    const m = String(k).match(/^(.*?)-(\d+)$/);
+    return m ? [m[1], parseInt(m[2], 10)] : [String(k), 0];
+  };
+  return keys.slice().sort((a, b) => {
+    const [ga, sa] = parse(a), [gb, sb2] = parse(b);
+    const g = compareGrades(ga, gb);
+    return g !== 0 ? g : sa - sb2;
+  });
+}
