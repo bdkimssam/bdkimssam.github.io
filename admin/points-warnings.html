@@ -57,6 +57,7 @@
     <h1>상점 · 경고 등록</h1>
 
     <label for="student-select">학생 선택</label>
+    <select id="grade-filter" style="margin-bottom:8px;"><option value="">전체 학년</option></select>
     <select id="student-select">
       <option value="">학생을 선택하세요</option>
     </select>
@@ -96,19 +97,22 @@
 
   async function loadStudents() {
     const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); loadList(); return; }
     allStudents = (data || []).slice().sort((a, b) => {
       const g = compareGrades(a.grade, b.grade);
       if (g !== 0) return g;
       return (a.student_name || '').localeCompare(b.student_name || '');
     });
+    fillGradeFilter(document.getElementById('grade-filter'), allStudents.map((s) => s.grade));
     renderStudentOptions();
+    loadList();
   }
   loadStudents();
 
   function renderStudentOptions() {
     const groups = {};
-    allStudents.forEach((s) => {
+    const gradeSel = document.getElementById('grade-filter').value;
+    allStudents.filter((s) => matchesGrade(s.grade, gradeSel)).forEach((s) => {
       const g = s.grade || '학년 미지정';
       if (!groups[g]) groups[g] = [];
       groups[g].push(s);
@@ -119,7 +123,9 @@
       </optgroup>
     `).join('');
     studentSelect.innerHTML = '<option value="">학생을 선택하세요</option>' + optgroups;
+    studentSelect.dispatchEvent(new Event('change')); // 고른 학생이 사라졌으면 선택 해제
   }
+  document.getElementById('grade-filter').addEventListener('change', () => { renderStudentOptions(); loadList(); });
 
   studentSelect.addEventListener('change', () => {
     const code = studentSelect.value;
@@ -148,9 +154,17 @@
     const listEl = document.getElementById('pw-list');
     const { data, error } = await sb.rpc('rpc_admin_list_points_warnings', { p_password: getAdminPassword() });
     if (error) { console.error(error); listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>'; return; }
-    if (!data || data.length === 0) { listEl.innerHTML = '<div class="loading">등록된 내역이 없습니다.</div>'; return; }
+    // 내 강의실 학생(강사쌤) + 고른 학년의 내역만 보여줌 (원장님은 전체)
+    const gradeSel = document.getElementById('grade-filter').value;
+    const gradeOf = {};
+    allStudents.forEach((s) => { gradeOf[s.student_code] = s.grade; });
+    const rows = (data || []).filter((row) => {
+      if (!isAdminDirector() && !(row.student_code in gradeOf)) return false;
+      return !gradeSel || matchesGrade(gradeOf[row.student_code], gradeSel);
+    });
+    if (rows.length === 0) { listEl.innerHTML = '<div class="loading">등록된 내역이 없습니다.</div>'; return; }
 
-    listEl.innerHTML = data.map((row) => {
+    listEl.innerHTML = rows.map((row) => {
       let badgeClass = 'warning', badgeLabel = '경고', reason = row.warning_reason;
       if (row.point_type) {
         badgeClass = row.point_type === '스탬프' ? 'stamp' : 'point';
@@ -203,8 +217,7 @@
     document.getElementById('reason').value = '';
     loadList();
   });
-
-  loadList();
+  // 처음 목록은 학생 목록을 받은 뒤(loadStudents 끝) 불러옴 — 강의실 구분에 학생 목록이 필요해서
 </script>
 
 </body>

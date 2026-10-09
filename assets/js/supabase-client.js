@@ -84,3 +84,26 @@ function compareGrades(gradeA, gradeB) {
   if (la !== lb) return la - lb;
   return na - nb;
 }
+
+// ------------------------------------------------------------
+// 학년 선택(필터) 공통 도구 — 학생 목록이 나오는 관리자 화면들이 같이 씁니다.
+//  - fillGradeFilter(select, 학년들): 드롭다운을 "전체 학년 / 초3 / 중1 / … / 학년 미지정"으로 채움 (고른 값은 유지)
+//  - matchesGrade(학년, 고른값): 고른 값에 해당하는지 (전체면 항상 true)
+// ------------------------------------------------------------
+const GRADE_FILTER_NONE = '__none__';
+function fillGradeFilter(selectEl, grades) {
+  if (!selectEl) return;
+  const prev = selectEl.value;
+  const uniq = Array.from(new Set((grades || []).filter(Boolean))).sort(compareGrades);
+  const hasNone = (grades || []).some((g) => !g);
+  selectEl.innerHTML =
+    '<option value="">전체 학년</option>' +
+    uniq.map((g) => `<option value="${String(g).replace(/"/g, '&quot;')}">${String(g).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</option>`).join('') +
+    (hasNone ? `<option value="${GRADE_FILTER_NONE}">학년 미지정</option>` : '');
+  selectEl.value = Array.from(selectEl.options).some((o) => o.value === prev) ? prev : '';
+}
+function matchesGrade(grade, filterValue) {
+  if (!filterValue) return true;
+  if (filterValue === GRADE_FILTER_NONE) return !grade;
+  return grade === filterValue;
+}

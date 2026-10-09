@@ -18,6 +18,7 @@
   h1 { font-size: 19px; font-weight: 900; margin: 0 0 8px; }
   .toolbar { display:flex; align-items:center; gap: 10px; margin-bottom: 18px; }
   .toolbar input[type="date"] { font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--gray-200); }
+  .toolbar select { font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--gray-200); background:#fff; font-family:inherit; }
   .toolbar input[type="text"] { flex:1; font-size: 13.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--gray-200); }
   .summary { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
   .student-row {
@@ -56,6 +57,7 @@
   <h1>출석체크</h1>
   <div class="toolbar">
     <input type="date" id="attendance-date">
+    <select id="grade-filter"><option value="">전체 학년</option></select>
     <input type="text" id="search-box" placeholder="이름으로 찾기">
   </div>
   <div id="notice"></div>
@@ -87,7 +89,11 @@
   async function loadStudents() {
     const { data, error } = await sb.rpc('rpc_admin_list_students', { p_password: getAdminPassword(), p_classroom: getAdminClassroom() });
     if (error) { console.error(error); return []; }
-    return data || [];
+    // 학년(초→중→고) → 이름 순으로 정렬
+    return (data || []).slice().sort((a, b) => {
+      const g = compareGrades(a.grade, b.grade);
+      return g !== 0 ? g : (a.student_name || '').localeCompare(b.student_name || '');
+    });
   }
 
   async function loadAttendanceForDate(dateStr) {
@@ -145,7 +151,9 @@
   function renderList() {
     const q = document.getElementById('search-box').value.trim();
     const listEl = document.getElementById('student-list');
-    const filtered = q ? allStudents.filter((s) => s.student_name && s.student_name.includes(q)) : allStudents;
+    const gradeSel = document.getElementById('grade-filter').value;
+    const filtered = allStudents.filter((s) =>
+      matchesGrade(s.grade, gradeSel) && (!q || (s.student_name && s.student_name.includes(q))));
 
     document.getElementById('notice').innerHTML = memoReady ? '' :
       '<div class="notice">메모 칸과 보강 버튼을 쓰려면 안내드린 SQL(45, 보강 수정분 포함)을 먼저 실행해 주세요. 지금은 출석/지각/조퇴/결석 버튼만 저장돼요.</div>';
@@ -220,9 +228,11 @@
 
   function updateSummary() {
     const counts = { 출석: 0, 지각: 0, 조퇴: 0, 결석: 0, 보강: 0 };
-    Object.values(statusMap).forEach((s) => { if (counts[s] !== undefined) counts[s]++; });
+    const mine = new Set(allStudents.map((s) => s.student_code)); // 내 강의실 학생만 센다
+    const myCodes = Object.keys(statusMap).filter((c) => mine.has(c));
+    myCodes.forEach((c) => { const st = statusMap[c]; if (counts[st] !== undefined) counts[st]++; });
     const total = allStudents.length;
-    const checked = Object.keys(statusMap).length;
+    const checked = myCodes.length;
     document.getElementById('summary').textContent =
       `전체 ${total}명 중 ${checked}명 체크 · 출석 ${counts.출석} · 지각 ${counts.지각} · 조퇴 ${counts.조퇴} · 결석 ${counts.결석} · 보강 ${counts.보강}`;
   }
@@ -234,10 +244,12 @@
   }
 
   document.getElementById('search-box').addEventListener('input', renderList);
+  document.getElementById('grade-filter').addEventListener('change', renderList);
   dateInput.addEventListener('change', refresh);
 
   (async function init() {
     allStudents = await loadStudents();
+    fillGradeFilter(document.getElementById('grade-filter'), allStudents.map((s) => s.grade));
     await refresh();
   })();
 </script>

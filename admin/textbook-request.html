@@ -55,6 +55,7 @@
     <h1>교재 제작 요청</h1>
     <form id="request-form">
       <label for="student-select">학생 선택</label>
+      <select id="grade-filter" style="margin-bottom:8px;"><option value="">전체 학년</option></select>
       <select id="student-select">
         <option value="">학생을 선택하세요</option>
       </select>
@@ -102,6 +103,7 @@
       <button type="button" data-filter="completed">완료</button>
       <button type="button" data-filter="all">전체</button>
     </div>
+    <select id="req-grade-filter" style="margin-bottom:10px;" title="요청한 교재의 학년"><option value="">전체 학년</option></select>
     <div id="req-list"><div class="loading">불러오는 중...</div></div>
   </div>
 </main>
@@ -129,8 +131,13 @@
       if (g !== 0) return g;
       return (a.student_name || '').localeCompare(b.student_name || '');
     });
+    fillGradeFilter(document.getElementById('grade-filter'), allStudents.map((s) => s.grade));
+    renderStudentOptions();
+  }
+  function renderStudentOptions() {
     const groups = {};
-    allStudents.forEach((s) => {
+    const gradeSel = document.getElementById('grade-filter').value;
+    allStudents.filter((s) => matchesGrade(s.grade, gradeSel)).forEach((s) => {
       const g = s.grade || '학년 미지정';
       if (!groups[g]) groups[g] = [];
       groups[g].push(s);
@@ -142,6 +149,7 @@
     `).join('');
     studentSelect.innerHTML = '<option value="">학생을 선택하세요</option>' + optgroups;
   }
+  document.getElementById('grade-filter').addEventListener('change', renderStudentOptions);
   loadStudents();
 
   // ---- 교재 선택 (학년학기 → 교재명 2단계) ----
@@ -196,13 +204,17 @@
       listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>';
       return;
     }
-    allReqs = data || [];
+    // 강사쌤은 자기 강의실 신청만 (원장님은 전체)
+    allReqs = (data || []).filter((r) => isAdminDirector() || r.classroom === getAdminClassroom());
+    fillGradeFilter(document.getElementById('req-grade-filter'), allReqs.map((r) => r.grade));
     render();
   }
 
   function render() {
     const listEl = document.getElementById('req-list');
+    const gradeSel = document.getElementById('req-grade-filter').value;
     const items = allReqs.filter((r) => {
+      if (!matchesGrade(r.grade, gradeSel)) return false;
       if (currentFilter === 'pending') return !r.completed;
       if (currentFilter === 'completed') return r.completed;
       return true;
@@ -244,6 +256,7 @@
     });
   }
 
+  document.getElementById('req-grade-filter').addEventListener('change', render);
   document.querySelectorAll('.filter-tabs button').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-tabs button').forEach((b) => b.classList.remove('active'));
