@@ -36,6 +36,10 @@
   .actions button { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:800; cursor:pointer; font-family:inherit; color:var(--ink); }
   .actions button.primary { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
   .actions button:disabled { opacity:0.5; cursor:not-allowed; }
+  .item .plan { font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:999px; background:#E0F2FE; color:#0369A1; }
+  .item .plan.late { background:#FEE2E2; color:#B91C1C; }
+  .actions .plan-label { font-size:12px; color:var(--muted); font-weight:700; }
+  .actions .sep { flex-basis:100%; height:0; }
   .loading { color:var(--muted); font-size:13px; padding:24px 6px; text-align:center; }
 </style>
 </head>
@@ -93,6 +97,12 @@
     const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
     return `${m}/${d}(${wd})`;
   }
+  function planTag(r) {
+    if (!r.makeup_planned_date) return '';
+    const d = String(r.makeup_planned_date).slice(0, 10);
+    const late = d < seoulToday();
+    return `<span class="plan ${late ? 'late' : ''}">${late ? '예정일 지남 · ' : '보강 예정 · '}${esc(fmtDate(d))}</span>`;
+  }
   function daysAgo(ymd) {
     return Math.round((utcDay(seoulToday()) - utcDay(ymd)) / 86400000);
   }
@@ -135,7 +145,8 @@
     const scoped = items.filter((r) => matchesGrade(r.grade, gradeSel));
     const shown = scoped.filter((r) => !q || (r.student_name || '').includes(q));
     const pending = scoped.filter((r) => !r.makeup_status).length;
-    document.getElementById('summary').textContent = `보강 대기 ${pending}명(건)` + (showDone ? ` · 처리 완료 ${scoped.length - pending}건` : '');
+    const lateCount = scoped.filter((r) => !r.makeup_status && r.makeup_planned_date && String(r.makeup_planned_date).slice(0, 10) < seoulToday()).length;
+    document.getElementById('summary').textContent = `보강 대기 ${pending}명(건)` + (lateCount ? ` · 예정일 지남 ${lateCount}건` : '') + (showDone ? ` · 처리 완료 ${scoped.length - pending}건` : '');
 
     const list = document.getElementById('list');
     if (shown.length === 0) {
@@ -150,6 +161,7 @@
         <div class="top">
           <span class="nm">${esc(r.student_name)}</span>
           <span class="meta">${esc(r.grade || '')} · ${esc(fmtDate(r.attendance_date))} ${esc(r.status || '결석')}</span>
+          ${done ? '' : planTag(r)}
           ${done ? '' : `<span class="ago ${ago >= 14 ? '' : 'warn'}">${ago <= 0 ? '오늘' : ago + '일 지남'}</span>`}
         </div>
         ${r.memo ? `<div class="memo">${esc(r.memo)}</div>` : ''}
@@ -158,6 +170,11 @@
           <div class="actions"><button type="button" data-act="undo" data-id="${esc(r.id)}">되돌리기</button></div>
         ` : `
           <div class="actions">
+            <span class="plan-label">보강 예정일</span>
+            <input type="date" value="${esc(r.makeup_planned_date ? String(r.makeup_planned_date).slice(0, 10) : '')}" data-plan-for="${esc(r.id)}">
+            <button type="button" data-act="plan" data-id="${esc(r.id)}">예정일 저장</button>
+            <span class="sep"></span>
+            <span class="plan-label">보강 받은 날</span>
             <input type="date" value="${seoulToday()}" data-date-for="${esc(r.id)}">
             <button type="button" class="primary" data-act="done" data-id="${esc(r.id)}">보강 완료</button>
             <button type="button" data-act="skip" data-id="${esc(r.id)}">보강 불필요</button>
@@ -170,6 +187,21 @@
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const act = btn.dataset.act;
+        if (act === 'plan') {
+          const planEl = list.querySelector(`[data-plan-for="${CSS.escape(id)}"]`);
+          btn.disabled = true;
+          const { error } = await sb.rpc('rpc_admin_set_makeup_planned', {
+            p_password: getAdminPassword(), p_id: id, p_date: planEl && planEl.value ? planEl.value : null,
+          });
+          btn.disabled = false;
+          if (error) {
+            const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+            alert(missing ? '보강 예정일 SQL(54)이 아직 실행되지 않았어요.' : '저장 실패: ' + error.message);
+            return;
+          }
+          load();
+          return;
+        }
         const dateEl = list.querySelector(`[data-date-for="${CSS.escape(id)}"]`);
         const status = act === 'done' ? '완료' : act === 'skip' ? '불필요' : '';
         btn.parentElement.querySelectorAll('button').forEach((b) => { b.disabled = true; });

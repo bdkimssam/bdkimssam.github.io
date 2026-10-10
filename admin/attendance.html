@@ -44,6 +44,17 @@
   .memo-state { font-size:11px; color: var(--muted); margin-top:3px; min-height:13px; }
   .notice { background:#FFF7E6; border:1px solid #FFD591; color:#8A5A00; border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:12px; line-height:1.5; }
   .loading { color: var(--muted); font-size: 13px; }
+  .hist-btn { padding:8px 12px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--muted); font-family:inherit; white-space:nowrap; }
+  .hist-overlay { position:fixed; inset:0; background:rgba(11,18,32,0.45); display:none; align-items:center; justify-content:center; z-index:50; padding:16px; }
+  .hist-box { background:#fff; border-radius:16px; width:100%; max-width:560px; max-height:82vh; display:flex; flex-direction:column; }
+  .hist-head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--gray-200); font-weight:800; font-size:15px; }
+  .hist-head button { border:none; background:none; font-size:20px; cursor:pointer; color:var(--muted); }
+  .hist-body { overflow:auto; padding:6px 18px 18px; }
+  .hist-item { padding:12px 0; border-bottom:1px solid var(--gray-200); font-size:13px; line-height:1.6; }
+  .hist-item:last-child { border-bottom:none; }
+  .hist-item .t { color:var(--muted); font-size:11.5px; }
+  .hist-item .act { display:inline-block; font-weight:800; font-size:11.5px; padding:2px 8px; border-radius:999px; margin-right:6px; background:#F3F4F6; color:var(--muted); }
+  .hist-item .act.in { background:#DCFCE7; color:#15803D; } .hist-item .act.mod { background:#FEF3C7; color:#92400E; } .hist-item .act.del { background:#FEE2E2; color:#B91C1C; }
 </style>
 </head>
 <body>
@@ -59,11 +70,19 @@
     <input type="date" id="attendance-date">
     <select id="grade-filter"><option value="">전체 학년</option></select>
     <input type="text" id="search-box" placeholder="이름으로 찾기">
+    <button type="button" class="hist-btn" id="hist-btn" style="display:none;">변경 이력</button>
   </div>
   <div id="notice"></div>
   <div class="summary" id="summary"></div>
   <div id="student-list"><div class="loading">불러오는 중...</div></div>
 </main>
+
+<div class="hist-overlay" id="hist-overlay">
+  <div class="hist-box">
+    <div class="hist-head"><span id="hist-title">출결 변경 이력</span><button type="button" id="hist-close">&times;</button></div>
+    <div class="hist-body" id="hist-body"></div>
+  </div>
+</div>
 
 <script src="../assets/js/supabase-client.js?v=20261009b"></script>
 <script>
@@ -263,6 +282,48 @@
     fillGradeFilter(document.getElementById('grade-filter'), allStudents.map((s) => s.grade));
     await refresh();
   })();
+
+  // ---- 출결 변경 이력 (원장님 전용) : 위에서 고른 날짜의 변경 내역 ----
+  if (isAdminDirector()) document.getElementById('hist-btn').style.display = '';
+  const H_LABELS = { status: '상태', memo: '메모', makeup_status: '보강 처리', makeup_date: '보강 받은 날', makeup_planned_date: '보강 예정일' };
+  function hVal(v) { return v == null || v === '' ? '(없음)' : esc(v); }
+  function hSummary(h) {
+    const o = h.old_data || {}, n = h.new_data || {};
+    const keys = ['status', 'memo', 'makeup_status', 'makeup_date', 'makeup_planned_date'];
+    if (h.action === '수정') {
+      const diffs = keys.filter((k) => (o[k] ?? null) !== (n[k] ?? null))
+        .map((k) => `${H_LABELS[k]}: ${hVal(o[k])} → <b>${hVal(n[k])}</b>`);
+      return diffs.join('<br>') || '(내용 변경 없음)';
+    }
+    const src = h.action === '삭제' ? o : n;
+    return keys.filter((k) => src[k] != null && src[k] !== '').map((k) => `${H_LABELS[k]} ${hVal(src[k])}`).join(' · ');
+  }
+  async function openHistory() {
+    const body = document.getElementById('hist-body');
+    document.getElementById('hist-title').textContent = `${dateInput.value} 출결 변경 이력`;
+    body.innerHTML = '<div class="loading">불러오는 중...</div>';
+    document.getElementById('hist-overlay').style.display = 'flex';
+    const { data, error } = await sb.rpc('rpc_admin_list_attendance_history', {
+      p_password: getAdminPassword(), p_student_code: null, p_date: dateInput.value, p_limit: 300,
+    });
+    if (error) {
+      body.innerHTML = `<div class="loading">${isMissingFn(error) ? '이력 기능 SQL(54)이 아직 실행되지 않았어요.' : '불러오지 못했어요: ' + esc(error.message)}</div>`;
+      return;
+    }
+    if (!data || !data.length) { body.innerHTML = '<div class="loading">이 날짜의 변경 이력이 없어요.</div>'; return; }
+    const cls = { '입력': 'in', '수정': 'mod', '삭제': 'del' };
+    body.innerHTML = data.map((h) => {
+      const when = new Date(h.changed_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `<div class="hist-item">
+        <div class="t">${esc(when)}</div>
+        <div><span class="act ${cls[h.action] || ''}">${esc(h.action)}</span><b>${esc(h.student_name || h.student_code)}</b></div>
+        <div>${hSummary(h)}</div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('hist-btn').addEventListener('click', openHistory);
+  document.getElementById('hist-close').addEventListener('click', () => { document.getElementById('hist-overlay').style.display = 'none'; });
+  document.getElementById('hist-overlay').addEventListener('click', (e) => { if (e.target.id === 'hist-overlay') e.currentTarget.style.display = 'none'; });
 </script>
 
 </body>
