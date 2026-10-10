@@ -163,7 +163,7 @@
       return;
     }
 
-    listEl.innerHTML = filtered.map((s) => {
+    const rowHtml = (s) => {
       const current = statusMap[s.student_code] || '';
       const statuses = ['출석', '지각', '조퇴', '결석', '보강'];
       const showMemo = memoReady && needsMemo(current);
@@ -182,7 +182,18 @@
           </div>` : ''}
         </div>
       `;
-    }).join('');
+    };
+
+    // 지각·조퇴·결석·보강으로 기록된 학생은 위에 따로 모아서 보여준다 (나머지 학생은 그 아래)
+    const EXC_ORDER = { 결석: 0, 조퇴: 1, 지각: 2, 보강: 3 };
+    const exceptions = filtered.filter((s) => EXC_ORDER[statusMap[s.student_code]] !== undefined)
+      .sort((a, b) => EXC_ORDER[statusMap[a.student_code]] - EXC_ORDER[statusMap[b.student_code]]);
+    const normal = filtered.filter((s) => EXC_ORDER[statusMap[s.student_code]] === undefined);
+    const sectionTitle = (t) => `<div style="margin:14px 2px 6px; font-size:12.5px; font-weight:800; color:var(--muted);">${t}</div>`;
+    listEl.innerHTML = exceptions.length
+      ? sectionTitle(`지각 · 조퇴 · 결석 · 보강 (${exceptions.length}명)`) + exceptions.map(rowHtml).join('')
+        + (normal.length ? sectionTitle(`나머지 학생 (${normal.length}명)`) + normal.map(rowHtml).join('') : '')
+      : normal.map(rowHtml).join('');
 
     updateSummary();
 
