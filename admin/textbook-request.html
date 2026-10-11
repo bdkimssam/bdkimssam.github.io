@@ -97,6 +97,10 @@
         </div>
       </div>
 
+      <label style="display:flex; align-items:center; gap:8px; margin:6px 0 4px; font-weight:700; cursor:pointer;">
+        <input type="checkbox" id="for-teacher" style="width:18px; height:18px; accent-color:var(--navy-900);"> 교사용
+      </label>
+
       <label for="notes">참고</label>
       <textarea id="notes" placeholder="추가로 전달할 내용이 있으면 입력하세요"></textarea>
 
@@ -265,7 +269,7 @@
     listEl.innerHTML = items.map((r) => `
       <div class="req-row">
         <div>
-          <div class="t">${r.requested_textbook || '(교재명 미입력)'}</div>
+          <div class="t">${r.requested_textbook || '(교재명 미입력)'}${r.for_teacher ? ' <span style="font-size:11px; font-weight:800; padding:2px 8px; border-radius:999px; background:#EDE9FE; color:#6D28D9; vertical-align:middle;">교사용</span>' : ''}</div>
           <div class="meta">${r.student_name || ''} · ${r.grade || ''} ${r.semester ? '(' + r.semester + ')' : ''} · ${r.classroom || ''} · ${r.copies || 1}부${r.deadline ? ' · 기한 ' + r.deadline : ''}</div>
           ${r.notes ? `<div class="note">${r.notes}</div>` : ''}
         </div>
@@ -320,7 +324,8 @@
     submitBtn.disabled = true;
     submitBtn.textContent = '등록 중...';
 
-    const { error } = await sb.rpc('rpc_admin_add_textbook_request', {
+    const forTeacher = document.getElementById('for-teacher').checked;
+    const addArgs = {
       p_password: getAdminPassword(),
       p_student_name: studentName,
       p_grade: grade,
@@ -331,13 +336,16 @@
       p_deadline: deadlineText(),
       p_copies: parseInt(document.getElementById('copies').value || '1', 10),
       p_notes: document.getElementById('notes').value.trim(),
-    });
+    };
+    if (forTeacher) addArgs.p_for_teacher = true; // 체크했을 때만 보냄 (SQL 55 전에도 일반 요청은 그대로 동작)
+    const { error } = await sb.rpc('rpc_admin_add_textbook_request', addArgs);
 
     submitBtn.disabled = false;
     submitBtn.textContent = '요청 등록';
 
     if (error) {
-      alert('등록 실패: ' + error.message);
+      const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+      alert(missing && forTeacher ? '교사용 기능 SQL(55)이 아직 실행되지 않았어요.' : '등록 실패: ' + error.message);
       return;
     }
 

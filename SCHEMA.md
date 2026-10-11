@@ -216,6 +216,7 @@ order by table_name;
 - `completed_date` date
 - `notes` text
 - `requested_at` timestamptz NOT NULL DEFAULT now()
+- `for_teacher` boolean NOT NULL DEFAULT false — '교사용' 체크 (55 마이그레이션). `rpc_admin_add_textbook_request`에 `p_for_teacher boolean default false`(맨 끝), `rpc_admin_list_textbook_requests` 반환에 `for_teacher` 추가. 목록은 미완료 우선·최근순 최대 100건.
 
 ---
 
