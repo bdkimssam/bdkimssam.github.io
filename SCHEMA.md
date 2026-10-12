@@ -332,3 +332,10 @@ order by table_name;
 - 미납 학생 알림톡 발송 기능은 카카오 채널 연동 완료 후 추가 예정.
 
 - `rpc_admin_list_attendance_checks(p_password, p_date)` — 원장님 전용, 특정 날짜의 `attendance_checks` 기록 조회 (44 마이그레이션, `admin/attendance-today.html`)
+
+## 방학특강 (56 마이그레이션, 1단계: 특강 등록·관리)
+원장님 전용(`admin/special-lectures.html`, 관리자 홈 "방학특강 관리" 카드). 특강 1개 = 반 1개(수업 시간 한 가지), 대상 학년은 여러 개 가능, 요일·시간은 직접 입력.
+- `special_lectures` — id uuid, title, `target_grades` text[](예: {중2,중3}), start_date, end_date, `schedule_text`(요일·시간 자유 입력), classroom, teacher(기본 '원장님'), capacity(≥1), fee, `member_open_date`(재원생 신청 시작일), `outsider_open_date`(외부생 신청 시작일, 화면에서 재원생일+14일 자동 제안), `apply_deadline`, `is_closed`(수동 마감), `archived`(삭제 대신 보관), memo, created_at, updated_at. RLS 켜짐/정책 없음. 상태(준비 중/재원생 신청 중/외부생까지 신청 중/마감/종료)는 화면에서 오늘 날짜로 계산.
+- RPC(모두 원장님 비밀번호만): `rpc_admin_list_special_lectures(p_password, p_include_archived)`, `rpc_admin_save_special_lecture(...)`(p_id null이면 등록·있으면 수정), `rpc_admin_set_special_lecture_flag(p_password, p_id, p_flag 'closed'|'archived', p_value)`.
+- **공용 변경 이력** `change_history`(table_name, record_id, action 입력/수정/삭제, old_data/new_data jsonb) + 트리거 함수 `log_row_change()` — 앞으로의 기록성 테이블(특강 신청·특강 결제 등)에 트리거만 달면 이력이 쌓임. 조회: `rpc_admin_list_change_history(p_password, p_table, p_record_id, p_limit)`(원장님 전용).
+- 다음 단계(미구현): 신청(재원생 자동 확정/외부생 원장님 확정, 정원·대기 3명), 현황·결제, 학부모 대시보드, 출석부 연동.

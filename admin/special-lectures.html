@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>방학특강 관리 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  .sub { font-size:12.5px; color:var(--muted); margin:0 0 16px; line-height:1.55; }
+  .bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .bar label { font-size:13px; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:5px; cursor:pointer; }
+  button { font-family:inherit; }
+  .btn { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:9px; padding:8px 13px; font-size:12.5px; font-weight:800; cursor:pointer; color:var(--ink); }
+  .btn.primary { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .card { background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 18px; margin-bottom:10px; }
+  .card.archived { opacity:.65; }
+  .card .top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .card .title { font-weight:900; font-size:16px; }
+  .badge { font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:999px; background:#F3F4F6; color:var(--muted); }
+  .badge.soon { background:#E0F2FE; color:#0369A1; }
+  .badge.open { background:#DCFCE7; color:#15803D; }
+  .badge.out { background:#EDE9FE; color:#6D28D9; }
+  .badge.closed { background:#FEE2E2; color:#B91C1C; }
+  .chips { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; }
+  .chip { font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:6px; background:#EEF2FF; color:#364293; }
+  .info { margin-top:10px; font-size:13px; line-height:1.75; color:#374151; }
+  .info b { color:var(--muted); font-weight:700; margin-right:4px; }
+  .memo { margin-top:8px; font-size:12.5px; background:var(--gray-50); border-radius:8px; padding:7px 10px; color:#374151; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; }
+  .loading { color:var(--muted); font-size:13px; padding:24px 6px; text-align:center; }
+  /* modal */
+  .overlay { position:fixed; inset:0; background:rgba(11,18,32,0.45); display:none; align-items:flex-start; justify-content:center; z-index:50; padding:16px; overflow:auto; }
+  .box { background:#fff; border-radius:16px; width:100%; max-width:560px; margin:auto; }
+  .box .head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--gray-200); font-weight:800; font-size:15px; }
+  .box .head button { border:none; background:none; font-size:20px; cursor:pointer; color:var(--muted); }
+  .box .body { padding:14px 18px 18px; }
+  .field { margin-bottom:12px; }
+  .field > label { display:block; font-size:12px; font-weight:800; color:var(--muted); margin-bottom:5px; }
+  .field input[type="text"], .field input[type="number"], .field input[type="date"], .field select, .field textarea {
+    width:100%; font-size:14px; padding:9px 11px; border-radius:9px; border:1px solid var(--gray-200); font-family:inherit; background:#fff; }
+  .field textarea { min-height:60px; resize:vertical; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  @media (max-width:520px) { .row3 { grid-template-columns:1fr; } }
+  .grade-grid { display:flex; flex-wrap:wrap; gap:6px; }
+  .grade-grid label { display:flex; align-items:center; gap:4px; font-size:13px; font-weight:700; padding:5px 10px; border:1px solid var(--gray-200); border-radius:999px; cursor:pointer; color:var(--ink); }
+  .grade-grid label:has(input:checked) { background:#EEF2FF; border-color:#C5CAE9; color:#364293; }
+  .hint { font-size:11.5px; color:var(--muted); margin-top:4px; }
+  .err { color:#B91C1C; font-size:12.5px; font-weight:700; margin:8px 0 0; min-height:16px; }
+  .hist-item { padding:12px 0; border-bottom:1px solid var(--gray-200); font-size:13px; line-height:1.6; }
+  .hist-item:last-child { border-bottom:none; }
+  .hist-item .t { color:var(--muted); font-size:11.5px; }
+  .hist-item .act { display:inline-block; font-weight:800; font-size:11.5px; padding:2px 8px; border-radius:999px; margin-right:6px; background:#F3F4F6; color:var(--muted); }
+  .hist-item .act.in { background:#DCFCE7; color:#15803D; } .hist-item .act.mod { background:#FEF3C7; color:#92400E; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">방학특강 관리</span>
+</header>
+
+<main>
+  <h1>방학특강</h1>
+  <p class="sub">특강을 등록하고 신청 기간과 정원을 관리해요. 지난 특강은 삭제하지 않고 "보관"해 두면 기록이 그대로 남아요. 모든 변경은 이력으로 남아요.</p>
+  <div class="bar">
+    <button type="button" class="btn primary" id="new-btn"><i class="fa-solid fa-plus"></i> 특강 등록</button>
+    <label><input type="checkbox" id="show-archived"> 보관한 특강도 보기</label>
+  </div>
+  <div id="list"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<!-- 등록/수정 -->
+<div class="overlay" id="form-overlay">
+  <div class="box">
+    <div class="head"><span id="form-title">특강 등록</span><button type="button" id="form-close">&times;</button></div>
+    <div class="body">
+      <div class="field"><label for="f-title">특강 이름 *</label><input type="text" id="f-title" maxlength="80" placeholder="예) 중2 수학 겨울방학 특강"></div>
+      <div class="field"><label>대상 학년 (여러 학년 선택 가능)</label><div class="grade-grid" id="f-grades"></div></div>
+      <div class="row2">
+        <div class="field"><label for="f-start">시작일</label><input type="date" id="f-start"></div>
+        <div class="field"><label for="f-end">종료일</label><input type="date" id="f-end"></div>
+      </div>
+      <div class="field"><label for="f-schedule">요일 · 시간</label><input type="text" id="f-schedule" maxlength="120" placeholder="예) 월·수·금 16:00~18:00"></div>
+      <div class="row2">
+        <div class="field"><label for="f-classroom">강의실</label><select id="f-classroom"></select></div>
+        <div class="field"><label for="f-teacher">담당 선생님</label><input type="text" id="f-teacher" maxlength="40" value="원장님"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="f-capacity">정원 (명) *</label><input type="number" id="f-capacity" min="1" value="10"></div>
+        <div class="field"><label for="f-fee">수강료 (원)</label><input type="number" id="f-fee" min="0" step="1000" placeholder="예) 300000"></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label for="f-member-open">재원생 신청 시작일</label><input type="date" id="f-member-open"></div>
+        <div class="field"><label for="f-outsider-open">외부생 신청 시작일</label><input type="date" id="f-outsider-open"></div>
+        <div class="field"><label for="f-deadline">신청 마감일</label><input type="date" id="f-deadline"></div>
+      </div>
+      <div class="hint" style="margin:-4px 0 12px;">재원생 신청 시작일을 고르면 외부생 신청 시작일이 2주 뒤로 자동 입력돼요. 필요하면 바꾸세요.</div>
+      <div class="field"><label for="f-memo">메모</label><textarea id="f-memo" maxlength="300" placeholder="원장님만 보는 메모"></textarea></div>
+      <div class="err" id="f-err"></div>
+      <div class="actions"><button type="button" class="btn primary" id="f-save">저장</button><button type="button" class="btn" id="f-cancel">취소</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 변경 이력 -->
+<div class="overlay" id="hist-overlay">
+  <div class="box">
+    <div class="head"><span id="hist-title">변경 이력</span><button type="button" id="hist-close">&times;</button></div>
+    <div class="body" id="hist-body"></div>
+  </div>
+</div>
+
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  requireDirector();
+
+  const GRADES = ['초1','초2','초3','초4','초5','초6','중1','중2','중3','고1','고2','고3'];
+  let lectures = [];
+  let editingId = null;
+
+  const $ = (id) => document.getElementById(id);
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function isMissingFn(error) {
+    return error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || ''));
+  }
+  function seoulToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()); }
+  function d10(v) { return v ? String(v).slice(0, 10) : ''; }
+  function fmtDate(v) {
+    const s = d10(v); if (!s) return '';
+    const [y, m, d] = s.split('-').map(Number);
+    return `${m}/${d}`;
+  }
+  function addDays(ymd, n) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + n));
+    return t.toISOString().slice(0, 10);
+  }
+
+  // ---- 상태 (오늘 날짜 기준으로 자동 계산) ----
+  function statusOf(l) {
+    const today = seoulToday();
+    if (l.is_closed) return { label: '마감 처리됨', cls: 'closed' };
+    if (l.end_date && d10(l.end_date) < today) return { label: '종료', cls: '' };
+    if (l.apply_deadline && d10(l.apply_deadline) < today) return { label: '신청 마감', cls: 'closed' };
+    const mo = d10(l.member_open_date), oo = d10(l.outsider_open_date);
+    if (!mo) return { label: '신청일 미설정', cls: '' };
+    if (today < mo) return { label: `신청 준비 중 (재원생 ${fmtDate(mo)}부터)`, cls: 'soon' };
+    if (oo && today < oo) return { label: '재원생 신청 중', cls: 'open' };
+    return { label: oo ? '외부생까지 신청 중' : '신청 중', cls: 'out' };
+  }
+
+  // ---- 목록 ----
+  async function load() {
+    const list = $('list');
+    const { data, error } = await sb.rpc('rpc_admin_list_special_lectures', {
+      p_password: getAdminPassword(), p_include_archived: $('show-archived').checked,
+    });
+    if (error) {
+      list.innerHTML = `<div class="loading">${isMissingFn(error) ? '특강 기능 SQL(56)이 아직 실행되지 않았어요.' : esc('불러오지 못했어요: ' + error.message)}</div>`;
+      return;
+    }
+    lectures = data || [];
+    render();
+  }
+
+  function render() {
+    const list = $('list');
+    if (!lectures.length) { list.innerHTML = '<div class="loading">등록된 특강이 없어요. "특강 등록"으로 시작하세요.</div>'; return; }
+    list.innerHTML = lectures.map((l) => {
+      const st = statusOf(l);
+      const grades = (l.target_grades || []).slice().sort(compareGrades);
+      const period = l.start_date || l.end_date ? `${fmtDate(l.start_date) || '?'} ~ ${fmtDate(l.end_date) || '?'}` : '';
+      return `
+      <div class="card ${l.archived ? 'archived' : ''}">
+        <div class="top">
+          <span class="title">${esc(l.title)}</span>
+          <span class="badge ${st.cls}">${esc(st.label)}</span>
+          ${l.archived ? '<span class="badge">보관됨</span>' : ''}
+        </div>
+        ${grades.length ? `<div class="chips">${grades.map((g) => `<span class="chip">${esc(g)}</span>`).join('')}</div>` : ''}
+        <div class="info">
+          ${period ? `<div><b>기간</b>${esc(period)}${l.schedule_text ? ' · ' + esc(l.schedule_text) : ''}</div>` : (l.schedule_text ? `<div><b>일정</b>${esc(l.schedule_text)}</div>` : '')}
+          <div><b>강의실</b>${esc(l.classroom || '-')} <b style="margin-left:8px;">담당</b>${esc(l.teacher || '원장님')}</div>
+          <div><b>정원</b>${esc(l.capacity)}명${l.fee != null ? ` <b style="margin-left:8px;">수강료</b>${Number(l.fee).toLocaleString('ko-KR')}원` : ''}</div>
+          <div><b>신청</b>재원생 ${esc(fmtDate(l.member_open_date) || '-')}부터 · 외부생 ${esc(fmtDate(l.outsider_open_date) || '-')}부터 · 마감 ${esc(fmtDate(l.apply_deadline) || '-')}</div>
+        </div>
+        ${l.memo ? `<div class="memo">${esc(l.memo)}</div>` : ''}
+        <div class="actions">
+          <button type="button" class="btn" data-act="edit" data-id="${esc(l.id)}">수정</button>
+          <button type="button" class="btn" data-act="closed" data-id="${esc(l.id)}" data-val="${l.is_closed ? '0' : '1'}">${l.is_closed ? '마감 해제' : '마감 처리'}</button>
+          <button type="button" class="btn" data-act="archived" data-id="${esc(l.id)}" data-val="${l.archived ? '0' : '1'}">${l.archived ? '보관 해제' : '보관'}</button>
+          <button type="button" class="btn" data-act="hist" data-id="${esc(l.id)}" data-title="${esc(l.title)}">이력</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id, act = btn.dataset.act;
+        if (act === 'edit') { openForm(lectures.find((x) => String(x.id) === id)); return; }
+        if (act === 'hist') { openHistory(id, btn.dataset.title); return; }
+        if (act === 'archived' && btn.dataset.val === '1' && !confirm('이 특강을 보관할까요? (삭제가 아니라 목록에서 숨기는 거예요)')) return;
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_set_special_lecture_flag', {
+          p_password: getAdminPassword(), p_id: id, p_flag: act, p_value: btn.dataset.val === '1',
+        });
+        if (error) { alert('저장 실패: ' + error.message); btn.disabled = false; return; }
+        load();
+      });
+    });
+  }
+
+  // ---- 등록/수정 폼 ----
+  $('f-grades').innerHTML = GRADES.map((g) => `<label><input type="checkbox" value="${g}"> ${g}</label>`).join('');
+  $('f-classroom').innerHTML = '<option value="">선택 안 함</option>' + CLASSROOMS.filter((c) => c !== '원장님')
+    .map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  let outsiderTouched = false; // 외부생 시작일을 직접 고쳤으면 자동 입력 안 함
+  $('f-outsider-open').addEventListener('input', () => { outsiderTouched = true; });
+  $('f-member-open').addEventListener('change', () => {
+    const v = $('f-member-open').value;
+    if (v && !outsiderTouched) $('f-outsider-open').value = addDays(v, 14);
+  });
+
+  function openForm(l) {
+    editingId = l ? String(l.id) : null;
+    $('form-title').textContent = l ? '특강 수정' : '특강 등록';
+    $('f-err').textContent = '';
+    $('f-title').value = l ? l.title : '';
+    const sel = new Set(l ? l.target_grades || [] : []);
+    $('f-grades').querySelectorAll('input').forEach((c) => { c.checked = sel.has(c.value); });
+    $('f-start').value = l ? d10(l.start_date) : '';
+    $('f-end').value = l ? d10(l.end_date) : '';
+    $('f-schedule').value = l ? l.schedule_text || '' : '';
+    $('f-classroom').value = l ? l.classroom || '' : '';
+    $('f-teacher').value = l ? l.teacher || '원장님' : '원장님';
+    $('f-capacity').value = l ? l.capacity : 10;
+    $('f-fee').value = l && l.fee != null ? l.fee : '';
+    $('f-member-open').value = l ? d10(l.member_open_date) : '';
+    $('f-outsider-open').value = l ? d10(l.outsider_open_date) : '';
+    outsiderTouched = !!(l && l.outsider_open_date);
+    $('f-deadline').value = l ? d10(l.apply_deadline) : '';
+    $('f-memo').value = l ? l.memo || '' : '';
+    $('form-overlay').style.display = 'flex';
+  }
+  function closeForm() { $('form-overlay').style.display = 'none'; }
+  $('new-btn').addEventListener('click', () => openForm(null));
+  $('form-close').addEventListener('click', closeForm);
+  $('f-cancel').addEventListener('click', closeForm);
+
+  $('f-save').addEventListener('click', async () => {
+    const err = $('f-err');
+    err.textContent = '';
+    const title = $('f-title').value.trim();
+    const capacity = parseInt($('f-capacity').value, 10);
+    if (!title) { err.textContent = '특강 이름을 입력해 주세요.'; return; }
+    if (!capacity || capacity < 1) { err.textContent = '정원은 1명 이상이어야 해요.'; return; }
+    const start = $('f-start').value, end = $('f-end').value;
+    if (start && end && end < start) { err.textContent = '종료일이 시작일보다 빠를 수 없어요.'; return; }
+    const mo = $('f-member-open').value, oo = $('f-outsider-open').value;
+    if (mo && oo && oo < mo) { err.textContent = '외부생 신청 시작일이 재원생 신청 시작일보다 빠를 수 없어요.'; return; }
+
+    const btn = $('f-save');
+    btn.disabled = true;
+    const feeRaw = $('f-fee').value.trim();
+    const { error } = await sb.rpc('rpc_admin_save_special_lecture', {
+      p_password: getAdminPassword(),
+      p_id: editingId,
+      p_title: title,
+      p_target_grades: Array.from($('f-grades').querySelectorAll('input:checked')).map((c) => c.value),
+      p_start_date: start || null,
+      p_end_date: end || null,
+      p_schedule_text: $('f-schedule').value.trim() || null,
+      p_classroom: $('f-classroom').value || null,
+      p_teacher: $('f-teacher').value.trim() || null,
+      p_capacity: capacity,
+      p_fee: feeRaw === '' ? null : parseInt(feeRaw, 10),
+      p_member_open_date: mo || null,
+      p_outsider_open_date: oo || null,
+      p_apply_deadline: $('f-deadline').value || null,
+      p_memo: $('f-memo').value.trim() || null,
+    });
+    btn.disabled = false;
+    if (error) { err.textContent = isMissingFn(error) ? '특강 기능 SQL(56)이 아직 실행되지 않았어요.' : '저장 실패: ' + error.message; return; }
+    closeForm();
+    load();
+  });
+
+  // ---- 변경 이력 ----
+  const LABELS = {
+    title: '특강 이름', target_grades: '대상 학년', start_date: '시작일', end_date: '종료일', schedule_text: '요일·시간',
+    classroom: '강의실', teacher: '담당', capacity: '정원', fee: '수강료', member_open_date: '재원생 신청 시작일',
+    outsider_open_date: '외부생 신청 시작일', apply_deadline: '신청 마감일', is_closed: '마감', archived: '보관', memo: '메모',
+  };
+  function hv(k, v) {
+    if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '(없음)';
+    if (Array.isArray(v)) return esc(v.join(', '));
+    if (typeof v === 'boolean') return v ? '예' : '아니오';
+    if (k === 'fee') return Number(v).toLocaleString('ko-KR') + '원';
+    return esc(v);
+  }
+  function hSummary(h) {
+    const o = h.old_data || {}, n = h.new_data || {};
+    const keys = Object.keys(LABELS);
+    if (h.action === '수정') {
+      const diffs = keys.filter((k) => JSON.stringify(o[k] ?? null) !== JSON.stringify(n[k] ?? null))
+        .map((k) => `${LABELS[k]}: ${hv(k, o[k])} → <b>${hv(k, n[k])}</b>`);
+      return diffs.join('<br>') || '(내용 변경 없음)';
+    }
+    const src = h.action === '삭제' ? o : n;
+    return keys.filter((k) => src[k] != null && src[k] !== '' && !(Array.isArray(src[k]) && !src[k].length) && src[k] !== false)
+      .map((k) => `${LABELS[k]} ${hv(k, src[k])}`).join(' · ');
+  }
+  async function openHistory(id, title) {
+    $('hist-title').textContent = `${title} 변경 이력`;
+    $('hist-body').innerHTML = '<div class="loading">불러오는 중...</div>';
+    $('hist-overlay').style.display = 'flex';
+    const { data, error } = await sb.rpc('rpc_admin_list_change_history', {
+      p_password: getAdminPassword(), p_table: 'special_lectures', p_record_id: id, p_limit: 200,
+    });
+    if (error) { $('hist-body').innerHTML = `<div class="loading">${isMissingFn(error) ? '이력 SQL(56)이 아직 실행되지 않았어요.' : esc('불러오지 못했어요: ' + error.message)}</div>`; return; }
+    if (!data || !data.length) { $('hist-body').innerHTML = '<div class="loading">기록된 이력이 없어요.</div>'; return; }
+    $('hist-body').innerHTML = data.map((h) => {
+      const when = new Date(h.changed_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `<div class="hist-item"><div class="t">${esc(when)}</div>
+        <div><span class="act ${h.action === '입력' ? 'in' : h.action === '수정' ? 'mod' : ''}">${esc(h.action)}</span></div>
+        <div>${hSummary(h)}</div></div>`;
+    }).join('');
+  }
+  $('hist-close').addEventListener('click', () => { $('hist-overlay').style.display = 'none'; });
+  $('hist-overlay').addEventListener('click', (e) => { if (e.target.id === 'hist-overlay') $('hist-overlay').style.display = 'none'; });
+  $('form-overlay').addEventListener('click', (e) => { if (e.target.id === 'form-overlay') closeForm(); });
+
+  $('show-archived').addEventListener('change', load);
+  load();
+</script>
+
+</body>
+</html>
