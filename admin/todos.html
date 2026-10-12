@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>방학특강 관리 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  .sub { font-size:12.5px; color:var(--muted); margin:0 0 16px; line-height:1.55; }
+  .bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .bar label { font-size:13px; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:5px; cursor:pointer; }
+  button { font-family:inherit; }
+  .btn { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:9px; padding:8px 13px; font-size:12.5px; font-weight:800; cursor:pointer; color:var(--ink); }
+  .btn.primary { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .card { background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 18px; margin-bottom:10px; }
+  .card.archived { opacity:.65; }
+  .card .top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .card .title { font-weight:900; font-size:16px; }
+  .badge { font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:999px; background:#F3F4F6; color:var(--muted); }
+  .badge.soon { background:#E0F2FE; color:#0369A1; }
+  .badge.open { background:#DCFCE7; color:#15803D; }
+  .badge.out { background:#EDE9FE; color:#6D28D9; }
+  .badge.closed { background:#FEE2E2; color:#B91C1C; }
+  .chips { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; }
+  .chip { font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:6px; background:#EEF2FF; color:#364293; }
+  .info { margin-top:10px; font-size:13px; line-height:1.75; color:#374151; }
+  .info b { color:var(--muted); font-weight:700; margin-right:4px; }
+  .memo { margin-top:8px; font-size:12.5px; background:var(--gray-50); border-radius:8px; padding:7px 10px; color:#374151; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; }
+  .loading { color:var(--muted); font-size:13px; padding:24px 6px; text-align:center; }
+  /* modal */
+  .overlay { position:fixed; inset:0; background:rgba(11,18,32,0.45); display:none; align-items:flex-start; justify-content:center; z-index:50; padding:16px; overflow:auto; }
+  .box { background:#fff; border-radius:16px; width:100%; max-width:560px; margin:auto; }
+  .box .head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--gray-200); font-weight:800; font-size:15px; }
+  .box .head button { border:none; background:none; font-size:20px; cursor:pointer; color:var(--muted); }
+  .box .body { padding:14px 18px 18px; }
+  .field { margin-bottom:12px; }
+  .field > label { display:block; font-size:12px; font-weight:800; color:var(--muted); margin-bottom:5px; }
+  .field input[type="text"], .field input[type="number"], .field input[type="date"], .field select, .field textarea {
+    width:100%; font-size:14px; padding:9px 11px; border-radius:9px; border:1px solid var(--gray-200); font-family:inherit; background:#fff; }
+  .field textarea { min-height:60px; resize:vertical; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  @media (max-width:520px) { .row3 { grid-template-columns:1fr; } }
+  .grade-grid { display:flex; flex-wrap:wrap; gap:6px; }
+  .grade-grid label { display:flex; align-items:center; gap:4px; font-size:13px; font-weight:700; padding:5px 10px; border:1px solid var(--gray-200); border-radius:999px; cursor:pointer; color:var(--ink); }
+  .grade-grid label:has(input:checked) { background:#EEF2FF; border-color:#C5CAE9; color:#364293; }
+  .hint { font-size:11.5px; color:var(--muted); margin-top:4px; }
+  .err { color:#B91C1C; font-size:12.5px; font-weight:700; margin:8px 0 0; min-height:16px; }
+  .hist-item { padding:12px 0; border-bottom:1px solid var(--gray-200); font-size:13px; line-height:1.6; }
+  .hist-item:last-child { border-bottom:none; }
+  .hist-item .t { color:var(--muted); font-size:11.5px; }
+  .hist-item .act { display:inline-block; font-weight:800; font-size:11.5px; padding:2px 8px; border-radius:999px; margin-right:6px; background:#F3F4F6; color:var(--muted); }
+  .hist-item .act.in { background:#DCFCE7; color:#15803D; } .hist-item .act.mod { background:#FEF3C7; color:#92400E; }
+
+  .quick { background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:14px 16px; margin-bottom:16px; }
+  .quick .line { display:flex; gap:8px; flex-wrap:wrap; }
+  .quick input[type="text"] { flex:1 1 220px; font-size:14px; padding:9px 11px; border-radius:9px; border:1px solid var(--gray-200); font-family:inherit; }
+  .quick input[type="date"], .quick select { font-size:13.5px; padding:9px 10px; border-radius:9px; border:1px solid var(--gray-200); font-family:inherit; background:#fff; }
+  .sec { font-size:13px; font-weight:900; margin:18px 2px 8px; color:var(--ink); }
+  .sec.late { color:#B91C1C; } .sec small { font-weight:700; color:var(--muted); margin-left:4px; }
+  .todo { display:flex; align-items:flex-start; gap:11px; background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:11px 14px; margin-bottom:7px; }
+  .todo.late { border-color:#FCA5A5; background:#FFF7F7; }
+  .todo.done { opacity:.6; } .todo.done .tt { text-decoration:line-through; }
+  .todo .ck { width:20px; height:20px; margin-top:2px; accent-color:#0F766E; cursor:pointer; flex:none; }
+  .todo .main { flex:1; min-width:0; }
+  .todo .tt { font-weight:800; font-size:14.5px; word-break:break-word; }
+  .todo .meta { margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .todo .tmemo { margin-top:5px; font-size:12.5px; color:#4B5563; white-space:pre-wrap; word-break:break-word; }
+  .todo .acts { display:flex; gap:5px; flex:none; }
+  .mini { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:4px 9px; font-size:11.5px; font-weight:800; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .badge.late { background:#FEE2E2; color:#B91C1C; } .badge.today { background:#FEF3C7; color:#92400E; } .badge.rep { background:#EDE9FE; color:#6D28D9; }
+  .empty { color:var(--muted); font-size:13px; text-align:center; padding:28px 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">할 일</span>
+</header>
+
+<main>
+  <h1>내 할 일</h1>
+  <p class="sub">매일 아침 8시에 <b>기한 지난 것 · 오늘 할 것 · 기한 없는 것 개수</b>를 텔레그램으로 보내 드려요. 원장님만 볼 수 있어요.</p>
+
+  <div class="quick">
+    <div class="line">
+      <input type="text" id="q-title" placeholder="할 일을 적고 Enter" maxlength="200">
+      <input type="date" id="q-date" title="기한 (비워두면 기한 없음)">
+      <select id="q-repeat" title="반복">
+        <option value="none">반복 없음</option>
+        <option value="weekly">매주</option>
+        <option value="monthly">매월</option>
+      </select>
+      <button class="btn primary" id="q-add" type="button">추가</button>
+    </div>
+    <div class="hint">매주·매월 반복은 기한(첫 날짜)이 꼭 필요해요. 완료하면 다음 날짜로 자동으로 넘어가요.</div>
+    <div class="err" id="q-err"></div>
+  </div>
+
+  <div class="bar">
+    <button class="btn" id="send-now" type="button"><i class="fa-brands fa-telegram"></i> 지금 알림 받아보기</button>
+    <span class="hint" id="send-msg" style="margin:0"></span>
+  </div>
+
+  <div id="list"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<!-- 수정 -->
+<div class="overlay" id="form-overlay">
+  <div class="box">
+    <div class="head"><span>할 일 수정</span><button type="button" id="form-close">&times;</button></div>
+    <div class="body">
+      <div class="field"><label>내용 *</label><input type="text" id="f-title" maxlength="200"></div>
+      <div class="field"><label>메모</label><textarea id="f-memo"></textarea></div>
+      <div class="row2">
+        <div class="field"><label>기한</label><input type="date" id="f-date"></div>
+        <div class="field"><label>반복</label>
+          <select id="f-repeat"><option value="none">반복 없음</option><option value="weekly">매주</option><option value="monthly">매월</option></select>
+        </div>
+      </div>
+      <div class="hint">매월 반복은 기한의 '일'을 기준으로 해요. 31일로 두면 짧은 달은 말일에 와요.</div>
+      <div class="err" id="f-err"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+        <button class="btn" type="button" id="f-cancel">취소</button>
+        <button class="btn primary" type="button" id="f-save">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 변경 이력 -->
+<div class="overlay" id="hist-overlay">
+  <div class="box">
+    <div class="head"><span id="hist-title">변경 이력</span><button type="button" id="hist-close">&times;</button></div>
+    <div class="body" id="hist-body"></div>
+  </div>
+</div>
+
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  requireDirector();
+
+  let todos = [];
+  let editingId = null;
+  const REPEAT = { none: '', weekly: '매주', monthly: '매월' };
+  const LABELS = { title: '내용', memo: '메모', due_date: '기한', repeat_type: '반복', is_done: '완료', done_at: '완료 시각', last_done_date: '마지막 완료일', archived: '보관' };
+
+  const $ = (id) => document.getElementById(id);
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function isMissingFn(error) {
+    return error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || ''));
+  }
+  function seoulToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()); }
+  function d10(v) { return v ? String(v).slice(0, 10) : ''; }
+  function fmtDate(v) {
+    const s = d10(v); if (!s) return '';
+    const [y, m, d] = s.split('-').map(Number);
+    const w = ['일','월','화','수','목','금','토'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+    return `${m}/${d}(${w})`;
+  }
+  function fail(el, error) {
+    el.textContent = isMissingFn(error) ? '할 일 SQL(57)이 아직 실행되지 않았어요.' : '실패했어요: ' + (error.message || error);
+  }
+
+  // ---- 목록 ----
+  async function load() {
+    const { data, error } = await sb.rpc('rpc_admin_list_todos', { p_password: getAdminPassword(), p_include_archived: false });
+    if (error) {
+      $('list').innerHTML = `<div class="loading">${isMissingFn(error) ? '할 일 SQL(57)이 아직 실행되지 않았어요.' : esc('불러오지 못했어요: ' + error.message)}</div>`;
+      return;
+    }
+    todos = data || [];
+    render();
+  }
+
+  function rowHtml(t, kind) {
+    const due = d10(t.due_date);
+    const badges = [];
+    if (due) badges.push(`<span class="badge ${kind === 'late' ? 'late' : kind === 'today' ? 'today' : ''}">${kind === 'late' ? '기한 지남 ' : kind === 'today' ? '오늘 ' : ''}${esc(fmtDate(due))}</span>`);
+    if (t.repeat_type !== 'none') badges.push(`<span class="badge rep"><i class="fa-solid fa-rotate"></i> ${REPEAT[t.repeat_type]} 반복</span>`);
+    const acts = t.is_done
+      ? `<button class="mini" data-act="hist" data-id="${esc(t.id)}">이력</button>`
+      : `<button class="mini" data-act="edit" data-id="${esc(t.id)}">수정</button>
+         <button class="mini" data-act="hist" data-id="${esc(t.id)}">이력</button>
+         <button class="mini" data-act="archive" data-id="${esc(t.id)}">보관</button>`;
+    return `<div class="todo ${kind === 'late' ? 'late' : ''} ${t.is_done ? 'done' : ''}">
+      <input class="ck" type="checkbox" data-act="check" data-id="${esc(t.id)}" ${t.is_done ? 'checked' : ''} title="${t.repeat_type !== 'none' ? '완료하면 다음 날짜로 넘어가요' : '완료'}">
+      <div class="main"><div class="tt">${esc(t.title)}</div>
+        ${badges.length ? `<div class="meta">${badges.join('')}</div>` : ''}
+        ${t.memo ? `<div class="tmemo">${esc(t.memo)}</div>` : ''}</div>
+      <div class="acts">${acts}</div></div>`;
+  }
+
+  function render() {
+    const today = seoulToday();
+    const open = todos.filter((t) => !t.is_done);
+    const groups = [
+      { title: '기한 지남', cls: 'late', kind: 'late', items: open.filter((t) => t.due_date && d10(t.due_date) < today) },
+      { title: '오늘', kind: 'today', items: open.filter((t) => d10(t.due_date) === today) },
+      { title: '앞으로', kind: '', items: open.filter((t) => t.due_date && d10(t.due_date) > today) },
+      { title: '기한 없음', kind: '', items: open.filter((t) => !t.due_date) },
+      { title: '최근 완료', small: '30일', kind: '', items: todos.filter((t) => t.is_done) },
+    ];
+    const html = groups.filter((g) => g.items.length).map((g) =>
+      `<div class="sec ${g.cls || ''}">${g.title} <small>${g.small || g.items.length}</small></div>` + g.items.map((t) => rowHtml(t, g.kind)).join('')).join('');
+    $('list').innerHTML = html || '<div class="empty">등록된 할 일이 없어요. 위에서 추가해 보세요.</div>';
+  }
+
+  // ---- 추가 ----
+  async function quickAdd() {
+    $('q-err').textContent = '';
+    const title = $('q-title').value.trim();
+    if (!title) { $('q-err').textContent = '할 일 내용을 적어 주세요.'; return; }
+    const repeat = $('q-repeat').value, date = $('q-date').value || null;
+    if (repeat !== 'none' && !date) { $('q-err').textContent = '반복하는 할 일은 기한(첫 날짜)을 정해 주세요.'; return; }
+    $('q-add').disabled = true;
+    const { error } = await sb.rpc('rpc_admin_save_todo', {
+      p_password: getAdminPassword(), p_id: null, p_title: title, p_memo: null, p_due_date: date, p_repeat_type: repeat,
+    });
+    $('q-add').disabled = false;
+    if (error) { fail($('q-err'), error); return; }
+    $('q-title').value = ''; $('q-date').value = ''; $('q-repeat').value = 'none';
+    $('q-title').focus();
+    load();
+  }
+  $('q-add').addEventListener('click', quickAdd);
+  $('q-title').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) quickAdd(); });
+
+  // ---- 목록 안 버튼 ----
+  $('list').addEventListener('change', async (e) => {
+    const el = e.target.closest('[data-act="check"]'); if (!el) return;
+    el.disabled = true;
+    const { error } = await sb.rpc('rpc_admin_complete_todo', { p_password: getAdminPassword(), p_id: el.dataset.id, p_done: el.checked });
+    if (error) { alert(isMissingFn(error) ? '할 일 SQL(57)이 아직 실행되지 않았어요.' : '실패했어요: ' + error.message); }
+    load();
+  });
+  $('list').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-act]'); if (!btn) return;
+    const t = todos.find((x) => x.id === btn.dataset.id);
+    if (btn.dataset.act === 'edit') openForm(t);
+    else if (btn.dataset.act === 'hist') openHistory(t);
+    else if (btn.dataset.act === 'archive') {
+      if (!confirm(`'${t.title}'을(를) 보관할까요? (목록에서만 사라지고 이력은 남아요)`)) return;
+      btn.disabled = true;
+      const { error } = await sb.rpc('rpc_admin_set_todo_archived', { p_password: getAdminPassword(), p_id: t.id, p_value: true });
+      if (error) alert('실패했어요: ' + error.message);
+      load();
+    }
+  });
+
+  // ---- 수정 ----
+  function openForm(t) {
+    editingId = t.id;
+    $('f-title').value = t.title || ''; $('f-memo').value = t.memo || '';
+    $('f-date').value = d10(t.due_date); $('f-repeat').value = t.repeat_type || 'none';
+    $('f-err').textContent = '';
+    $('form-overlay').style.display = 'flex';
+  }
+  function closeForm() { $('form-overlay').style.display = 'none'; editingId = null; }
+  $('form-close').addEventListener('click', closeForm);
+  $('f-cancel').addEventListener('click', closeForm);
+  $('form-overlay').addEventListener('click', (e) => { if (e.target.id === 'form-overlay') closeForm(); });
+  $('f-save').addEventListener('click', async () => {
+    $('f-err').textContent = '';
+    const title = $('f-title').value.trim();
+    if (!title) { $('f-err').textContent = '할 일 내용을 적어 주세요.'; return; }
+    const repeat = $('f-repeat').value, date = $('f-date').value || null;
+    if (repeat !== 'none' && !date) { $('f-err').textContent = '반복하는 할 일은 기한(첫 날짜)을 정해 주세요.'; return; }
+    $('f-save').disabled = true;
+    const { error } = await sb.rpc('rpc_admin_save_todo', {
+      p_password: getAdminPassword(), p_id: editingId, p_title: title, p_memo: $('f-memo').value, p_due_date: date, p_repeat_type: repeat,
+    });
+    $('f-save').disabled = false;
+    if (error) { fail($('f-err'), error); return; }
+    closeForm(); load();
+  });
+
+  // ---- 지금 알림 받아보기 ----
+  $('send-now').addEventListener('click', async () => {
+    $('send-now').disabled = true; $('send-msg').textContent = '보내는 중...';
+    const { error } = await sb.rpc('rpc_admin_send_todo_digest', { p_password: getAdminPassword() });
+    $('send-now').disabled = false;
+    $('send-msg').textContent = error ? (isMissingFn(error) ? '할 일 SQL(57)이 아직 실행되지 않았어요.' : '실패했어요: ' + error.message) : '텔레그램으로 보냈어요. (몇 초 걸릴 수 있어요)';
+  });
+
+  // ---- 변경 이력 ----
+  function hv(k, v) {
+    if (v == null || v === '') return '(없음)';
+    if (k === 'repeat_type') return REPEAT[v] ? REPEAT[v] + ' 반복' : '반복 없음';
+    if (typeof v === 'boolean') return v ? '예' : '아니오';
+    if (k === 'done_at') return esc(new Date(v).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+    return esc(v);
+  }
+  function hSummary(h) {
+    const o = h.old_data || {}, n = h.new_data || {};
+    const keys = Object.keys(LABELS);
+    if (h.action === '수정') {
+      const diffs = keys.filter((k) => JSON.stringify(o[k] ?? null) !== JSON.stringify(n[k] ?? null))
+        .map((k) => `${LABELS[k]}: ${hv(k, o[k])} → <b>${hv(k, n[k])}</b>`);
+      return diffs.join('<br>') || '(내용 변경 없음)';
+    }
+    const src = h.action === '삭제' ? o : n;
+    return keys.filter((k) => src[k] != null && src[k] !== '' && src[k] !== false && !(k === 'repeat_type' && src[k] === 'none'))
+      .map((k) => `${LABELS[k]} ${hv(k, src[k])}`).join(' · ');
+  }
+  async function openHistory(t) {
+    $('hist-title').textContent = `'${t.title}' 변경 이력`;
+    $('hist-body').innerHTML = '<div class="loading">불러오는 중...</div>';
+    $('hist-overlay').style.display = 'flex';
+    const { data, error } = await sb.rpc('rpc_admin_list_change_history', {
+      p_password: getAdminPassword(), p_table: 'admin_todos', p_record_id: t.id, p_limit: 200,
+    });
+    if (error) { $('hist-body').innerHTML = `<div class="loading">${isMissingFn(error) ? '이력 SQL(56)이 아직 실행되지 않았어요.' : esc('불러오지 못했어요: ' + error.message)}</div>`; return; }
+    if (!data || !data.length) { $('hist-body').innerHTML = '<div class="loading">기록된 이력이 없어요.</div>'; return; }
+    $('hist-body').innerHTML = data.map((h) => {
+      const when = new Date(h.changed_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `<div class="hist-item"><div class="t">${esc(when)}</div>
+        <div><span class="act ${h.action === '입력' ? 'in' : h.action === '수정' ? 'mod' : ''}">${esc(h.action)}</span></div>
+        <div>${hSummary(h)}</div></div>`;
+    }).join('');
+  }
+  $('hist-close').addEventListener('click', () => { $('hist-overlay').style.display = 'none'; });
+  $('hist-overlay').addEventListener('click', (e) => { if (e.target.id === 'hist-overlay') $('hist-overlay').style.display = 'none'; });
+
+  load();
+</script>
+
+</body>
+</html>

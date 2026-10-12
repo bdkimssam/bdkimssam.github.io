@@ -339,3 +339,11 @@ order by table_name;
 - RPC(모두 원장님 비밀번호만): `rpc_admin_list_special_lectures(p_password, p_include_archived)`, `rpc_admin_save_special_lecture(...)`(p_id null이면 등록·있으면 수정), `rpc_admin_set_special_lecture_flag(p_password, p_id, p_flag 'closed'|'archived', p_value)`.
 - **공용 변경 이력** `change_history`(table_name, record_id, action 입력/수정/삭제, old_data/new_data jsonb) + 트리거 함수 `log_row_change()` — 앞으로의 기록성 테이블(특강 신청·특강 결제 등)에 트리거만 달면 이력이 쌓임. 조회: `rpc_admin_list_change_history(p_password, p_table, p_record_id, p_limit)`(원장님 전용).
 - 다음 단계(미구현): 신청(재원생 자동 확정/외부생 원장님 확정, 정원·대기 3명), 현황·결제, 학부모 대시보드, 출석부 연동.
+
+## 원장님 할 일 + 아침 텔레그램 알림 (57 마이그레이션)
+원장님 전용(`admin/todos.html`, 관리자 홈 "할 일" 카드). 노션 To Do는 쓰지 않고 홈페이지로 새로 만듦(개인 일정·월초 점검용).
+- `admin_todos` — id uuid, title, memo, `due_date`(없으면 기한 없음), `repeat_type`('none'|'weekly'|'monthly'), `repeat_day`(매월 반복일, 기한의 '일'), `is_done`/`done_at`(반복 없는 항목), `last_done_date`, `archived`(삭제 대신 보관). RLS 켜짐/정책 없음. `log_row_change()` 트리거(`trg_log_admin_todos`)로 `change_history`에 변경 이력 기록.
+- 반복 항목은 완료하면 `due_date`가 다음 날짜로 넘어감(`todo_next_due()`: 기한·오늘 중 늦은 날 뒤의 첫 날짜, 매월은 짧은 달이면 말일). 반복 항목의 완료 취소는 없고 수정에서 기한을 직접 고침.
+- RPC(원장님 비밀번호만): `rpc_admin_list_todos`, `rpc_admin_save_todo(p_id null이면 등록)`, `rpc_admin_complete_todo(p_done)`, `rpc_admin_set_todo_archived`, `rpc_admin_send_todo_digest`(지금 알림 받아보기). 이력 조회는 `rpc_admin_list_change_history('admin_todos', id)`.
+- 아침 알림: `pg_cron` 작업 `todo-morning`(`0 23 * * *` UTC = 한국 08:00)이 `todo_morning_notify()` → `todo_digest_text()` 문구를 `telegram_send()`로 발송. 내용: 기한 지남 / 오늘 / 기한 없는 할 일 개수, 아무것도 없으면 "오늘 할 일이 없어요 ✅". 텔레그램 재발송(retry) 대상은 아님(숙제 알림만 해당).
+- 구글 캘린더 연동은 미구현(필요 시 구글 API로 직접 등록 방식 검토).
