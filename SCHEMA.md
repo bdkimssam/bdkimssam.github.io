@@ -347,3 +347,13 @@ order by table_name;
 - RPC(원장님 비밀번호만): `rpc_admin_list_todos`, `rpc_admin_save_todo(p_id null이면 등록)`, `rpc_admin_complete_todo(p_done)`, `rpc_admin_set_todo_archived`, `rpc_admin_send_todo_digest`(지금 알림 받아보기). 이력 조회는 `rpc_admin_list_change_history('admin_todos', id)`.
 - 아침 알림: `pg_cron` 작업 `todo-morning`(`0 23 * * *` UTC = 한국 08:00)이 `todo_morning_notify()` → `todo_digest_text()` 문구를 `telegram_send()`로 발송. 내용: 기한 지남 / 오늘 / 기한 없는 할 일 개수, 아무것도 없으면 "오늘 할 일이 없어요 ✅". 텔레그램 재발송(retry) 대상은 아님(숙제 알림만 해당).
 - 구글 캘린더 연동은 미구현(필요 시 구글 API로 직접 등록 방식 검토).
+
+## 방학특강 신청 (58 마이그레이션, 2단계-1: 신청 기록 + 원장님 관리)
+원장님 전용 화면: `admin/special-lectures.html` 의 특강 카드 "신청 현황" 모달. (학부모/외부생 신청 화면은 다음 단계)
+- `special_lecture_applications` — id uuid, `lecture_id`(→special_lectures), `applicant_type`('member' 재원생 | 'outsider' 외부생), `student_code`(재원생만, 외부생은 코드 발급 안 함), student_name, grade, school, `student_phone`, `parent_phone`(숫자만, 휴대폰 형식), note, `status`('pending' 외부생 확인 대기 | 'confirmed' 확정 | 'waitlist' 대기 | 'cancelled' 취소), cancel_reason, created_at, updated_at. RLS 켜짐/정책 없음. `log_row_change()` 트리거로 `change_history`에 이력 기록(table_name='special_lecture_applications').
+- 중복 방지: 재원생은 (특강, student_code), 외부생은 (특강, parent_phone, student_name) 부분 유니크 인덱스(취소 건 제외).
+- 정원 규칙: **정원에는 `confirmed`만 센다**(외부생 `pending`은 안 잡힘). 확정은 확정 수 < capacity 일 때만. 대기(`waitlist`)는 최대 3명. 특강 행을 `for update`로 잠가 동시 신청 경쟁을 막음. 취소해도 대기자는 자동 승격하지 않음(원장님이 직접 확정).
+- 상태 이동: pending→confirmed/waitlist/cancelled, waitlist→confirmed/cancelled, confirmed→cancelled, cancelled→pending(복원).
+- RPC(원장님 비밀번호만): `rpc_admin_list_applications(p_password, p_lecture_id)`, `rpc_admin_application_counts(p_password)`, `rpc_admin_add_application(...)`(재원생: 학생 코드로 이름·학년(student_classrooms 우선)·학교·학생 연락처·학부모 연락처(attendance_phone 우선)를 가져와 정원이 남으면 확정/차면 대기/대기도 차면 거절, 외부생: 이름·학년·학교·학생·학부모 연락처 필수, 항상 pending), `rpc_admin_set_application_status(p_password, p_id, p_status, p_reason)`, `rpc_admin_edit_application(...)`. 헬퍼 `sl_norm_phone()`(숫자만, +82→0, 휴대폰 형식 아니면 null), `sl_counts()`.
+- 학생 연락처는 원장님 연락용으로만 저장. 알림톡·문자는 학부모 연락처로만 발송 예정.
+- 다음 단계(미구현): 외부생 신청 페이지(봇 방지)+"내 신청 조회", 재원생 신청(학부모 대시보드), 결제 현황(결제일/완납/카드·현금).

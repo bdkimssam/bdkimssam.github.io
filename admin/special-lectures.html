@@ -63,6 +63,25 @@
   .hist-item .t { color:var(--muted); font-size:11.5px; }
   .hist-item .act { display:inline-block; font-weight:800; font-size:11.5px; padding:2px 8px; border-radius:999px; margin-right:6px; background:#F3F4F6; color:var(--muted); }
   .hist-item .act.in { background:#DCFCE7; color:#15803D; } .hist-item .act.mod { background:#FEF3C7; color:#92400E; }
+  .cnt { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }
+  .cnt .badge b { font-weight:900; }
+  .box.wide { max-width:760px; }
+  .asum { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+  .asec { font-size:13px; font-weight:900; margin:16px 0 8px; } .asec small { color:var(--muted); font-weight:700; margin-left:4px; }
+  .arow { border:1px solid var(--gray-200); border-radius:11px; padding:10px 12px; margin-bottom:7px; }
+  .arow .l1 { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:14px; }
+  .arow .l1 .nm { font-weight:900; }
+  .arow .l2 { margin-top:4px; font-size:12.5px; color:#374151; line-height:1.6; }
+  .arow .l2 .t { color:var(--muted); font-size:11.5px; }
+  .arow .acts { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; }
+  .mini { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:800; cursor:pointer; color:var(--ink); font-family:inherit; }
+  .mini.ok { background:#DCFCE7; border-color:#86EFAC; color:#15803D; }
+  .mini.warn { background:#FEE2E2; border-color:#FCA5A5; color:#B91C1C; }
+  .badge.mem { background:#DBEAFE; color:#1D4ED8; } .badge.ext { background:#FEF3C7; color:#92400E; } .badge.wait { background:#EDE9FE; color:#6D28D9; }
+  .typesel { display:flex; gap:8px; margin-bottom:12px; }
+  .typesel label { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:800; padding:7px 12px; border:1px solid var(--gray-200); border-radius:999px; cursor:pointer; }
+  .typesel label:has(input:checked) { background:#EEF2FF; border-color:#C5CAE9; color:#364293; }
+  details.cancelled > summary { cursor:pointer; font-size:13px; font-weight:900; margin:16px 0 8px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -115,6 +134,46 @@
   </div>
 </div>
 
+<!-- 신청 현황 -->
+<div class="overlay" id="app-overlay">
+  <div class="box wide">
+    <div class="head"><span id="app-title">신청 현황</span><button type="button" id="app-close">&times;</button></div>
+    <div class="body" id="app-body"></div>
+  </div>
+</div>
+
+<!-- 신청 추가/수정 -->
+<div class="overlay" id="add-overlay" style="z-index:60">
+  <div class="box">
+    <div class="head"><span id="add-title">신청 추가</span><button type="button" id="add-close">&times;</button></div>
+    <div class="body">
+      <div class="typesel" id="add-type-wrap">
+        <label><input type="radio" name="add-type" value="member" checked> 재원생</label>
+        <label><input type="radio" name="add-type" value="outsider"> 외부생</label>
+      </div>
+      <div id="add-member">
+        <div class="field"><label for="m-search">재원생 찾기</label><input type="text" id="m-search" placeholder="이름을 입력하면 목록이 줄어들어요"></div>
+        <div class="field"><select id="m-select" size="6" style="height:auto"></select></div>
+        <div class="hint">이름·학년·학교·연락처는 학생 정보에서 자동으로 가져와요. 정원이 남으면 확정, 차면 대기로 들어가요.</div>
+      </div>
+      <div id="add-fields">
+        <div class="row2">
+          <div class="field"><label for="a-name">학생 이름 *</label><input type="text" id="a-name" maxlength="30"></div>
+          <div class="field"><label for="a-grade">학년 *</label><input type="text" id="a-grade" maxlength="10" placeholder="예) 중2"></div>
+        </div>
+        <div class="field"><label for="a-school">학교 *</label><input type="text" id="a-school" maxlength="40"></div>
+        <div class="row2">
+          <div class="field"><label for="a-sphone">학생 연락처 *</label><input type="text" id="a-sphone" inputmode="tel" placeholder="010-0000-0000"></div>
+          <div class="field"><label for="a-pphone">학부모 연락처 *</label><input type="text" id="a-pphone" inputmode="tel" placeholder="010-0000-0000"></div>
+        </div>
+      </div>
+      <div class="field"><label for="a-note">메모</label><input type="text" id="a-note" maxlength="200"></div>
+      <div class="err" id="add-err"></div>
+      <div class="actions"><button type="button" class="btn primary" id="add-save">저장</button><button type="button" class="btn" id="add-cancel">취소</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- 변경 이력 -->
 <div class="overlay" id="hist-overlay">
   <div class="box">
@@ -130,6 +189,7 @@
   const GRADES = ['초1','초2','초3','초4','초5','초6','중1','중2','중3','고1','고2','고3'];
   let lectures = [];
   let editingId = null;
+  let counts = {}, countsOk = false;
 
   const $ = (id) => document.getElementById(id);
   function esc(v) {
@@ -175,7 +235,19 @@
       return;
     }
     lectures = data || [];
+    counts = {};
+    const cr = await sb.rpc('rpc_admin_application_counts', { p_password: getAdminPassword() });
+    if (!cr.error) { (cr.data || []).forEach((c) => { counts[c.lecture_id] = c; }); countsOk = true; } else { countsOk = false; }
     render();
+  }
+  function countsHtml(l) {
+    if (!countsOk) return '';
+    const c = counts[l.id] || { confirmed: 0, pending: 0, waitlist: 0 };
+    return `<div class="cnt">
+      <span class="badge ${c.confirmed >= l.capacity ? 'closed' : 'open'}">확정 <b>${c.confirmed}</b> / ${esc(l.capacity)}명</span>
+      ${c.pending ? `<span class="badge ext">확인 대기 <b>${c.pending}</b></span>` : ''}
+      ${c.waitlist ? `<span class="badge wait">대기 <b>${c.waitlist}</b> / 3</span>` : ''}
+    </div>`;
   }
 
   function render() {
@@ -199,8 +271,10 @@
           <div><b>정원</b>${esc(l.capacity)}명${l.fee != null ? ` <b style="margin-left:8px;">수강료</b>${Number(l.fee).toLocaleString('ko-KR')}원` : ''}</div>
           <div><b>신청</b>재원생 ${esc(fmtDate(l.member_open_date) || '-')}부터 · 외부생 ${esc(fmtDate(l.outsider_open_date) || '-')}부터 · 마감 ${esc(fmtDate(l.apply_deadline) || '-')}</div>
         </div>
+        ${countsHtml(l)}
         ${l.memo ? `<div class="memo">${esc(l.memo)}</div>` : ''}
         <div class="actions">
+          <button type="button" class="btn primary" data-act="apps" data-id="${esc(l.id)}" data-title="${esc(l.title)}">신청 현황</button>
           <button type="button" class="btn" data-act="edit" data-id="${esc(l.id)}">수정</button>
           <button type="button" class="btn" data-act="closed" data-id="${esc(l.id)}" data-val="${l.is_closed ? '0' : '1'}">${l.is_closed ? '마감 해제' : '마감 처리'}</button>
           <button type="button" class="btn" data-act="archived" data-id="${esc(l.id)}" data-val="${l.archived ? '0' : '1'}">${l.archived ? '보관 해제' : '보관'}</button>
@@ -214,6 +288,7 @@
         const id = btn.dataset.id, act = btn.dataset.act;
         if (act === 'edit') { openForm(lectures.find((x) => String(x.id) === id)); return; }
         if (act === 'hist') { openHistory(id, btn.dataset.title); return; }
+        if (act === 'apps') { openApps(id); return; }
         if (act === 'archived' && btn.dataset.val === '1' && !confirm('이 특강을 보관할까요? (삭제가 아니라 목록에서 숨기는 거예요)')) return;
         btn.disabled = true;
         const { error } = await sb.rpc('rpc_admin_set_special_lecture_flag', {
@@ -307,8 +382,17 @@
     classroom: '강의실', teacher: '담당', capacity: '정원', fee: '수강료', member_open_date: '재원생 신청 시작일',
     outsider_open_date: '외부생 신청 시작일', apply_deadline: '신청 마감일', is_closed: '마감', archived: '보관', memo: '메모',
   };
+  const APP_LABELS = {
+    applicant_type: '구분', student_code: '학생 코드', student_name: '이름', grade: '학년', school: '학교',
+    student_phone: '학생 연락처', parent_phone: '학부모 연락처', note: '메모', status: '상태', cancel_reason: '취소 사유',
+  };
+  const STATUS_LABEL = { pending: '확인 대기', confirmed: '확정', waitlist: '대기', cancelled: '취소' };
+  let curLabels = LABELS;
   function hv(k, v) {
     if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '(없음)';
+    if (k === 'status') return esc(STATUS_LABEL[v] || v);
+    if (k === 'applicant_type') return v === 'member' ? '재원생' : '외부생';
+    if (k === 'student_phone' || k === 'parent_phone') return esc(fmtPhone(v));
     if (Array.isArray(v)) return esc(v.join(', '));
     if (typeof v === 'boolean') return v ? '예' : '아니오';
     if (k === 'fee') return Number(v).toLocaleString('ko-KR') + '원';
@@ -316,22 +400,24 @@
   }
   function hSummary(h) {
     const o = h.old_data || {}, n = h.new_data || {};
-    const keys = Object.keys(LABELS);
+    const keys = Object.keys(curLabels);
     if (h.action === '수정') {
       const diffs = keys.filter((k) => JSON.stringify(o[k] ?? null) !== JSON.stringify(n[k] ?? null))
-        .map((k) => `${LABELS[k]}: ${hv(k, o[k])} → <b>${hv(k, n[k])}</b>`);
+        .map((k) => `${curLabels[k]}: ${hv(k, o[k])} → <b>${hv(k, n[k])}</b>`);
       return diffs.join('<br>') || '(내용 변경 없음)';
     }
     const src = h.action === '삭제' ? o : n;
     return keys.filter((k) => src[k] != null && src[k] !== '' && !(Array.isArray(src[k]) && !src[k].length) && src[k] !== false)
-      .map((k) => `${LABELS[k]} ${hv(k, src[k])}`).join(' · ');
+      .map((k) => `${curLabels[k]} ${hv(k, src[k])}`).join(' · ');
   }
-  async function openHistory(id, title) {
+  async function openHistory(id, title, table) {
+    table = table || 'special_lectures';
+    curLabels = table === 'special_lecture_applications' ? APP_LABELS : LABELS;
     $('hist-title').textContent = `${title} 변경 이력`;
     $('hist-body').innerHTML = '<div class="loading">불러오는 중...</div>';
     $('hist-overlay').style.display = 'flex';
     const { data, error } = await sb.rpc('rpc_admin_list_change_history', {
-      p_password: getAdminPassword(), p_table: 'special_lectures', p_record_id: id, p_limit: 200,
+      p_password: getAdminPassword(), p_table: table, p_record_id: id, p_limit: 200,
     });
     if (error) { $('hist-body').innerHTML = `<div class="loading">${isMissingFn(error) ? '이력 SQL(56)이 아직 실행되지 않았어요.' : esc('불러오지 못했어요: ' + error.message)}</div>`; return; }
     if (!data || !data.length) { $('hist-body').innerHTML = '<div class="loading">기록된 이력이 없어요.</div>'; return; }
@@ -345,6 +431,163 @@
   $('hist-close').addEventListener('click', () => { $('hist-overlay').style.display = 'none'; });
   $('hist-overlay').addEventListener('click', (e) => { if (e.target.id === 'hist-overlay') $('hist-overlay').style.display = 'none'; });
   $('form-overlay').addEventListener('click', (e) => { if (e.target.id === 'form-overlay') closeForm(); });
+
+  // ---- 신청 현황 ----
+  let appLectureId = null, appRows = [], addMode = 'add', addTargetId = null, activeStudents = null;
+  function fmtPhone(v) {
+    const d = String(v || '').replace(/\D/g, '');
+    if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+    if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+    return d || '';
+  }
+  function fmtWhen(v) {
+    return new Date(v).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function noSql58(error) { return isMissingFn(error) ? '신청 기능 SQL(58)이 아직 실행되지 않았어요.' : '실패했어요: ' + error.message; }
+
+  async function openApps(lectureId) {
+    appLectureId = lectureId;
+    const l = lectures.find((x) => String(x.id) === String(lectureId));
+    $('app-title').textContent = `${l ? l.title : ''} 신청 현황`;
+    $('app-body').innerHTML = '<div class="loading">불러오는 중...</div>';
+    $('app-overlay').style.display = 'flex';
+    await reloadApps();
+  }
+  async function reloadApps() {
+    const { data, error } = await sb.rpc('rpc_admin_list_applications', { p_password: getAdminPassword(), p_lecture_id: appLectureId });
+    if (error) { $('app-body').innerHTML = `<div class="loading">${esc(noSql58(error))}</div>`; return; }
+    appRows = data || [];
+    renderApps();
+  }
+  function appRowHtml(a, order) {
+    const mem = a.applicant_type === 'member';
+    const btns = [];
+    if (a.status === 'pending') btns.push(['confirmed', '확정', 'ok'], ['waitlist', '대기로', ''], ['cancelled', '취소', 'warn']);
+    else if (a.status === 'waitlist') btns.push(['confirmed', '확정(승격)', 'ok'], ['cancelled', '취소', 'warn']);
+    else if (a.status === 'confirmed') btns.push(['cancelled', '취소', 'warn']);
+    else if (a.status === 'cancelled') btns.push(['pending', '복원', '']);
+    const phones = [a.student_phone ? `학생 ${fmtPhone(a.student_phone)}` : '', a.parent_phone ? `학부모 ${fmtPhone(a.parent_phone)}` : '학부모 연락처 없음'].filter(Boolean).join(' · ');
+    return `<div class="arow">
+      <div class="l1">
+        ${order ? `<span class="badge wait">대기 ${order}번</span>` : ''}
+        <span class="nm">${esc(a.student_name)}</span>
+        <span class="badge ${mem ? 'mem' : 'ext'}">${mem ? '재원생' : '외부생'}</span>
+        <span>${esc([a.grade, a.school].filter(Boolean).join(' · '))}</span>
+      </div>
+      <div class="l2">${esc(phones)}${a.note ? `<br>메모: ${esc(a.note)}` : ''}${a.cancel_reason ? `<br>취소 사유: ${esc(a.cancel_reason)}` : ''}
+        <br><span class="t">신청 ${esc(fmtWhen(a.created_at))}</span></div>
+      <div class="acts">
+        ${btns.map(([st, lb, cls]) => `<button type="button" class="mini ${cls}" data-aact="status" data-st="${st}" data-id="${esc(a.id)}">${lb}</button>`).join('')}
+        <button type="button" class="mini" data-aact="edit" data-id="${esc(a.id)}">정보 수정</button>
+        <button type="button" class="mini" data-aact="hist" data-id="${esc(a.id)}">이력</button>
+      </div></div>`;
+  }
+  function renderApps() {
+    const l = lectures.find((x) => String(x.id) === String(appLectureId));
+    const by = (st) => appRows.filter((a) => a.status === st);
+    const pending = by('pending'), confirmed = by('confirmed'), waitlist = by('waitlist'), cancelled = by('cancelled');
+    const cap = l ? l.capacity : 0;
+    const sec = (title, n, rows, withOrder) => rows.length
+      ? `<div class="asec">${title} <small>${n}</small></div>` + rows.map((a, i) => appRowHtml(a, withOrder ? i + 1 : 0)).join('') : '';
+    $('app-body').innerHTML = `
+      <div class="asum">
+        <span class="badge ${confirmed.length >= cap ? 'closed' : 'open'}">확정 <b>${confirmed.length}</b> / ${esc(cap)}명</span>
+        <span class="badge wait">대기 <b>${waitlist.length}</b> / 3</span>
+        <button type="button" class="btn primary" id="app-add" style="margin-left:auto"><i class="fa-solid fa-plus"></i> 신청 추가</button>
+      </div>
+      <div class="hint">확정은 정원 안에서만 돼요. 취소해도 대기자는 자동으로 올라가지 않아요 — 연락하신 뒤 "확정(승격)"을 눌러 주세요.</div>
+      ${sec('확인 대기 (외부생)', pending.length, pending)}
+      ${sec('확정', confirmed.length, confirmed)}
+      ${sec('대기', waitlist.length, waitlist, true)}
+      ${cancelled.length ? `<details class="cancelled"><summary>취소됨 (${cancelled.length})</summary>${cancelled.map((a) => appRowHtml(a, 0)).join('')}</details>` : ''}
+      ${appRows.length ? '' : '<div class="loading">아직 신청이 없어요.</div>'}`;
+  }
+
+  $('app-body').addEventListener('click', async (e) => {
+    if (e.target.closest('#app-add')) { openAdd(); return; }
+    const btn = e.target.closest('button[data-aact]'); if (!btn) return;
+    const a = appRows.find((x) => x.id === btn.dataset.id); if (!a) return;
+    if (btn.dataset.aact === 'hist') { openHistory(a.id, a.student_name + ' 신청', 'special_lecture_applications'); return; }
+    if (btn.dataset.aact === 'edit') { openAdd(a); return; }
+    const st = btn.dataset.st;
+    let reason = null;
+    if (st === 'cancelled') {
+      reason = prompt(`${a.student_name} 신청을 취소할까요? 취소 사유를 적어 주세요 (비워도 돼요).`, '');
+      if (reason === null) return;
+    } else if (st === 'confirmed' && !confirm(`${a.student_name} 신청을 확정할까요?`)) return;
+    btn.disabled = true;
+    const { error } = await sb.rpc('rpc_admin_set_application_status', { p_password: getAdminPassword(), p_id: a.id, p_status: st, p_reason: reason });
+    if (error) { alert(noSql58(error)); btn.disabled = false; return; }
+    await reloadApps(); load();
+  });
+  $('app-close').addEventListener('click', () => { $('app-overlay').style.display = 'none'; });
+  $('app-overlay').addEventListener('click', (e) => { if (e.target.id === 'app-overlay') $('app-overlay').style.display = 'none'; });
+
+  // 신청 추가 / 정보 수정
+  function setAddType(t) {
+    document.querySelectorAll('input[name="add-type"]').forEach((r) => { r.checked = r.value === t; });
+    $('add-member').style.display = t === 'member' ? '' : 'none';
+    $('add-fields').style.display = t === 'member' && addMode === 'add' ? 'none' : '';
+  }
+  document.querySelectorAll('input[name="add-type"]').forEach((r) => r.addEventListener('change', () => setAddType(r.value)));
+
+  function fillMemberList() {
+    const q = $('m-search').value.trim();
+    const sel = $('m-select');
+    const rows = (activeStudents || []).filter((s) => !q || String(s.student_name).includes(q));
+    sel.innerHTML = rows.map((s) => `<option value="${esc(s.student_code)}">${esc(s.student_name)} · ${esc(s.grade || '')} ${esc(s.classroom || '')}</option>`).join('');
+  }
+  $('m-search').addEventListener('input', fillMemberList);
+
+  async function openAdd(a) {
+    addMode = a ? 'edit' : 'add'; addTargetId = a ? a.id : null;
+    $('add-title').textContent = a ? '신청 정보 수정' : '신청 추가';
+    $('add-err').textContent = '';
+    $('add-type-wrap').style.display = a ? 'none' : '';
+    ['a-name', 'a-grade', 'a-school', 'a-sphone', 'a-pphone', 'a-note'].forEach((id) => { $(id).value = ''; });
+    if (a) {
+      $('a-name').value = a.student_name || ''; $('a-grade').value = a.grade || ''; $('a-school').value = a.school || '';
+      $('a-sphone').value = fmtPhone(a.student_phone); $('a-pphone').value = fmtPhone(a.parent_phone); $('a-note').value = a.note || '';
+      $('add-member').style.display = 'none'; $('add-fields').style.display = '';
+    } else {
+      setAddType('member');
+      $('m-search').value = ''; $('m-select').innerHTML = '<option>불러오는 중...</option>';
+      if (!activeStudents) {
+        const r = await fetchActiveStudents();
+        activeStudents = r.error ? [] : (r.data || []).slice().sort((x, y) => String(x.student_name).localeCompare(String(y.student_name), 'ko'));
+      }
+      fillMemberList();
+    }
+    $('add-overlay').style.display = 'flex';
+  }
+  function closeAdd() { $('add-overlay').style.display = 'none'; }
+  $('add-close').addEventListener('click', closeAdd);
+  $('add-cancel').addEventListener('click', closeAdd);
+
+  $('add-save').addEventListener('click', async () => {
+    const err = $('add-err'); err.textContent = '';
+    const btn = $('add-save'); btn.disabled = true;
+    let res;
+    if (addMode === 'edit') {
+      res = await sb.rpc('rpc_admin_edit_application', {
+        p_password: getAdminPassword(), p_id: addTargetId, p_student_name: $('a-name').value, p_grade: $('a-grade').value,
+        p_school: $('a-school').value, p_student_phone: $('a-sphone').value, p_parent_phone: $('a-pphone').value, p_note: $('a-note').value,
+      });
+    } else {
+      const type = document.querySelector('input[name="add-type"]:checked').value;
+      const code = type === 'member' ? $('m-select').value : null;
+      if (type === 'member' && !code) { err.textContent = '재원생을 목록에서 골라 주세요.'; btn.disabled = false; return; }
+      res = await sb.rpc('rpc_admin_add_application', {
+        p_password: getAdminPassword(), p_lecture_id: appLectureId, p_applicant_type: type, p_student_code: code,
+        p_student_name: type === 'outsider' ? $('a-name').value : null, p_grade: type === 'outsider' ? $('a-grade').value : null,
+        p_school: type === 'outsider' ? $('a-school').value : null, p_student_phone: type === 'outsider' ? $('a-sphone').value : null,
+        p_parent_phone: type === 'outsider' ? $('a-pphone').value : null, p_note: $('a-note').value,
+      });
+    }
+    btn.disabled = false;
+    if (res.error) { err.textContent = noSql58(res.error); return; }
+    closeAdd(); await reloadApps(); load();
+  });
 
   $('show-archived').addEventListener('change', load);
   load();
