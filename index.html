@@ -631,16 +631,16 @@
             </li>
           </ul>
 
-          <!-- 사진 갤러리: 학원 사진 2장 삽입 예정 (실제 사진으로 교체) -->
-          <div class="grid grid-cols-2 gap-3 min-h-[220px] md:min-h-[260px]">
-            <div class="rounded-xl bg-gray-100 border border-dashed border-black/15 flex flex-col items-center justify-center gap-2 text-black/30">
-              <i class="fa-solid fa-image text-2xl"></i>
-              <span class="text-[11px] font-medium">자습실 사진</span>
-            </div>
-            <div class="rounded-xl bg-gray-100 border border-dashed border-black/15 flex flex-col items-center justify-center gap-2 text-black/30">
-              <i class="fa-solid fa-image text-2xl"></i>
-              <span class="text-[11px] font-medium">마음충전소 사진</span>
-            </div>
+          <!-- 사진 갤러리 -->
+          <div class="grid grid-cols-2 gap-3 items-start">
+            <figure class="relative rounded-xl overflow-hidden bg-gray-100 aspect-[4/3]">
+              <img src="assets/images/study-room.jpg" alt="봉덕김쌤수학학원 칸막이 자습실" width="1000" height="750" loading="lazy" class="w-full h-full object-cover">
+              <figcaption class="absolute left-2 bottom-2 bg-black/60 text-white text-[11px] font-semibold px-2 py-0.5 rounded-md">자습실</figcaption>
+            </figure>
+            <figure class="relative rounded-xl overflow-hidden bg-gray-100 aspect-[4/3]">
+              <img src="assets/images/classroom.jpg" alt="봉덕김쌤수학학원 강의실" width="1000" height="750" loading="lazy" class="w-full h-full object-cover">
+              <figcaption class="absolute left-2 bottom-2 bg-black/60 text-white text-[11px] font-semibold px-2 py-0.5 rounded-md">강의실</figcaption>
+            </figure>
           </div>
         </div>
       </div>
