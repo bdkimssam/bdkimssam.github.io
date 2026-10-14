@@ -356,4 +356,10 @@ order by table_name;
 - 상태 이동: pending→confirmed/waitlist/cancelled, waitlist→confirmed/cancelled, confirmed→cancelled, cancelled→pending(복원).
 - RPC(원장님 비밀번호만): `rpc_admin_list_applications(p_password, p_lecture_id)`, `rpc_admin_application_counts(p_password)`, `rpc_admin_add_application(...)`(재원생: 학생 코드로 이름·학년(student_classrooms 우선)·학교·학생 연락처·학부모 연락처(attendance_phone 우선)를 가져와 정원이 남으면 확정/차면 대기/대기도 차면 거절, 외부생: 이름·학년·학교·학생·학부모 연락처 필수, 항상 pending), `rpc_admin_set_application_status(p_password, p_id, p_status, p_reason)`, `rpc_admin_edit_application(...)`. 헬퍼 `sl_norm_phone()`(숫자만, +82→0, 휴대폰 형식 아니면 null), `sl_counts()`.
 - 학생 연락처는 원장님 연락용으로만 저장. 알림톡·문자는 학부모 연락처로만 발송 예정.
-- 다음 단계(미구현): 외부생 신청 페이지(봇 방지)+"내 신청 조회", 재원생 신청(학부모 대시보드), 결제 현황(결제일/완납/카드·현금).
+- 다음 단계(미구현): 재원생 신청(학부모 대시보드), 결제 현황(결제일/완납/카드·현금).
+
+## 방학특강 외부생 신청 (59 마이그레이션, 2단계-2: 공개 신청 페이지 `special-apply.html`)
+- `special_lecture_applications.consented_at` — 개인정보 수집·이용 동의 시각(외부생이 직접 신청할 때만). 보유 기간 문구: 특강 종료 후 1년.
+- 공개 RPC(비밀번호 없음, anon 실행 가능): `rpc_public_list_special_lectures()`(보관 안 한·안 끝난 특강, 메모 제외, `state`=open/waitlist/full/closed/soon), `rpc_public_challenge()`(두 수의 합 + 만료(30분) + HMAC 서명), `rpc_public_apply_outsider(...)`, `rpc_public_lookup_applications(이름, 학부모 연락처)`(외부생 신청만).
+- 봇 방지: 보이지 않는 함정 칸(`p_website`, 값이 있으면 거절) + 서명된 계산 문제 + 최근 10분 외부생 신청 20건 초과 시 거절 + 특강당 확인 대기 40건 상한. 서명 비밀은 `sl_secret()`(브라우저 실행 권한 회수).
+- 신청 조건: 외부생 신청 시작일 이후·마감일 전·수동 마감 아님, 정원이 찼으면 대기(3명)까지만. 결과는 항상 `pending`(확인 대기, 정원 미포함). 중복(같은 특강·같은 이름·학부모 연락처)은 unique 인덱스로 거절. 신청 시 텔레그램 알림(실패해도 접수).
