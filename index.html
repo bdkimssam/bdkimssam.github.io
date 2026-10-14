@@ -628,19 +628,19 @@
             </li>
           </ul>
 
-          <!-- 사진 갤러리: 큰 사진 1장(복도) + 작은 사진 2장(강의실, 자습실) -->
-          <div class="grid grid-cols-2 gap-3 items-start">
-            <figure class="relative col-span-2 rounded-xl overflow-hidden bg-gray-100 aspect-[4/3]">
-              <img src="assets/images/hallway.jpg" alt="봉덕김쌤수학학원 복도와 교재 서가" width="1000" height="750" loading="lazy" class="w-full h-full object-cover">
-            </figure>
-            <figure class="relative rounded-xl overflow-hidden bg-gray-100 aspect-[4/3]">
-              <img src="assets/images/classroom.jpg" alt="봉덕김쌤수학학원 강의실" width="1000" height="750" loading="lazy" class="w-full h-full object-cover">
-              <figcaption class="absolute left-2 bottom-2 bg-black/60 text-white text-[11px] font-semibold px-2 py-0.5 rounded-md">강의실</figcaption>
-            </figure>
-            <figure class="relative rounded-xl overflow-hidden bg-gray-100 aspect-[4/3]">
-              <img src="assets/images/study-room.jpg" alt="봉덕김쌤수학학원 칸막이 자습실" width="1000" height="750" loading="lazy" class="w-full h-full object-cover">
-              <figcaption class="absolute left-2 bottom-2 bg-black/60 text-white text-[11px] font-semibold px-2 py-0.5 rounded-md">자습실</figcaption>
-            </figure>
+          <!-- 사진 갤러리: 왼쪽 큰 사진(복도) + 오른쪽 작은 사진 2장(강의실, 자습실). 클릭하면 크게 보임 -->
+          <div class="grid grid-cols-5 grid-rows-2 gap-2 aspect-[20/9]">
+            <button type="button" class="js-gallery-item relative col-span-3 row-span-2 rounded-lg overflow-hidden bg-gray-100 group cursor-zoom-in" data-full="assets/images/lg/hallway.jpg" data-alt="봉덕김쌤수학학원 복도와 교재 서가" aria-label="봉덕김쌤수학학원 복도와 교재 서가 크게 보기">
+              <img src="assets/images/hallway.jpg" alt="봉덕김쌤수학학원 복도와 교재 서가" width="1000" height="750" loading="lazy" class="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+            </button>
+            <button type="button" class="js-gallery-item relative col-span-2 rounded-lg overflow-hidden bg-gray-100 group cursor-zoom-in" data-full="assets/images/lg/classroom.jpg" data-alt="봉덕김쌤수학학원 강의실" aria-label="봉덕김쌤수학학원 강의실 크게 보기">
+              <img src="assets/images/classroom.jpg" alt="봉덕김쌤수학학원 강의실" width="1000" height="750" loading="lazy" class="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+              <span class="absolute left-1.5 bottom-1.5 bg-black/60 text-white text-[10.5px] font-semibold px-1.5 py-0.5 rounded">강의실</span>
+            </button>
+            <button type="button" class="js-gallery-item relative col-span-2 rounded-lg overflow-hidden bg-gray-100 group cursor-zoom-in" data-full="assets/images/lg/study-room.jpg" data-alt="봉덕김쌤수학학원 칸막이 자습실" aria-label="봉덕김쌤수학학원 칸막이 자습실 크게 보기">
+              <img src="assets/images/study-room.jpg" alt="봉덕김쌤수학학원 칸막이 자습실" width="1000" height="750" loading="lazy" class="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+              <span class="absolute left-1.5 bottom-1.5 bg-black/60 text-white text-[10.5px] font-semibold px-1.5 py-0.5 rounded">자습실</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1330,5 +1330,47 @@
   consultModalPanel.addEventListener('click', (e) => e.stopPropagation());
 </script>
 
+
+<!-- 학원 사진 크게 보기 -->
+<div id="gallery-lightbox" class="hidden fixed inset-0 z-[120] bg-black/85 items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="사진 크게 보기">
+  <button type="button" id="gl-close" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 text-white text-xl leading-none hover:bg-white/25" aria-label="닫기">&times;</button>
+  <button type="button" id="gl-prev" class="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 text-white hover:bg-white/25" aria-label="이전 사진"><i class="fa-solid fa-chevron-left"></i></button>
+  <button type="button" id="gl-next" class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 text-white hover:bg-white/25" aria-label="다음 사진"><i class="fa-solid fa-chevron-right"></i></button>
+  <img id="gl-img" src="" alt="" class="rounded-lg shadow-2xl" style="width:min(92vw,720px);max-height:76vh;object-fit:contain;background:#111">
+</div>
+<script>
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('.js-gallery-item'));
+  var box = document.getElementById('gallery-lightbox');
+  var img = document.getElementById('gl-img');
+  if (!items.length || !box) return;
+  var cur = 0;
+  function show(i) {
+    cur = (i + items.length) % items.length;
+    img.src = items[cur].getAttribute('data-full');
+    img.alt = items[cur].getAttribute('data-alt') || '';
+  }
+  function open(i) {
+    show(i);
+    box.classList.remove('hidden'); box.classList.add('flex');
+    document.body.classList.add('overflow-hidden');
+  }
+  function close() {
+    box.classList.add('hidden'); box.classList.remove('flex');
+    document.body.classList.remove('overflow-hidden');
+  }
+  items.forEach(function (el, i) { el.addEventListener('click', function () { open(i); }); });
+  document.getElementById('gl-close').addEventListener('click', close);
+  document.getElementById('gl-prev').addEventListener('click', function (e) { e.stopPropagation(); show(cur - 1); });
+  document.getElementById('gl-next').addEventListener('click', function (e) { e.stopPropagation(); show(cur + 1); });
+  box.addEventListener('click', function (e) { if (e.target === box) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (box.classList.contains('hidden')) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowLeft') show(cur - 1);
+    else if (e.key === 'ArrowRight') show(cur + 1);
+  });
+})();
+</script>
 </body>
 </html>
