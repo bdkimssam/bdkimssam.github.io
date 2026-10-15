@@ -558,6 +558,20 @@
       </div>
     </div>
 
+    <!-- 방학특강 -->
+    <div class="card" id="card-speclec" style="display:none;">
+      <div class="card-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="card-icon" style="background:#0F766E;"><i class="fa-solid fa-snowflake"></i></span>
+          <span class="card-title">방학특강</span>
+        </div>
+        <span class="card-tag">신청 · 내 신청 현황</span>
+      </div>
+      <div class="card-body" data-state="loading">
+        <div class="state-loading"><span class="spinner"></span> 불러오는 중...</div>
+      </div>
+    </div>
+
     <!-- 수학학력평가 신청 -->
     <div class="card" id="card-examapply">
       <div class="card-head">
@@ -927,6 +941,62 @@
     });
   }
 
+  // ---- 방학특강 (재원생 신청: 우리 아이 학년에 맞는 특강만 보임) ----
+  async function loadSpecialLectures() {
+    const card = document.getElementById('card-speclec');
+    const { data, error } = await sb.rpc('rpc_get_special_lectures', { p_student_code: studentCode });
+    if (error || !data || data.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const md = (d) => { if (!d) return ''; const [, m, dd] = String(d).slice(0, 10).split('-'); return `${+m}/${+dd}`; };
+    const range = (a, b) => (a && b ? `${md(a)} ~ ${md(b)}` : a ? `${md(a)} ~` : '');
+    const badge = (text, bg, fg) => `<span style="font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:999px; background:${bg}; color:${fg};">${text}</span>`;
+
+    setCardState('card-speclec', `<div style="display:flex; flex-direction:column; gap:12px;">${data.map((l) => {
+      let status = '', action = '';
+      if (l.my_status === 'confirmed') status = badge('✅ 수강 확정', '#DCFCE7', '#15803D');
+      else if (l.my_status === 'waitlist') status = badge(`⏳ 대기 ${l.my_wait_pos || ''}번`, '#FEF3C7', '#B45309');
+      else if (l.my_status === 'pending') status = badge('확인 중', '#E0F2FE', '#0369A1');
+      else if (l.my_status === 'cancelled') status = badge('취소됨', '#F3F4F6', '#6B7280');
+      else if (l.state === 'open') action = `<button type="button" class="speclec-apply" data-id="${esc(l.id)}" data-wait="0" style="width:100%; margin-top:10px; padding:11px; border-radius:10px; border:1px solid var(--navy-900); background:var(--navy-900); color:#fff; font:inherit; font-weight:800; cursor:pointer;">신청하기</button>`;
+      else if (l.state === 'waitlist') action = `<button type="button" class="speclec-apply" data-id="${esc(l.id)}" data-wait="1" style="width:100%; margin-top:10px; padding:11px; border-radius:10px; border:1px solid #B45309; background:#fff; color:#B45309; font:inherit; font-weight:800; cursor:pointer;">정원 마감 · 대기 신청하기</button>`;
+      else if (l.state === 'full') action = `<div style="margin-top:10px; font-size:12.5px; color:var(--faint);">정원과 대기가 모두 차서 마감되었어요.</div>`;
+      else if (l.state === 'soon') action = `<div style="margin-top:10px; font-size:12.5px; color:var(--faint);">${l.member_open_date ? `${md(l.member_open_date)}부터 신청할 수 있어요.` : '신청 시작일은 추후 안내드려요.'}</div>`;
+      else if (l.state === 'closed') action = `<div style="margin-top:10px; font-size:12.5px; color:var(--faint);">신청이 마감되었어요.</div>`;
+      const left = Math.max(0, l.capacity - l.confirmed_count);
+      return `<div style="border:1px solid var(--gray-200); border-radius:12px; padding:13px 14px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span style="font-weight:800; font-size:14.5px;">${esc(l.title)}</span>${status}</div>
+        <div style="margin-top:6px; font-size:12.5px; color:var(--ink); line-height:1.75;">
+          ${l.start_date ? `<div>📅 ${esc(range(l.start_date, l.end_date))}</div>` : ''}
+          ${l.schedule_text ? `<div>🕒 ${esc(l.schedule_text)}</div>` : ''}
+          ${l.fee != null ? `<div>💳 ${Number(l.fee).toLocaleString('ko-KR')}원</div>` : ''}
+          ${l.apply_deadline ? `<div>⏰ 신청 마감 ${esc(md(l.apply_deadline))}</div>` : ''}
+          ${!l.my_status && l.state === 'open' ? `<div>🪑 남은 자리 ${left}자리 (정원 ${l.capacity}명)</div>` : ''}
+        </div>${action}</div>`;
+    }).join('')}<div style="font-size:11.5px; color:var(--faint); line-height:1.6;">신청 후 취소·변경은 학원으로 문의해 주세요.</div></div>`);
+
+    document.querySelectorAll('#card-speclec .speclec-apply').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const lec = data.find((x) => x.id === btn.dataset.id);
+        const msg = btn.dataset.wait === '1'
+          ? `${lec.title}\n\n정원이 차서 "대기"로 접수돼요. 자리가 나면 학원에서 연락드려요.\n신청하시겠어요?`
+          : `${lec.title}\n\n신청하시겠어요?`;
+        if (!confirm(msg)) return;
+        btn.disabled = true; btn.textContent = '신청 중...';
+        const res = await sb.rpc('rpc_apply_special_lecture', { p_student_code: studentCode, p_lecture_id: btn.dataset.id });
+        if (res.error) {
+          const missing = res.error.code === 'PGRST202' || /Could not find the function/i.test(res.error.message || '');
+          alert(missing ? '아직 신청 기능이 준비 중이에요. 학원으로 문의해 주세요.' : '신청 실패: ' + res.error.message);
+        } else if (res.data && res.data.status === 'waitlist') {
+          alert(`대기 ${res.data.wait_pos}번으로 접수되었어요. 자리가 나면 학원에서 연락드려요.`);
+        } else {
+          alert('신청이 완료되어 수강이 확정되었어요!');
+        }
+        loadSpecialLectures();
+      });
+    });
+  }
+
   // ---- 공지사항 ----
   // target_grade에 따라 목록에 보여줄 때만 [학년] 머릿말을 자동으로 붙임 (title 원본엔 없음)
   function gradePrefixLabel(targetGrade) {
@@ -1289,6 +1359,7 @@
   // =====================================================================
   loadNotices();
   loadExamApply();
+  loadSpecialLectures();
   loadGrades();
   loadHomeworkVerifications();
   loadProgressAndFeedback();

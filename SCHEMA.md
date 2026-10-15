@@ -372,3 +372,9 @@ order by table_name;
 ### 시험 성적 과목 추가 (61 마이그레이션)
 - `school_exam_scores.subject` text NOT NULL 추가. 중1~고1은 학년 그대로(예: '중2'), 고2·고3은 '대수'/'미적분1'/'확률과 통계'/'미적분2'/'기하' 중 선택(`exam_pick_subject()`가 검증). 유니크는 `(student_code, exam_year, exam_type, subject)`로 변경 — 같은 시험이라도 과목이 다르면 따로 입력 가능.
 - `rpc_public_submit_exam_score(p_ref, p_exam_type, p_objective, p_subjective, p_school, p_subject)`, `rpc_admin_save_exam_score(..., p_grade, p_school, p_subject)`로 시그니처 변경(구 버전은 drop).
+
+## 방학특강 재원생 신청 — 학부모 대시보드 카드 (62 마이그레이션, 2단계-3)
+- `dashboard.html`의 "방학특강" 카드(`loadSpecialLectures`). 우리 아이 학년(강의실 배정표 우선, 없으면 등록서)이 대상 학년에 포함된 특강만 보임(대상 학년을 비워 두면 전체). 내 신청이 있는 특강은 마감·종료 후에도 상태가 계속 보임. 보일 특강이 없으면 카드 자체를 숨김.
+- `rpc_get_special_lectures(p_student_code)` — 공개(학생 코드 기반, 다른 대시보드 RPC와 같은 방식). 특강 정보 + `state`(open/waitlist/full/soon/closed, 재원생 신청 시작일 기준) + `my_status`/`my_wait_pos`(대기 순번).
+- `rpc_apply_special_lecture(p_student_code, p_lecture_id)` — 공개. 특강 행 잠금 후: 대상 학년·마감·재원생 신청 시작일 확인, 정원이 남으면 `confirmed`, 차면 `waitlist`(최대 3명), 다 차면 거절. 이름·학년·학교·학생 연락처는 학생 정보에서, 학부모 연락처는 `attendance_phone`→`attendance_phone2`→`students.parent_phone` 순. 이미 신청했거나, 취소 처리된 신청은 거절("학원으로 문의"). 신청 시 원장님 텔레그램 알림.
+- 학부모는 취소·변경 불가(원장님만, 신청 현황에서). 결제 상태 표시는 3단계에서 추가 예정.
