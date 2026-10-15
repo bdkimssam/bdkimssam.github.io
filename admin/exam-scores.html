@@ -78,10 +78,10 @@
   <div class="box">
     <div class="head"><span id="form-title">성적 입력</span><button type="button" id="form-close">&times;</button></div>
     <div class="body">
-      <div class="field" id="stu-wrap">
-        <label for="s-grade">학년 → 학생 선택</label>
-        <select id="s-grade"><option value="">학년 선택</option><option>중1</option><option>중2</option><option>중3</option><option>고1</option><option>고2</option><option>고3</option></select>
-        <select id="s-select" size="6" style="height:auto;margin-top:6px"></select>
+      <div class="row2" id="stu-wrap">
+        <div class="field"><label for="s-grade">학년</label>
+          <select id="s-grade"><option value="">선택</option><option>중1</option><option>중2</option><option>중3</option><option>고1</option><option>고2</option><option>고3</option></select></div>
+        <div class="field"><label for="s-select">학생</label><select id="s-select"></select></div>
       </div>
       <div class="field" id="stu-fixed" style="display:none"><label>학생</label><div id="stu-fixed-name" style="font-weight:900"></div></div>
       <div class="field" id="subj-field" style="display:none"><label for="e-subject">과목 (고2·고3)</label><select id="e-subject"><option value="">선택</option><option>대수</option><option>미적분1</option><option>확률과 통계</option><option>미적분2</option><option>기하</option></select></div>
@@ -185,11 +185,11 @@
   function fillStudents() {
     syncSubject();
     const g = $('s-grade').value;
-    if (!g) { $('s-select').innerHTML = '<option value="">먼저 학년을 선택해 주세요</option>'; return; }
+    if (!g) { $('s-select').innerHTML = '<option value="">학년 먼저</option>'; return; }
     const list = (students || []).filter(s => s.grade === g);
     $('s-select').innerHTML = list.length
-      ? list.map(s => `<option value="${esc(s.student_code)}">${esc(s.student_name)}${s.classroom ? ' (' + esc(s.classroom) + ')' : ''}</option>`).join('')
-      : '<option value="">이 학년 재원생이 없어요</option>';
+      ? '<option value="">선택</option>' + list.map(s => `<option value="${esc(s.student_code)}">${esc(s.student_name)}${s.classroom ? ' (' + esc(s.classroom) + ')' : ''}</option>`).join('')
+      : '<option value="">학생 없음</option>';
   }
   $('s-grade').addEventListener('change', fillStudents);
   $('e-grade').addEventListener('input', syncSubject);
