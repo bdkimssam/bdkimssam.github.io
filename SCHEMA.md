@@ -368,3 +368,7 @@ order by table_name;
 - `school_exam_scores` — id, student_code, student_name, grade, school, `exam_year`(학년도, 3월~다음해 2월), `exam_type`('1학기중간','1학기기말','2학기중간','2학기기말','3월모의고사','6월모의고사','9월모의고사','10월모의고사'), `objective_score`/`subjective_score`(0~100, 합 100 이하), `total_score`(생성 컬럼 = 합), `entered_by`('student'|'admin'), created_at/updated_at. `unique(student_code, exam_year, exam_type)`. RLS 켜짐/정책 없음. `log_row_change()` 트리거(`trg_log_school_exam_scores`)로 이력(table_name='school_exam_scores').
 - 학생 입력 방식: 학년(중1~고3) 선택 → 이름 선택(학생 코드 입력 없음). `rpc_public_exam_students()`(공개)가 재원생(퇴원 제외)의 이름·학년을 돌려주고, 학생 코드는 노출하지 않고 서명된 임시 표식 `ref`(HMAC 앞 20자, 비밀은 `exam_secret()`)만 줌. 같은 학년·같은 이름이 있으면 학교도 같이 표시. `rpc_public_submit_exam_score(p_ref, p_exam_type, p_objective, p_subjective, p_school)` — 같은 학년도·시험 중복은 거절(수정은 원장님만). 학년은 강의실 배정표 우선·없으면 등록서, 학교는 등록서 값(없을 때만 학생 입력). 내부 헬퍼 `exam_active_students()`, `exam_school_year()`.
 - 원장님 RPC: `rpc_admin_list_exam_scores(p_password, p_exam_year, p_exam_type)`, `rpc_admin_save_exam_score`(p_id 없으면 입력, 있으면 수정), `rpc_admin_delete_exam_score`. 화면은 원장님 전용.
+
+### 시험 성적 과목 추가 (61 마이그레이션)
+- `school_exam_scores.subject` text NOT NULL 추가. 중1~고1은 학년 그대로(예: '중2'), 고2·고3은 '대수'/'미적분1'/'확률과 통계'/'미적분2'/'기하' 중 선택(`exam_pick_subject()`가 검증). 유니크는 `(student_code, exam_year, exam_type, subject)`로 변경 — 같은 시험이라도 과목이 다르면 따로 입력 가능.
+- `rpc_public_submit_exam_score(p_ref, p_exam_type, p_objective, p_subjective, p_school, p_subject)`, `rpc_admin_save_exam_score(..., p_grade, p_school, p_subject)`로 시그니처 변경(구 버전은 drop).

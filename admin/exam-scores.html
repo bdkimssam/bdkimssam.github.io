@@ -24,7 +24,7 @@
   .btn.primary { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
   .loading { color:var(--muted); font-size:13px; padding:24px 6px; text-align:center; }
   .tbl-wrap { background:#fff; border:1px solid var(--gray-200); border-radius:14px; overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; font-size:13px; min-width:640px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; min-width:720px; }
   th, td { padding:10px 10px; border-bottom:1px solid var(--gray-200); text-align:center; white-space:nowrap; }
   th { background:var(--gray-50); color:var(--muted); font-size:12px; font-weight:800; }
   tr:last-child td { border-bottom:none; }
@@ -84,6 +84,7 @@
         <select id="s-select" size="6" style="height:auto;margin-top:6px"></select>
       </div>
       <div class="field" id="stu-fixed" style="display:none"><label>학생</label><div id="stu-fixed-name" style="font-weight:900"></div></div>
+      <div class="field" id="subj-field" style="display:none"><label for="e-subject">과목 (고2·고3)</label><select id="e-subject"><option value="">선택</option><option>대수</option><option>미적분1</option><option>확률과 통계</option><option>미적분2</option><option>기하</option></select></div>
       <div class="row2">
         <div class="field"><label for="e-year">학년도</label><input type="number" id="e-year" min="2020" max="2100"></div>
         <div class="field"><label for="e-type">시험 종류</label><select id="e-type"></select></div>
@@ -145,9 +146,9 @@
     const list = rows.filter(r => !q || (r.student_name || '').includes(q) || (r.school || '').includes(q));
     if (!list.length) { $('list').innerHTML = '<div class="loading">입력된 성적이 없어요.</div>'; return; }
     $('list').innerHTML = `<div class="tbl-wrap"><table>
-      <thead><tr><th class="l">이름</th><th>학년</th><th>학교</th><th>시험</th><th>객관식</th><th>주관식</th><th>총점</th><th>입력</th><th></th></tr></thead>
+      <thead><tr><th class="l">이름</th><th>학년</th><th>학교</th><th>과목</th><th>시험</th><th>객관식</th><th>주관식</th><th>총점</th><th>입력</th><th></th></tr></thead>
       <tbody>${list.map(r => `<tr>
-        <td class="l"><span class="nm">${esc(r.student_name)}</span></td><td>${esc(r.grade || '')}</td><td>${esc(r.school || '')}</td>
+        <td class="l"><span class="nm">${esc(r.student_name)}</span></td><td>${esc(r.grade || '')}</td><td>${esc(r.school || '')}</td><td>${esc(r.subject || '')}</td>
         <td>${esc(r.exam_year)} ${esc(r.exam_type)}</td><td>${fmt(r.objective_score)}</td><td>${fmt(r.subjective_score)}</td>
         <td class="tot">${fmt(r.total_score)}</td><td><span class="tag ${r.entered_by === 'student' ? 'st' : ''}">${r.entered_by === 'student' ? '학생' : '원장님'}</span></td>
         <td><button class="mini" data-act="edit" data-id="${esc(r.id)}">수정</button>
@@ -177,7 +178,12 @@
   }
   $('e-obj').addEventListener('input', calc); $('e-subj').addEventListener('input', calc);
 
+  function syncSubject() {
+    const g = $('e-grade').value.trim() || (editing ? (editing.grade || '') : $('s-grade').value);
+    $('subj-field').style.display = (g === '고2' || g === '고3') ? '' : 'none';
+  }
   function fillStudents() {
+    syncSubject();
     const g = $('s-grade').value;
     if (!g) { $('s-select').innerHTML = '<option value="">먼저 학년을 선택해 주세요</option>'; return; }
     const list = (students || []).filter(s => s.grade === g);
@@ -186,6 +192,7 @@
       : '<option value="">이 학년 재원생이 없어요</option>';
   }
   $('s-grade').addEventListener('change', fillStudents);
+  $('e-grade').addEventListener('input', syncSubject);
 
   async function openForm(r) {
     editing = r || null; $('e-err').textContent = '';
@@ -196,7 +203,8 @@
     $('e-type').value = r ? r.exam_type : '';
     $('e-obj').value = r ? r.objective_score : ''; $('e-subj').value = r ? r.subjective_score : '';
     $('e-grade').value = r ? (r.grade || '') : ''; $('e-school').value = r ? (r.school || '') : '';
-    calc(); $('form-overlay').style.display = 'flex';
+    $('e-subject').value = r && /^(대수|미적분|확률|기하)/.test(r.subject || '') ? r.subject : '';
+    syncSubject(); calc(); $('form-overlay').style.display = 'flex';
     if (!r && !students) {
       $('s-select').innerHTML = '<option>불러오는 중...</option>';
       const res = await fetchActiveStudents();
@@ -211,6 +219,9 @@
 
   $('e-save').onclick = async () => {
     $('e-err').textContent = '';
+    const effGrade = $('e-grade').value.trim() || (editing ? (editing.grade || '') : $('s-grade').value);
+    const needSubj = effGrade === '고2' || effGrade === '고3';
+    if (needSubj && !$('e-subject').value) { $('e-err').textContent = '과목을 선택해 주세요.'; return; }
     const code = editing ? editing.student_code : $('s-select').value;
     if (!code) { $('e-err').textContent = '학생을 선택해 주세요.'; return; }
     if (!$('e-type').value) { $('e-err').textContent = '시험 종류를 선택해 주세요.'; return; }
@@ -220,7 +231,7 @@
     const { error } = await sb.rpc('rpc_admin_save_exam_score', {
       p_password: getAdminPassword(), p_id: editing ? editing.id : null, p_student_code: code,
       p_exam_year: parseInt($('e-year').value, 10), p_exam_type: $('e-type').value, p_objective: o, p_subjective: s,
-      p_grade: $('e-grade').value.trim(), p_school: $('e-school').value.trim() });
+      p_grade: $('e-grade').value.trim(), p_school: $('e-school').value.trim(), p_subject: needSubj ? $('e-subject').value : null });
     $('e-save').disabled = false;
     if (error) { $('e-err').textContent = isMissingFn(error) ? '성적 SQL(60)이 아직 실행되지 않았어요.' : error.message; return; }
     closeForm(); load();

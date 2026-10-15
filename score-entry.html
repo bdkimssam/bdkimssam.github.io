@@ -64,6 +64,8 @@
       <div class="note" id="yearnote" style="margin-bottom:6px"></div>
       <label class="f" id="school-wrap" hidden>학교
         <input type="text" id="school" maxlength="40" placeholder="예: 가온중"></label>
+      <label class="f" id="subj-wrap" hidden>과목
+        <select id="subject"><option value="">선택</option><option>대수</option><option>미적분1</option><option>확률과 통계</option><option>미적분2</option><option>기하</option></select></label>
       <label class="f">시험 종류
         <select id="etype">
           <option value="">선택</option>
@@ -90,7 +92,8 @@
     <div class="ic">✅</div>
     <h2>성적이 저장되었어요</h2>
     <p class="note" id="done-msg"></p>
-    <button class="btn primary" id="again" type="button">다른 시험 입력하기</button>
+    <button class="btn primary" id="again" type="button">같은 학생, 다른 시험 입력</button>
+    <button class="btn" id="home" type="button" style="margin-top:8px">다른 학생이 입력하기</button>
   </div>
 </main>
 
@@ -127,6 +130,7 @@ function openStep2(p) {
   $('hello').textContent = `${p.grade} ${p.student_name} 학생`;
   $('yearnote').textContent = '학생 본인의 성적을 입력해 주세요.';
   $('school-wrap').hidden = !!p.has_school; $('school').value = '';
+  $('subj-wrap').hidden = !(p.grade === '고2' || p.grade === '고3'); $('subject').value = '';
   $('etype').value = ''; $('obj').value = ''; $('subj').value = ''; calc(); showErr('err2', '');
   $('step1').hidden = true; $('step3').hidden = true; $('step2').hidden = false;
 }
@@ -149,20 +153,23 @@ $('form').addEventListener('submit', async e => {
   const etype = $('etype').value, o = parseFloat($('obj').value), s = parseFloat($('subj').value);
   if (!who.has_school && !$('school').value.trim()) return showErr('err2', '학교를 입력해 주세요.');
   if (!etype) return showErr('err2', '시험 종류를 선택해 주세요.');
+  const needSubj = who.grade === '고2' || who.grade === '고3';
+  if (needSubj && !$('subject').value) return showErr('err2', '과목을 선택해 주세요.');
   if (isNaN(o) || isNaN(s)) return showErr('err2', '객관식·주관식 점수를 모두 입력해 주세요. (없으면 0)');
   if (o < 0 || s < 0 || o > 100 || s > 100) return showErr('err2', '점수는 0~100 사이로 입력해 주세요.');
   if (o + s > 100) return showErr('err2', '객관식과 주관식의 합이 100점을 넘을 수 없어요.');
-  if (!confirm(`${who.grade} ${who.student_name}\n${etype}  객관식 ${fmt(o)} + 주관식 ${fmt(s)} = ${fmt(o + s)}점\n이대로 저장할까요? (저장 후에는 선생님만 고칠 수 있어요)`)) return;
+  if (!confirm(`${who.grade} ${who.student_name}\n${etype}${needSubj ? ' · ' + $('subject').value : ''}  객관식 ${fmt(o)} + 주관식 ${fmt(s)} = ${fmt(o + s)}점\n이대로 저장할까요? (저장 후에는 선생님만 고칠 수 있어요)`)) return;
   $('go2').disabled = true;
   const { data, error } = await sb.rpc('rpc_public_submit_exam_score', {
-    p_ref: who.ref, p_exam_type: etype, p_objective: o, p_subjective: s, p_school: $('school').value.trim() });
+    p_ref: who.ref, p_exam_type: etype, p_objective: o, p_subjective: s, p_school: $('school').value.trim(), p_subject: needSubj ? $('subject').value : null });
   $('go2').disabled = false;
   if (error) return showErr('err2', friendly(error));
   $('step2').hidden = true; $('step3').hidden = false;
-  $('done-msg').textContent = `${data.student_name} · ${data.exam_year}학년도 ${data.exam_type} · 총점 ${fmt(data.total_score)}점`;
+  $('done-msg').textContent = `${data.student_name} · ${data.exam_year}학년도 ${data.exam_type}${data.subject && /^(대수|미적분|확률|기하)/.test(data.subject) ? ' (' + data.subject + ')' : ''} · 총점 ${fmt(data.total_score)}점`;
 });
 
 $('again').onclick = () => openStep2(who);
+$('home').onclick = () => $('back').onclick();
 $('back').onclick = () => { who = null; $('step2').hidden = true; $('step3').hidden = true; $('step1').hidden = false; $('sel-name').value = ''; };
 loadPeople();
 </script>
