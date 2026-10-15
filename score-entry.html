@@ -45,16 +45,16 @@
 <header><a href="index.html">김쌤 수학</a></header>
 <main>
   <h1>시험 성적 입력</h1>
-  <p class="sub">학교 시험·모의고사 성적을 직접 입력해요. 입력한 성적은 선생님만 볼 수 있어요.</p>
+  <p class="sub">학교 시험·모의고사 성적을 직접 입력해요. 학년과 내 이름을 고르면 돼요. 입력한 성적은 선생님만 볼 수 있어요.</p>
 
-  <!-- 1단계: 학생 확인 -->
+  <!-- 1단계: 학년 → 이름 선택 -->
   <form id="step1" class="card" autocomplete="off">
-    <label class="f">학생 코드 <small>(예: 26H-016)</small>
-      <input type="text" id="code" maxlength="20" autocapitalize="characters" autocomplete="off"></label>
-    <label class="f">학생 이름
-      <input type="text" id="name" maxlength="30" autocomplete="off"></label>
+    <label class="f">학년
+      <select id="sel-grade"><option value="">불러오는 중...</option></select></label>
+    <label class="f">내 이름
+      <select id="sel-name" disabled><option value="">먼저 학년을 선택해 주세요</option></select></label>
     <div class="err" id="err1" hidden></div>
-    <button class="btn primary block" id="go1" type="submit">확인</button>
+    <button class="btn primary block" id="go1" type="submit">다음</button>
   </form>
 
   <!-- 2단계: 점수 입력 -->
@@ -62,12 +62,8 @@
     <form id="form" class="card" autocomplete="off">
       <div class="hello" id="hello"></div>
       <div class="note" id="yearnote" style="margin-bottom:6px"></div>
-      <div class="row2">
-        <label class="f">학년
-          <input type="text" id="grade" maxlength="10" placeholder="예: 중2"></label>
-        <label class="f">학교
-          <input type="text" id="school" maxlength="40" placeholder="예: 가온중"></label>
-      </div>
+      <label class="f" id="school-wrap" hidden>학교
+        <input type="text" id="school" maxlength="40" placeholder="예: 가온중"></label>
       <label class="f">시험 종류
         <select id="etype">
           <option value="">선택</option>
@@ -84,13 +80,9 @@
       <div class="note" style="margin-top:8px">같은 시험은 한 번만 입력할 수 있어요. 잘못 입력했다면 선생님께 말씀해 주세요.</div>
       <div class="err" id="err2" hidden></div>
       <button class="btn primary block" id="go2" type="submit">저장하기</button>
-      <button class="btn block" id="back" type="button">다른 학생으로</button>
+      <button class="btn block" id="back" type="button">처음으로</button>
     </form>
 
-    <div class="card" id="mine" hidden>
-      <div class="hello" style="font-size:14px;margin-bottom:8px">내가 입력한 성적</div>
-      <table class="hist"><thead><tr><th>시험</th><th>객관식</th><th>주관식</th><th>총점</th></tr></thead><tbody id="mine-body"></tbody></table>
-    </div>
   </div>
 
   <!-- 완료 -->
@@ -113,19 +105,29 @@ function friendly(error) {
   if (error && (error.code === 'PGRST202' || /Could not find the function/i.test(m))) return '아직 성적 입력 기능이 준비 중이에요. 선생님께 문의해 주세요.';
   return m || '잠시 후 다시 시도해 주세요.';
 }
-let who = null; // {code, name, info}
+let who = null, people = [];
 
-function renderMine(scores) {
-  $('mine').hidden = !scores.length;
-  $('mine-body').innerHTML = scores.map(s => `<tr><td>${esc(s.exam_year)} ${esc(s.exam_type)}</td><td>${fmt(s.objective_score)}</td><td>${fmt(s.subjective_score)}</td><td><b>${fmt(s.total_score)}</b></td></tr>`).join('');
+async function loadPeople() {
+  const { data, error } = await sb.rpc('rpc_public_exam_students');
+  if (error) { $('sel-grade').innerHTML = '<option value="">불러오지 못했어요</option>'; return showErr('err1', friendly(error)); }
+  people = data || [];
+  $('sel-grade').innerHTML = '<option value="">학년 선택</option>' + ['중1','중2','중3','고1','고2','고3'].map(g => `<option>${g}</option>`).join('');
 }
-function openStep2(info) {
-  $('hello').textContent = `${info.student_name} 학생`;
-  $('yearnote').textContent = `${info.year}학년도 성적으로 저장돼요.`;
-  $('grade').value = info.grade || ''; $('grade').readOnly = !!info.grade;
-  $('school').value = info.school || ''; $('school').readOnly = !!info.school;
+$('sel-grade').addEventListener('change', () => {
+  const g = $('sel-grade').value; showErr('err1', '');
+  const list = people.filter(p => p.grade === g);
+  $('sel-name').disabled = !g;
+  $('sel-name').innerHTML = g && !list.length ? '<option value="">이 학년에 등록된 학생이 없어요</option>' : g ? '<option value="">내 이름 선택</option>' + list.map(p =>
+    `<option value="${esc(p.ref)}">${esc(p.student_name)}${p.school ? ' (' + esc(p.school) + ')' : ''}</option>`).join('')
+    : '<option value="">먼저 학년을 선택해 주세요</option>';
+});
+
+function openStep2(p) {
+  who = p;
+  $('hello').textContent = `${p.grade} ${p.student_name} 학생`;
+  $('yearnote').textContent = '학생 본인의 성적을 입력해 주세요.';
+  $('school-wrap').hidden = !!p.has_school; $('school').value = '';
   $('etype').value = ''; $('obj').value = ''; $('subj').value = ''; calc(); showErr('err2', '');
-  renderMine(info.scores || []);
   $('step1').hidden = true; $('step3').hidden = true; $('step2').hidden = false;
 }
 function calc() {
@@ -134,45 +136,35 @@ function calc() {
 }
 $('obj').addEventListener('input', calc); $('subj').addEventListener('input', calc);
 
-$('step1').addEventListener('submit', async e => {
+$('step1').addEventListener('submit', e => {
   e.preventDefault(); showErr('err1', '');
-  const code = $('code').value.trim(), name = $('name').value.trim();
-  if (!code || !name) return showErr('err1', '학생 코드와 이름을 모두 입력해 주세요.');
-  $('go1').disabled = true;
-  const { data, error } = await sb.rpc('rpc_public_exam_lookup', { p_code: code, p_name: name });
-  $('go1').disabled = false;
-  if (error) return showErr('err1', friendly(error));
-  who = { code, name };
-  openStep2(data);
+  const ref = $('sel-name').value;
+  if (!$('sel-grade').value) return showErr('err1', '학년을 선택해 주세요.');
+  if (!ref) return showErr('err1', '내 이름을 선택해 주세요.');
+  openStep2(people.find(p => p.ref === ref));
 });
 
 $('form').addEventListener('submit', async e => {
   e.preventDefault(); showErr('err2', '');
   const etype = $('etype').value, o = parseFloat($('obj').value), s = parseFloat($('subj').value);
-  if (!$('grade').value.trim()) return showErr('err2', '학년을 입력해 주세요.');
-  if (!$('school').value.trim()) return showErr('err2', '학교를 입력해 주세요.');
+  if (!who.has_school && !$('school').value.trim()) return showErr('err2', '학교를 입력해 주세요.');
   if (!etype) return showErr('err2', '시험 종류를 선택해 주세요.');
   if (isNaN(o) || isNaN(s)) return showErr('err2', '객관식·주관식 점수를 모두 입력해 주세요. (없으면 0)');
   if (o < 0 || s < 0 || o > 100 || s > 100) return showErr('err2', '점수는 0~100 사이로 입력해 주세요.');
   if (o + s > 100) return showErr('err2', '객관식과 주관식의 합이 100점을 넘을 수 없어요.');
-  if (!confirm(`${etype}  객관식 ${fmt(o)} + 주관식 ${fmt(s)} = ${fmt(o + s)}점\n이대로 저장할까요? (저장 후에는 선생님만 고칠 수 있어요)`)) return;
+  if (!confirm(`${who.grade} ${who.student_name}\n${etype}  객관식 ${fmt(o)} + 주관식 ${fmt(s)} = ${fmt(o + s)}점\n이대로 저장할까요? (저장 후에는 선생님만 고칠 수 있어요)`)) return;
   $('go2').disabled = true;
   const { data, error } = await sb.rpc('rpc_public_submit_exam_score', {
-    p_code: who.code, p_name: who.name, p_exam_type: etype, p_objective: o, p_subjective: s,
-    p_grade: $('grade').value.trim(), p_school: $('school').value.trim() });
+    p_ref: who.ref, p_exam_type: etype, p_objective: o, p_subjective: s, p_school: $('school').value.trim() });
   $('go2').disabled = false;
   if (error) return showErr('err2', friendly(error));
   $('step2').hidden = true; $('step3').hidden = false;
-  $('done-msg').textContent = `${data.exam_year}학년도 ${data.exam_type} · 총점 ${fmt(data.total_score)}점`;
+  $('done-msg').textContent = `${data.student_name} · ${data.exam_year}학년도 ${data.exam_type} · 총점 ${fmt(data.total_score)}점`;
 });
 
-async function reopen() {
-  const { data, error } = await sb.rpc('rpc_public_exam_lookup', { p_code: who.code, p_name: who.name });
-  if (error) { location.reload(); return; }
-  openStep2(data);
-}
-$('again').onclick = reopen;
-$('back').onclick = () => { who = null; $('form').reset(); $('step2').hidden = true; $('step1').hidden = false; $('name').value = ''; $('code').value = ''; };
+$('again').onclick = () => openStep2(who);
+$('back').onclick = () => { who = null; $('step2').hidden = true; $('step3').hidden = true; $('step1').hidden = false; $('sel-name').value = ''; };
+loadPeople();
 </script>
 </body>
 </html>
