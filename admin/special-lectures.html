@@ -77,6 +77,10 @@
   .mini { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:800; cursor:pointer; color:var(--ink); font-family:inherit; }
   .mini.ok { background:#DCFCE7; border-color:#86EFAC; color:#15803D; }
   .mini.warn { background:#FEE2E2; border-color:#FCA5A5; color:#B91C1C; }
+  .pay { margin-top:6px; padding:7px 10px; border-radius:9px; font-size:12.5px; line-height:1.55; background:#F9FAFB; border:1px dashed var(--gray-200); }
+  .pay.paid { background:#F0FDF4; border:1px solid #BBF7D0; color:#166534; }
+  .pay b { font-weight:900; }
+  .badge.paid { background:#DCFCE7; color:#15803D; } .badge.unpaid { background:#FEE2E2; color:#B91C1C; }
   .badge.mem { background:#DBEAFE; color:#1D4ED8; } .badge.ext { background:#FEF3C7; color:#92400E; } .badge.wait { background:#EDE9FE; color:#6D28D9; }
   .typesel { display:flex; gap:8px; margin-bottom:12px; }
   .typesel label { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:800; padding:7px 12px; border:1px solid var(--gray-200); border-radius:999px; cursor:pointer; }
@@ -175,6 +179,28 @@
       <div class="field"><label for="a-note">메모</label><input type="text" id="a-note" maxlength="200"></div>
       <div class="err" id="add-err"></div>
       <div class="actions"><button type="button" class="btn primary" id="add-save">저장</button><button type="button" class="btn" id="add-cancel">취소</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 결제 기록 -->
+<div class="overlay" id="pay-overlay" style="z-index:60">
+  <div class="box">
+    <div class="head"><span id="pay-title">결제 기록</span><button type="button" id="pay-close">&times;</button></div>
+    <div class="body">
+      <div class="hint" id="pay-info" style="margin:0 0 10px"></div>
+      <div class="row2">
+        <div class="field"><label for="p-date">결제일</label><input type="date" id="p-date"></div>
+        <div class="field"><label for="p-method">결제 방법</label>
+          <select id="p-method"><option value="">선택</option><option value="card">카드</option><option value="cash">현금</option></select></div>
+      </div>
+      <div class="field"><label for="p-override">실제 수강료 직접 입력 <small style="font-weight:500">(예외 할인일 때만 · 비우면 자동)</small></label>
+        <input type="number" id="p-override" min="0" step="1000" inputmode="numeric" placeholder="예) 200000"></div>
+      <div class="field"><label for="p-note">메모</label><input type="text" id="p-note" maxlength="100" placeholder="예) 셋째 할인"></div>
+      <div class="pay" id="p-preview"></div>
+      <div class="err" id="pay-err"></div>
+      <div class="actions"><button type="button" class="btn primary" id="pay-save">저장</button><button type="button" class="btn" id="pay-cancel">닫기</button>
+        <button type="button" class="btn" id="pay-clear" style="margin-left:auto;color:#B91C1C">납부 기록 지우기</button></div>
     </div>
   </div>
 </div>
@@ -394,6 +420,7 @@
   const APP_LABELS = {
     applicant_type: '구분', student_code: '학생 코드', student_name: '이름', grade: '학년', school: '학교',
     student_phone: '학생 연락처', parent_phone: '학부모 연락처', note: '메모', status: '상태', cancel_reason: '취소 사유',
+    paid_at: '결제일', pay_method: '결제 방법', paid_amount: '납부 금액', fee_override: '실제 수강료(직접)', fee_note: '수강료 메모',
   };
   const STATUS_LABEL = { pending: '확인 대기', confirmed: '확정', waitlist: '대기', cancelled: '취소' };
   let curLabels = LABELS;
@@ -404,7 +431,8 @@
     if (k === 'student_phone' || k === 'parent_phone') return esc(fmtPhone(v));
     if (Array.isArray(v)) return esc(v.join(', '));
     if (typeof v === 'boolean') return v ? '예' : '아니오';
-    if (k === 'fee' || k === 'early_bird_fee') return Number(v).toLocaleString('ko-KR') + '원';
+    if (k === 'pay_method') return v === 'card' ? '카드' : v === 'cash' ? '현금' : esc(v);
+    if (k === 'fee' || k === 'early_bird_fee' || k === 'paid_amount' || k === 'fee_override') return Number(v).toLocaleString('ko-KR') + '원';
     return esc(v);
   }
   function hSummary(h) {
@@ -468,6 +496,31 @@
     appRows = data || [];
     renderApps();
   }
+  const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
+  // 결제일(없으면 오늘 기준)로 계산한 수강료: 직접 입력한 금액 > 얼리버드(결제일이 마감일 이내) > 정가
+  function priceFor(l, dateStr, override) {
+    if (override != null && override !== '') return { amount: Number(override), kind: '직접 지정' };
+    if (!l || l.fee == null) return { amount: null, kind: '' };
+    if (l.early_bird_fee != null && l.early_bird_deadline && dateStr && dateStr <= l.early_bird_deadline) return { amount: l.early_bird_fee, kind: '얼리버드' };
+    return { amount: l.fee, kind: '정가' };
+  }
+  function payHtml(a) {
+    if (a.status !== 'confirmed') return '';
+    const l = lectures.find((x) => String(x.id) === String(appLectureId));
+    if (a.paid_at) {
+      const eb = !a.fee_override && l && l.early_bird_fee != null && a.paid_amount === l.early_bird_fee ? ' (얼리버드)' : a.fee_override != null ? ' (직접 지정)' : '';
+      return `<div class="pay paid">💰 <b>납부 완료</b> ${esc(a.paid_at.slice(5).replace('-', '/'))} · ${a.pay_method === 'card' ? '카드' : '현금'} · <b>${won(a.paid_amount)}</b>${eb}${a.fee_note ? `<br>메모: ${esc(a.fee_note)}` : ''}</div>`;
+    }
+    const due = priceFor(l, seoulToday(), a.fee_override);
+    let t = '미납';
+    if (due.amount != null) {
+      t += ` · 오늘 납부하면 <b>${won(due.amount)}</b>${due.kind === '얼리버드' ? ' (얼리버드)' : due.kind === '직접 지정' ? ' (직접 지정)' : ''}`;
+      if (a.fee_override == null && l && l.early_bird_fee != null && l.early_bird_deadline) {
+        t += due.kind === '얼리버드' ? ` · ${esc(l.early_bird_deadline.slice(5).replace('-', '/'))}까지 이 금액` : ` · 얼리버드 마감(${esc(l.early_bird_deadline.slice(5).replace('-', '/'))})이 지났어요`;
+      }
+    } else t += ' · 수강료가 등록되지 않았어요';
+    return `<div class="pay">🕓 ${t}${a.fee_note ? `<br>메모: ${esc(a.fee_note)}` : ''}</div>`;
+  }
   function appRowHtml(a, order) {
     const mem = a.applicant_type === 'member';
     const btns = [];
@@ -485,7 +538,9 @@
       </div>
       <div class="l2">${esc(phones)}${a.note ? `<br>메모: ${esc(a.note)}` : ''}${a.cancel_reason ? `<br>취소 사유: ${esc(a.cancel_reason)}` : ''}
         <br><span class="t">신청 ${esc(fmtWhen(a.created_at))}</span></div>
+      ${payHtml(a)}
       <div class="acts">
+        ${a.status === 'confirmed' ? `<button type="button" class="mini ok" data-aact="pay" data-id="${esc(a.id)}">${a.paid_at ? '결제 수정' : '결제 입력'}</button>` : ''}
         ${btns.map(([st, lb, cls]) => `<button type="button" class="mini ${cls}" data-aact="status" data-st="${st}" data-id="${esc(a.id)}">${lb}</button>`).join('')}
         <button type="button" class="mini" data-aact="edit" data-id="${esc(a.id)}">정보 수정</button>
         <button type="button" class="mini" data-aact="hist" data-id="${esc(a.id)}">이력</button>
@@ -496,12 +551,14 @@
     const by = (st) => appRows.filter((a) => a.status === st);
     const pending = by('pending'), confirmed = by('confirmed'), waitlist = by('waitlist'), cancelled = by('cancelled');
     const cap = l ? l.capacity : 0;
+    const paidList = confirmed.filter((a) => a.paid_at), paidSum = paidList.reduce((t, a) => t + (a.paid_amount || 0), 0);
     const sec = (title, n, rows, withOrder) => rows.length
       ? `<div class="asec">${title} <small>${n}</small></div>` + rows.map((a, i) => appRowHtml(a, withOrder ? i + 1 : 0)).join('') : '';
     $('app-body').innerHTML = `
       <div class="asum">
         <span class="badge ${confirmed.length >= cap ? 'closed' : 'open'}">확정 <b>${confirmed.length}</b> / ${esc(cap)}명</span>
         <span class="badge wait">대기 <b>${waitlist.length}</b> / 3</span>
+        ${confirmed.length ? `<span class="badge ${paidList.length === confirmed.length ? 'paid' : 'unpaid'}">납부 <b>${paidList.length}</b> / ${confirmed.length}명 · ${won(paidSum)}</span>` : ''}
         <button type="button" class="btn primary" id="app-add" style="margin-left:auto"><i class="fa-solid fa-plus"></i> 신청 추가</button>
       </div>
       <div class="hint">확정은 정원 안에서만 돼요. 취소해도 대기자는 자동으로 올라가지 않아요 — 연락하신 뒤 "확정(승격)"을 눌러 주세요.</div>
@@ -518,6 +575,7 @@
     const a = appRows.find((x) => x.id === btn.dataset.id); if (!a) return;
     if (btn.dataset.aact === 'hist') { openHistory(a.id, a.student_name + ' 신청', 'special_lecture_applications'); return; }
     if (btn.dataset.aact === 'edit') { openAdd(a); return; }
+    if (btn.dataset.aact === 'pay') { openPay(a); return; }
     const st = btn.dataset.st;
     let reason = null;
     if (st === 'cancelled') {
@@ -597,6 +655,50 @@
     if (res.error) { err.textContent = noSql58(res.error); return; }
     closeAdd(); await reloadApps(); load();
   });
+
+  // 결제 입력 / 수정
+  let payTarget = null;
+  function payPreview() {
+    const l = lectures.find((x) => String(x.id) === String(appLectureId));
+    const d = $('p-date').value, ov = $('p-override').value.trim();
+    const r = priceFor(l, d, ov === '' ? null : ov);
+    $('p-preview').innerHTML = r.amount == null ? '수강료가 등록되지 않았어요. 실제 수강료를 직접 입력해 주세요.'
+      : `받을 금액 <b>${won(r.amount)}</b> <small>(${r.kind}${r.kind === '얼리버드' ? ' — 결제일이 마감일 이내' : r.kind === '정가' && l && l.early_bird_fee != null ? ' — 얼리버드 마감 후' : ''})</small>`;
+  }
+  function openPay(a) {
+    payTarget = a;
+    $('pay-title').textContent = `${a.student_name} 결제`;
+    const l = lectures.find((x) => String(x.id) === String(appLectureId));
+    $('pay-info').innerHTML = l ? `정가 ${l.fee != null ? won(l.fee) : '(미등록)'}${l.early_bird_fee != null ? ` · 얼리버드 ${won(l.early_bird_fee)} (${esc(l.early_bird_deadline)}까지 납부)` : ''}` : '';
+    $('p-date').value = a.paid_at || seoulToday();
+    $('p-method').value = a.pay_method || '';
+    $('p-override').value = a.fee_override != null ? a.fee_override : '';
+    $('p-note').value = a.fee_note || '';
+    $('pay-clear').style.display = a.paid_at ? '' : 'none';
+    $('pay-err').textContent = '';
+    payPreview();
+    $('pay-overlay').style.display = 'flex';
+  }
+  ['p-date', 'p-override'].forEach((id) => $(id).addEventListener('input', payPreview));
+  async function savePay(clear) {
+    const err = $('pay-err'); err.textContent = '';
+    const date = clear ? null : $('p-date').value, method = clear ? null : $('p-method').value;
+    if (!clear && !date) { err.textContent = '결제일을 입력해 주세요.'; return; }
+    if (!clear && !method) { err.textContent = '결제 방법(카드/현금)을 선택해 주세요.'; return; }
+    if (clear && !confirm(`${payTarget.student_name}의 납부 기록을 지울까요? (환불을 한 경우에 사용해요)`)) return;
+    const ov = $('p-override').value.trim();
+    $('pay-save').disabled = $('pay-clear').disabled = true;
+    const { error } = await sb.rpc('rpc_admin_set_application_payment', {
+      p_password: getAdminPassword(), p_id: payTarget.id, p_paid_at: date, p_pay_method: method,
+      p_fee_override: ov === '' ? null : parseInt(ov, 10), p_fee_note: $('p-note').value });
+    $('pay-save').disabled = $('pay-clear').disabled = false;
+    if (error) { err.textContent = isMissingFn(error) ? '결제 기능 SQL(65)이 아직 실행되지 않았어요.' : error.message; return; }
+    $('pay-overlay').style.display = 'none'; await reloadApps();
+  }
+  $('pay-save').addEventListener('click', () => savePay(false));
+  $('pay-clear').addEventListener('click', () => savePay(true));
+  $('pay-close').addEventListener('click', () => { $('pay-overlay').style.display = 'none'; });
+  $('pay-cancel').addEventListener('click', () => { $('pay-overlay').style.display = 'none'; });
 
   $('show-archived').addEventListener('change', load);
   load();

@@ -383,3 +383,12 @@ order by table_name;
 - `special_lectures.early_bird_fee`(할인 수강료) / `early_bird_deadline`(얼리버드 **납부** 마감일) — 둘 다 입력하거나 둘 다 비움, 할인가는 정상 수강료보다 작아야 함(`rpc_admin_save_special_lecture`에 `p_early_bird_fee`, `p_early_bird_deadline` 추가, 기본값 null).
 - 기준은 신청일이 아니라 **납부일**: 마감일까지 납부하면 할인가. 학부모 대시보드·외부생 신청 페이지는 마감일 전까지 "정가(취소선) + 얼리버드가 (N/N까지 납부 시)"로 표시, 지난 뒤에는 정가만. 실제 적용 판단은 3단계(결제 기록)에서 결제일과 비교 예정.
 - 63은 59·62의 목록 함수(`rpc_public_list_special_lectures`, `rpc_get_special_lectures`)를 얼리버드 컬럼이 포함된 버전으로 다시 만들므로 **59·62 이후에 실행**.
+
+## 학생 학년 동기화 (64 마이그레이션)
+- `rpc_admin_update_student_detail`이 학생 정보의 학년을 저장할 때 `student_classrooms.grade`가 있으면 함께 갱신(학부모 대시보드·시험 성적은 강의실 배정 학년을 우선 사용하므로). 어긋나 있던 행(테스트2)은 일회성 update로 보정.
+
+## 방학특강 결제 기록 (65 마이그레이션, 3단계)
+- `special_lecture_applications`에 `paid_at`(결제일), `pay_method`(card/cash), `paid_amount`(낸 금액 — 저장 시점 확정값), `fee_override`(실제 수강료 직접 지정, 예: 셋째 할인), `fee_note` 추가. check: 결제일·방법·금액은 함께 있거나 함께 없음, 방법은 card/cash, override ≥ 0.
+- `rpc_admin_set_application_payment(p_password, p_id, p_paid_at, p_pay_method, p_fee_override, p_fee_note)` — **확정(confirmed) 신청만**, 완납 1건. 금액 = override 우선 → 결제일 ≤ `early_bird_deadline`이면 `early_bird_fee` → 아니면 `fee`. 결제일 미래 불가. `p_paid_at` null이면 납부 기록 삭제(override·메모는 유지, 환불용). 변경 이력은 기존 트리거가 기록.
+- `rpc_admin_set_application_status`: 납부 기록이 있는 신청은 취소 불가(결제 기록을 먼저 지움).
+- `admin/special-lectures.html` 신청 현황: 확정 카드에 납부/미납 줄 + "결제 입력/수정" 모달(예상 금액 미리보기), 상단에 납부 N/확정 M · 합계. 학부모 화면 납부 표시는 아직 없음(원장님 결정).
