@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시험 성적 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  .sub { font-size:12.5px; color:var(--muted); margin:0 0 16px; line-height:1.55; }
+  button { font-family:inherit; }
+  .bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .bar select, .bar input { font:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--gray-200); border-radius:9px; background:#fff; }
+  .btn { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:9px; padding:8px 13px; font-size:12.5px; font-weight:800; cursor:pointer; color:var(--ink); }
+  .btn.primary { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .loading { color:var(--muted); font-size:13px; padding:24px 6px; text-align:center; }
+  .tbl-wrap { background:#fff; border:1px solid var(--gray-200); border-radius:14px; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; min-width:640px; }
+  th, td { padding:10px 10px; border-bottom:1px solid var(--gray-200); text-align:center; white-space:nowrap; }
+  th { background:var(--gray-50); color:var(--muted); font-size:12px; font-weight:800; }
+  tr:last-child td { border-bottom:none; }
+  td.l, th.l { text-align:left; }
+  td .nm { font-weight:900; }
+  td .tot { font-weight:900; }
+  .tag { font-size:11px; font-weight:800; padding:2px 7px; border-radius:999px; background:#F3F4F6; color:var(--muted); }
+  .tag.st { background:#DBEAFE; color:#1D4ED8; }
+  .mini { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:4px 9px; font-size:12px; font-weight:800; cursor:pointer; color:var(--ink); }
+  .mini.warn { background:#FEE2E2; border-color:#FCA5A5; color:#B91C1C; }
+  .linkbox { background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:11px 14px; font-size:12.5px; color:#374151; margin-bottom:14px; line-height:1.6; }
+  .linkbox code { background:var(--gray-50); padding:2px 6px; border-radius:6px; font-size:12px; }
+  .overlay { position:fixed; inset:0; background:rgba(11,18,32,0.45); display:none; align-items:flex-start; justify-content:center; z-index:50; padding:16px; overflow:auto; }
+  .box { background:#fff; border-radius:16px; width:100%; max-width:500px; margin:auto; }
+  .box .head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--gray-200); font-weight:800; font-size:15px; }
+  .box .head button { border:none; background:none; font-size:20px; cursor:pointer; color:var(--muted); }
+  .box .body { padding:14px 18px 18px; }
+  .field { margin-bottom:12px; }
+  .field > label { display:block; font-size:12px; font-weight:800; color:var(--muted); margin-bottom:5px; }
+  .field input, .field select { width:100%; font-size:14px; padding:9px 11px; border-radius:9px; border:1px solid var(--gray-200); font-family:inherit; background:#fff; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .err { color:#B91C1C; font-size:12.5px; font-weight:700; margin:8px 0 0; min-height:16px; }
+  .actions { display:flex; gap:6px; margin-top:12px; }
+  .total { padding:10px 12px; background:var(--gray-50); border-radius:9px; font-size:13.5px; font-weight:800; display:flex; justify-content:space-between; margin-bottom:6px; }
+  .hist-item { padding:12px 0; border-bottom:1px solid var(--gray-200); font-size:13px; line-height:1.6; }
+  .hist-item:last-child { border-bottom:none; }
+  .hist-item .t { color:var(--muted); font-size:11.5px; }
+  .hist-item .act { display:inline-block; font-weight:800; font-size:11.5px; padding:2px 8px; border-radius:999px; background:#F3F4F6; color:var(--muted); }
+  .hist-item .act.in { background:#DCFCE7; color:#15803D; } .hist-item .act.mod { background:#FEF3C7; color:#92400E; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">시험 성적</span>
+</header>
+<main>
+  <h1>시험 성적</h1>
+  <p class="sub">학생이 직접 입력한 성적과 원장님이 입력한 성적을 한곳에서 봐요. 학생은 같은 시험을 한 번만 입력할 수 있고, 수정·삭제는 여기서만 해요. 모든 변경은 이력으로 남아요.</p>
+  <div class="linkbox"><i class="fa-solid fa-link"></i> 학생 입력 주소: <code>bdkimssam.com/score-entry.html</code> (학생 코드 + 이름으로 확인)</div>
+  <div class="bar">
+    <select id="f-year"></select>
+    <select id="f-type"><option value="">전체 시험</option></select>
+    <input type="text" id="f-q" placeholder="이름·학교 검색">
+    <button type="button" class="btn primary" id="new-btn"><i class="fa-solid fa-plus"></i> 성적 입력</button>
+  </div>
+  <div id="list"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<div class="overlay" id="form-overlay">
+  <div class="box">
+    <div class="head"><span id="form-title">성적 입력</span><button type="button" id="form-close">&times;</button></div>
+    <div class="body">
+      <div class="field" id="stu-wrap">
+        <label for="s-search">학생 찾기</label>
+        <input type="text" id="s-search" placeholder="이름을 입력하면 목록이 줄어들어요">
+        <select id="s-select" size="6" style="height:auto;margin-top:6px"></select>
+      </div>
+      <div class="field" id="stu-fixed" style="display:none"><label>학생</label><div id="stu-fixed-name" style="font-weight:900"></div></div>
+      <div class="row2">
+        <div class="field"><label for="e-year">학년도</label><input type="number" id="e-year" min="2020" max="2100"></div>
+        <div class="field"><label for="e-type">시험 종류</label><select id="e-type"></select></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="e-obj">객관식 점수</label><input type="number" id="e-obj" min="0" max="100" step="0.1" inputmode="decimal"></div>
+        <div class="field"><label for="e-subj">주관식 점수 (없으면 0)</label><input type="number" id="e-subj" min="0" max="100" step="0.1" inputmode="decimal"></div>
+      </div>
+      <div class="total"><span>총점</span><span id="e-total">-</span></div>
+      <div class="row2">
+        <div class="field"><label for="e-grade">학년 (비우면 학생 정보 그대로)</label><input type="text" id="e-grade" maxlength="10"></div>
+        <div class="field"><label for="e-school">학교 (비우면 학생 정보 그대로)</label><input type="text" id="e-school" maxlength="40"></div>
+      </div>
+      <div class="err" id="e-err"></div>
+      <div class="actions"><button type="button" class="btn primary" id="e-save">저장</button><button type="button" class="btn" id="e-cancel">취소</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="hist-overlay">
+  <div class="box">
+    <div class="head"><span id="hist-title">변경 이력</span><button type="button" id="hist-close">&times;</button></div>
+    <div class="body" id="hist-body"></div>
+  </div>
+</div>
+
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  requireDirector();
+  const TYPES = ['1학기중간','1학기기말','2학기중간','2학기기말','3월모의고사','6월모의고사','9월모의고사','10월모의고사'];
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const fmt = (n) => { const v = Number(n); return Number.isInteger(v) ? String(v) : v.toFixed(1); };
+  const isMissingFn = (e) => e && (e.code === 'PGRST202' || /Could not find the function/i.test(e.message || ''));
+  function curYear() {
+    const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()).split('-').map(Number);
+    return p[1] >= 3 ? p[0] : p[0] - 1;
+  }
+  let rows = [], editing = null, students = null;
+
+  // 필터 채우기
+  (function () {
+    const y = curYear(); let h = '<option value="">전체 학년도</option>';
+    for (let i = y + 1; i >= y - 4; i--) h += `<option value="${i}"${i === y ? ' selected' : ''}>${i}학년도</option>`;
+    $('f-year').innerHTML = h;
+    $('f-type').innerHTML = '<option value="">전체 시험</option>' + TYPES.map(t => `<option>${t}</option>`).join('');
+    $('e-type').innerHTML = '<option value="">선택</option>' + TYPES.map(t => `<option>${t}</option>`).join('');
+  })();
+
+  async function load() {
+    $('list').innerHTML = '<div class="loading">불러오는 중...</div>';
+    const { data, error } = await sb.rpc('rpc_admin_list_exam_scores', {
+      p_password: getAdminPassword(), p_exam_year: $('f-year').value ? +$('f-year').value : null, p_exam_type: $('f-type').value || null });
+    if (error) { $('list').innerHTML = `<div class="loading">${isMissingFn(error) ? '성적 SQL(60)이 아직 실행되지 않았어요.' : esc('불러오지 못했어요: ' + error.message)}</div>`; return; }
+    rows = data || []; render();
+  }
+  function render() {
+    const q = $('f-q').value.trim();
+    const list = rows.filter(r => !q || (r.student_name || '').includes(q) || (r.school || '').includes(q));
+    if (!list.length) { $('list').innerHTML = '<div class="loading">입력된 성적이 없어요.</div>'; return; }
+    $('list').innerHTML = `<div class="tbl-wrap"><table>
+      <thead><tr><th class="l">이름</th><th>학년</th><th>학교</th><th>시험</th><th>객관식</th><th>주관식</th><th>총점</th><th>입력</th><th></th></tr></thead>
+      <tbody>${list.map(r => `<tr>
+        <td class="l"><span class="nm">${esc(r.student_name)}</span></td><td>${esc(r.grade || '')}</td><td>${esc(r.school || '')}</td>
+        <td>${esc(r.exam_year)} ${esc(r.exam_type)}</td><td>${fmt(r.objective_score)}</td><td>${fmt(r.subjective_score)}</td>
+        <td class="tot">${fmt(r.total_score)}</td><td><span class="tag ${r.entered_by === 'student' ? 'st' : ''}">${r.entered_by === 'student' ? '학생' : '원장님'}</span></td>
+        <td><button class="mini" data-act="edit" data-id="${esc(r.id)}">수정</button>
+            <button class="mini" data-act="hist" data-id="${esc(r.id)}">이력</button>
+            <button class="mini warn" data-act="del" data-id="${esc(r.id)}">삭제</button></td></tr>`).join('')}</tbody></table></div>`;
+    $('list').querySelectorAll('button[data-act]').forEach(b => b.onclick = () => act(b.dataset.act, b.dataset.id));
+  }
+  ['f-year','f-type'].forEach(id => $(id).addEventListener('change', load));
+  $('f-q').addEventListener('input', render);
+
+  async function act(a, id) {
+    const r = rows.find(x => x.id === id); if (!r) return;
+    if (a === 'edit') openForm(r);
+    else if (a === 'hist') openHistory(r);
+    else if (a === 'del') {
+      if (!confirm(`${r.student_name} · ${r.exam_year} ${r.exam_type} 성적을 삭제할까요?\n(삭제한 내용도 이력에는 남아요)`)) return;
+      const { error } = await sb.rpc('rpc_admin_delete_exam_score', { p_password: getAdminPassword(), p_id: id });
+      if (error) { alert(error.message); return; }
+      load();
+    }
+  }
+
+  // 입력/수정
+  function calc() {
+    const o = parseFloat($('e-obj').value), s = parseFloat($('e-subj').value);
+    $('e-total').textContent = (isNaN(o) && isNaN(s)) ? '-' : fmt((isNaN(o) ? 0 : o) + (isNaN(s) ? 0 : s)) + '점';
+  }
+  $('e-obj').addEventListener('input', calc); $('e-subj').addEventListener('input', calc);
+
+  function fillStudents() {
+    const q = $('s-search').value.trim();
+    const list = (students || []).filter(s => !q || (s.student_name || '').includes(q));
+    $('s-select').innerHTML = list.map(s => `<option value="${esc(s.student_code)}">${esc(s.student_name)} (${esc(s.grade || '')}${s.classroom ? ' · ' + esc(s.classroom) : ''})</option>`).join('');
+  }
+  $('s-search').addEventListener('input', fillStudents);
+
+  async function openForm(r) {
+    editing = r || null; $('e-err').textContent = '';
+    $('form-title').textContent = r ? '성적 수정' : '성적 입력';
+    $('stu-wrap').style.display = r ? 'none' : ''; $('stu-fixed').style.display = r ? '' : 'none';
+    if (r) $('stu-fixed-name').textContent = `${r.student_name} (${r.student_code})`;
+    $('e-year').value = r ? r.exam_year : curYear();
+    $('e-type').value = r ? r.exam_type : '';
+    $('e-obj').value = r ? r.objective_score : ''; $('e-subj').value = r ? r.subjective_score : '';
+    $('e-grade').value = r ? (r.grade || '') : ''; $('e-school').value = r ? (r.school || '') : '';
+    calc(); $('form-overlay').style.display = 'flex';
+    if (!r && !students) {
+      $('s-select').innerHTML = '<option>불러오는 중...</option>';
+      const res = await fetchActiveStudents();
+      if (res.error) { $('e-err').textContent = '학생 목록을 불러오지 못했어요: ' + res.error.message; return; }
+      students = (res.data || []).slice().sort((a, b) => (a.student_name || '').localeCompare(b.student_name || '', 'ko'));
+    }
+    if (!r) { $('s-search').value = ''; fillStudents(); }
+  }
+  $('new-btn').onclick = () => openForm(null);
+  const closeForm = () => { $('form-overlay').style.display = 'none'; };
+  $('form-close').onclick = closeForm; $('e-cancel').onclick = closeForm;
+
+  $('e-save').onclick = async () => {
+    $('e-err').textContent = '';
+    const code = editing ? editing.student_code : $('s-select').value;
+    if (!code) { $('e-err').textContent = '학생을 선택해 주세요.'; return; }
+    if (!$('e-type').value) { $('e-err').textContent = '시험 종류를 선택해 주세요.'; return; }
+    const o = parseFloat($('e-obj').value), s = parseFloat($('e-subj').value);
+    if (isNaN(o) || isNaN(s)) { $('e-err').textContent = '객관식·주관식 점수를 모두 입력해 주세요. (없으면 0)'; return; }
+    $('e-save').disabled = true;
+    const { error } = await sb.rpc('rpc_admin_save_exam_score', {
+      p_password: getAdminPassword(), p_id: editing ? editing.id : null, p_student_code: code,
+      p_exam_year: parseInt($('e-year').value, 10), p_exam_type: $('e-type').value, p_objective: o, p_subjective: s,
+      p_grade: $('e-grade').value.trim(), p_school: $('e-school').value.trim() });
+    $('e-save').disabled = false;
+    if (error) { $('e-err').textContent = isMissingFn(error) ? '성적 SQL(60)이 아직 실행되지 않았어요.' : error.message; return; }
+    closeForm(); load();
+  };
+
+  // 이력
+  async function openHistory(r) {
+    $('hist-title').textContent = `${r.student_name} ${r.exam_year} ${r.exam_type} 이력`;
+    $('hist-body').innerHTML = '<div class="loading">불러오는 중...</div>'; $('hist-overlay').style.display = 'flex';
+    const { data, error } = await sb.rpc('rpc_admin_list_change_history', { p_password: getAdminPassword(), p_table: 'school_exam_scores', p_record_id: r.id, p_limit: 100 });
+    if (error) { $('hist-body').innerHTML = `<div class="loading">${esc(error.message)}</div>`; return; }
+    if (!data || !data.length) { $('hist-body').innerHTML = '<div class="loading">기록된 이력이 없어요.</div>'; return; }
+    const sum = (d) => d ? `객관식 ${fmt(d.objective_score)} · 주관식 ${fmt(d.subjective_score)} · 총점 ${fmt(d.total_score)}` : '';
+    $('hist-body').innerHTML = data.map(h => {
+      const when = new Date(h.changed_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const body = h.action === '수정' ? `${sum(h.old_data)} → ${sum(h.new_data)}` : sum(h.new_data || h.old_data);
+      return `<div class="hist-item"><div class="t">${esc(when)}</div><span class="act ${h.action === '입력' ? 'in' : h.action === '수정' ? 'mod' : ''}">${esc(h.action)}</span> ${esc(body)}</div>`;
+    }).join('');
+  }
+  $('hist-close').onclick = () => { $('hist-overlay').style.display = 'none'; };
+  $('form-overlay').addEventListener('click', (e) => { if (e.target.id === 'form-overlay') closeForm(); });
+  $('hist-overlay').addEventListener('click', (e) => { if (e.target.id === 'hist-overlay') $('hist-overlay').style.display = 'none'; });
+
+  load();
+</script>
+</body>
+</html>

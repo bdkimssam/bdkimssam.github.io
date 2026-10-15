@@ -363,3 +363,8 @@ order by table_name;
 - 공개 RPC(비밀번호 없음, anon 실행 가능): `rpc_public_list_special_lectures()`(보관 안 한·안 끝난 특강, 메모 제외, `state`=open/waitlist/full/closed/soon), `rpc_public_challenge()`(두 수의 합 + 만료(30분) + HMAC 서명), `rpc_public_apply_outsider(...)`, `rpc_public_lookup_applications(이름, 학부모 연락처)`(외부생 신청만).
 - 봇 방지: 보이지 않는 함정 칸(`p_website`, 값이 있으면 거절) + 서명된 계산 문제 + 최근 10분 외부생 신청 20건 초과 시 거절 + 특강당 확인 대기 40건 상한. 서명 비밀은 `sl_secret()`(브라우저 실행 권한 회수).
 - 신청 조건: 외부생 신청 시작일 이후·마감일 전·수동 마감 아님, 정원이 찼으면 대기(3명)까지만. 결과는 항상 `pending`(확인 대기, 정원 미포함). 중복(같은 특강·같은 이름·학부모 연락처)은 unique 인덱스로 거절. 신청 시 텔레그램 알림(실패해도 접수).
+
+## 학교 시험 성적 (60 마이그레이션) — 학생 입력 `score-entry.html` / 원장님 `admin/exam-scores.html`
+- `school_exam_scores` — id, student_code, student_name, grade, school, `exam_year`(학년도, 3월~다음해 2월), `exam_type`('1학기중간','1학기기말','2학기중간','2학기기말','3월모의고사','6월모의고사','9월모의고사','10월모의고사'), `objective_score`/`subjective_score`(0~100, 합 100 이하), `total_score`(생성 컬럼 = 합), `entered_by`('student'|'admin'), created_at/updated_at. `unique(student_code, exam_year, exam_type)`. RLS 켜짐/정책 없음. `log_row_change()` 트리거(`trg_log_school_exam_scores`)로 이력(table_name='school_exam_scores').
+- 학생 RPC(공개): `rpc_public_exam_lookup(p_code, p_name)` — 학생 코드(대소문자 무시)+이름이 일치할 때만 이름·학년·학교·학년도·기존 성적 반환. `rpc_public_submit_exam_score(...)` — 같은 학년도·시험 중복은 거절(수정은 원장님만). 학년·학교는 DB 값(student_classrooms 학년 우선, students 학교)을 쓰고, 비어 있을 때만 학생 입력값 사용.
+- 원장님 RPC: `rpc_admin_list_exam_scores(p_password, p_exam_year, p_exam_type)`, `rpc_admin_save_exam_score`(p_id 없으면 입력, 있으면 수정), `rpc_admin_delete_exam_score`. 화면은 원장님 전용.
