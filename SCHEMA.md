@@ -398,3 +398,6 @@ order by table_name;
 - 원장님: `rpc_admin_list_special_feedback(p_password, p_lecture_id)`, `rpc_admin_save_special_feedback(p_password, p_id, p_application_id, p_date, p_content)`(p_id 없으면 추가 — 확정 신청만), `rpc_admin_delete_special_feedback`. `admin/special-lectures.html` 신청 현황의 "피드백" 버튼.
 - 재원생: `rpc_get_special_feedback(p_student_code)` → 학부모 대시보드 방학특강 카드의 해당 특강 아래 "선생님 피드백".
 - 외부생(대시보드 없음): `rpc_public_lookup_feedback(이름, 학부모 연락처)` → `special-apply.html` "내 신청 조회"의 수강 확정된 특강 아래에 표시.
+
+### 외부생 조회: 보관된 특강 숨김 (67 마이그레이션)
+- `rpc_public_lookup_applications` 반환에 `archived` 추가(drop 후 재생성). `special-apply.html`은 보관된 특강 신청을 감추고, 보이는 신청이 없으면 "보관기간이 지났습니다" 안내. `rpc_public_lookup_feedback`은 보관된 특강 제외.

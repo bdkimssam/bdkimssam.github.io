@@ -258,6 +258,9 @@ $('lk').addEventListener('submit', async e => {
   $('lk-submit').disabled = false;
   if (error) return showErr('lk-err', friendly(error));
   if (!data || !data.length) return showErr('lk-err', '일치하는 신청 내역이 없어요. 이름과 연락처를 다시 확인해 주세요.');
+  // 보관된 특강은 숨김 — 보이는 신청이 하나도 없으면 안내만
+  const shown = data.filter(r => !r.archived);
+  if (!shown.length) return showErr('lk-err', '보관기간이 지났습니다. 지난 특강의 신청·수강 내역은 더 이상 조회할 수 없어요. 궁금하신 점은 학원으로 문의해 주세요.');
   // 선생님 피드백 (수강 확정된 특강만, 없거나 기능이 준비 전이면 조용히 생략)
   const fb = await sb.rpc('rpc_public_lookup_feedback', { p_student_name: name, p_parent_phone: phone });
   const fbRows = fb.error || !fb.data ? [] : fb.data;
@@ -266,7 +269,7 @@ $('lk').addEventListener('submit', async e => {
     return rows.length ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--gray-200)"><b style="font-size:12.5px">선생님 피드백</b>${rows.map(f =>
       `<div style="margin-top:6px; font-size:13px; line-height:1.6"><span style="color:var(--muted); font-size:11.5px">${esc(String(f.feedback_date).slice(5).replace('-', '/'))}</span><br><span style="white-space:pre-line">${esc(f.content)}</span></div>`).join('')}</div>` : '';
   };
-  $('lk-result').innerHTML = data.map(r => {
+  $('lk-result').innerHTML = shown.map(r => {
     const [label, desc] = STATUS[r.status] || [r.status, ''];
     return `<div class="card res ${esc(r.status)}">
       <div class="top"><span class="title">${esc(r.lecture_title)}</span><span class="badge">${esc(label)}</span></div>
