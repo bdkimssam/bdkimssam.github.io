@@ -407,3 +407,7 @@ order by table_name;
 - `admin_todos.repeat_anchor`(매주 반복의 처음 기한) 추가 — 이월로 기한이 밀려도 요일이 바뀌지 않게 `todo_next_due(p_type, p_day, p_due, p_today, p_anchor)`가 anchor 기준으로 계산(기존 weekly는 due_date로 백필). 시그니처 변경(구 4인자 버전 drop).
 - `rpc_admin_postpone_todo(p_password, p_id)` — **기한이 오늘이거나 지난** 미완료·비보관 할 일의 기한을 내일(오늘+1)로. 반복 주기는 그대로. 수동 버튼 방식(자동 이월 없음): 목록의 "내일로" 버튼. 변경 이력은 기존 트리거가 기록.
 - `rpc_admin_save_todo`/`rpc_admin_complete_todo`는 daily·anchor 처리로 재정의.
+
+### 학부모 대시보드 숙제인증 페이징 (69 마이그레이션)
+- `rpc_get_homework_verifications_page(p_student_code, p_offset, p_limit)` — 최신 제출순, `total_count` 포함, limit 1~30로 제한. 기존 `rpc_get_homework_verifications`(최근 10건)는 그대로 둠(새 함수가 없으면 대시보드가 예전 방식으로 대체).
+- `dashboard.html`: 처음 3건 → "이전 기록 더 보기 (남은 N건)" 누를 때마다 10건씩 이어서 불러옴(`HW_FIRST=3`, `HW_MORE=10`).

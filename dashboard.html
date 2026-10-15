@@ -1301,8 +1301,75 @@
     return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
+  // 처음엔 최근 3건, "이전 기록 더 보기"를 누를 때마다 10건씩 이어서 불러옴
+  const HW_FIRST = 3, HW_MORE = 10;
+  let hwItems = [], hwTotal = 0, hwLegacy = false;
+
+  function hwItemHtml(it) {
+    const status = it.review_status || 'pending';
+    const photos = (it.image_urls || [])
+      .map((url) => `<img src="${url}" alt="숙제 사진" data-full="${url}">`)
+      .join('');
+    return `
+      <div class="hw-item">
+        <div class="hw-item-head">
+          <div>
+            <div class="book">${it.textbook_name || ''} ${it.range_text || ''}</div>
+            <div class="date">${fmtDateTime(it.submitted_at)}</div>
+          </div>
+          <span class="hw-status-badge ${status}">${HW_STATUS_LABEL[status] || '대기중'}</span>
+        </div>
+        ${it.feedback ? `<div class="hw-feedback"><span class="lbl">원장님 피드백</span>${it.feedback}</div>` : ''}
+        ${photos ? `<div class="hw-photo-grid">${photos}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function renderHomework() {
+    const remain = hwTotal - hwItems.length;
+    const moreBtn = remain > 0
+      ? `<button type="button" id="hw-more" style="width:100%; margin-top:10px; padding:11px; border-radius:10px; border:1px solid var(--gray-200); background:#fff; color:var(--ink); font:inherit; font-size:13px; font-weight:800; cursor:pointer;">이전 기록 더 보기 <span style="color:var(--faint); font-weight:600;">(남은 ${remain}건)</span></button>`
+      : '';
+    setCardState('card-homework', hwItems.map(hwItemHtml).join('') + moreBtn);
+
+    document.querySelectorAll('#card-homework .hw-photo-grid img').forEach((img) => {
+      img.addEventListener('click', () => {
+        document.getElementById('hw-lightbox-img').src = img.dataset.full;
+        document.getElementById('hw-lightbox').classList.add('open');
+      });
+    });
+    const more = document.getElementById('hw-more');
+    if (more) more.addEventListener('click', async () => {
+      more.disabled = true; more.textContent = '불러오는 중...';
+      const next = await fetchHomeworkPage(hwItems.length, HW_MORE);
+      if (next === null) { more.disabled = false; more.textContent = '불러오지 못했어요. 다시 눌러 주세요'; return; }
+      hwItems = hwItems.concat(next.rows);
+      if (next.total != null) hwTotal = next.total;
+      if (!next.rows.length) hwTotal = hwItems.length;   // 더 이상 없음
+      renderHomework();
+    });
+  }
+
+  // 새 함수(SQL 69)가 없으면 예전 방식(최근 10건 한 번에)으로 대신 보여줌
+  async function fetchHomeworkPage(offset, limit) {
+    if (!hwLegacy) {
+      const { data, error } = await sb.rpc('rpc_get_homework_verifications_page', { p_student_code: studentCode, p_offset: offset, p_limit: limit });
+      if (!error) {
+        const rows = data || [];
+        return { rows, total: rows.length ? Number(rows[0].total_count) : null };
+      }
+      const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+      if (!missing) { console.error('[homework page]', error); return null; }
+      hwLegacy = true;
+    }
+    if (offset > 0) return { rows: [], total: hwItems.length };
+    const rows = await fetchStudentData('rpc_get_homework_verifications', studentCode);
+    return { rows, total: rows.length };
+  }
+
   async function loadHomeworkVerifications() {
-    const items = await fetchStudentData('rpc_get_homework_verifications', studentCode);
+    const first = await fetchHomeworkPage(0, HW_FIRST);
+    const items = first ? first.rows : [];
 
     if (items.length === 0) {
       // 지금 배정된 교재가 없으면(=숙제인증 대상이 아니면) 카드 자체를 숨김
@@ -1315,35 +1382,9 @@
       return;
     }
 
-    setCardState(
-      'card-homework',
-      items.map((it) => {
-        const status = it.review_status || 'pending';
-        const photos = (it.image_urls || [])
-          .map((url) => `<img src="${url}" alt="숙제 사진" data-full="${url}">`)
-          .join('');
-        return `
-          <div class="hw-item">
-            <div class="hw-item-head">
-              <div>
-                <div class="book">${it.textbook_name || ''} ${it.range_text || ''}</div>
-                <div class="date">${fmtDateTime(it.submitted_at)}</div>
-              </div>
-              <span class="hw-status-badge ${status}">${HW_STATUS_LABEL[status] || '대기중'}</span>
-            </div>
-            ${it.feedback ? `<div class="hw-feedback"><span class="lbl">원장님 피드백</span>${it.feedback}</div>` : ''}
-            ${photos ? `<div class="hw-photo-grid">${photos}</div>` : ''}
-          </div>
-        `;
-      }).join('')
-    );
-
-    document.querySelectorAll('#card-homework .hw-photo-grid img').forEach((img) => {
-      img.addEventListener('click', () => {
-        document.getElementById('hw-lightbox-img').src = img.dataset.full;
-        document.getElementById('hw-lightbox').classList.add('open');
-      });
-    });
+    hwItems = items;
+    hwTotal = first.total != null ? first.total : items.length;
+    renderHomework();
   }
 
   document.getElementById('hw-lightbox').addEventListener('click', () => {
