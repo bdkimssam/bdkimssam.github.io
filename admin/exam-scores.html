@@ -79,8 +79,8 @@
     <div class="head"><span id="form-title">성적 입력</span><button type="button" id="form-close">&times;</button></div>
     <div class="body">
       <div class="field" id="stu-wrap">
-        <label for="s-search">학생 찾기</label>
-        <input type="text" id="s-search" placeholder="이름을 입력하면 목록이 줄어들어요">
+        <label for="s-grade">학년 → 학생 선택</label>
+        <select id="s-grade"><option value="">학년 선택</option><option>중1</option><option>중2</option><option>중3</option><option>고1</option><option>고2</option><option>고3</option></select>
         <select id="s-select" size="6" style="height:auto;margin-top:6px"></select>
       </div>
       <div class="field" id="stu-fixed" style="display:none"><label>학생</label><div id="stu-fixed-name" style="font-weight:900"></div></div>
@@ -178,11 +178,14 @@
   $('e-obj').addEventListener('input', calc); $('e-subj').addEventListener('input', calc);
 
   function fillStudents() {
-    const q = $('s-search').value.trim();
-    const list = (students || []).filter(s => !q || (s.student_name || '').includes(q));
-    $('s-select').innerHTML = list.map(s => `<option value="${esc(s.student_code)}">${esc(s.student_name)} (${esc(s.grade || '')}${s.classroom ? ' · ' + esc(s.classroom) : ''})</option>`).join('');
+    const g = $('s-grade').value;
+    if (!g) { $('s-select').innerHTML = '<option value="">먼저 학년을 선택해 주세요</option>'; return; }
+    const list = (students || []).filter(s => s.grade === g);
+    $('s-select').innerHTML = list.length
+      ? list.map(s => `<option value="${esc(s.student_code)}">${esc(s.student_name)}${s.classroom ? ' (' + esc(s.classroom) + ')' : ''}</option>`).join('')
+      : '<option value="">이 학년 재원생이 없어요</option>';
   }
-  $('s-search').addEventListener('input', fillStudents);
+  $('s-grade').addEventListener('change', fillStudents);
 
   async function openForm(r) {
     editing = r || null; $('e-err').textContent = '';
@@ -200,7 +203,7 @@
       if (res.error) { $('e-err').textContent = '학생 목록을 불러오지 못했어요: ' + res.error.message; return; }
       students = (res.data || []).slice().sort((a, b) => (a.student_name || '').localeCompare(b.student_name || '', 'ko'));
     }
-    if (!r) { $('s-search').value = ''; fillStudents(); }
+    if (!r) { $('s-grade').value = ''; fillStudents(); }
   }
   $('new-btn').onclick = () => openForm(null);
   const closeForm = () => { $('form-overlay').style.display = 'none'; };
