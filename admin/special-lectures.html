@@ -77,6 +77,10 @@
   .mini { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:800; cursor:pointer; color:var(--ink); font-family:inherit; }
   .mini.ok { background:#DCFCE7; border-color:#86EFAC; color:#15803D; }
   .mini.warn { background:#FEE2E2; border-color:#FCA5A5; color:#B91C1C; }
+  .fb-item { padding:8px 0; border-bottom:1px solid var(--gray-200); font-size:13px; line-height:1.55; }
+  .fb-item:last-child { border-bottom:0; }
+  .fb-item .d { color:var(--muted); font-size:11.5px; font-weight:700; }
+  .fb-item .c { white-space:pre-wrap; margin-top:2px; }
   .pay { margin-top:6px; padding:7px 10px; border-radius:9px; font-size:12.5px; line-height:1.55; background:#F9FAFB; border:1px dashed var(--gray-200); }
   .pay.paid { background:#F0FDF4; border:1px solid #BBF7D0; color:#166534; }
   .pay b { font-weight:900; }
@@ -201,6 +205,21 @@
       <div class="err" id="pay-err"></div>
       <div class="actions"><button type="button" class="btn primary" id="pay-save">저장</button><button type="button" class="btn" id="pay-cancel">닫기</button>
         <button type="button" class="btn" id="pay-clear" style="margin-left:auto;color:#B91C1C">납부 기록 지우기</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 선생님 피드백 -->
+<div class="overlay" id="fb-overlay" style="z-index:60">
+  <div class="box">
+    <div class="head"><span id="fb-title">피드백</span><button type="button" id="fb-close">&times;</button></div>
+    <div class="body">
+      <div class="hint" style="margin:0 0 8px">학부모 대시보드(외부생은 "내 신청 조회")에 바로 보여요. 날짜를 지정하지 않으면 오늘로 기록돼요.</div>
+      <div id="fb-list"></div>
+      <div class="field" style="margin-top:12px"><label for="fb-date" id="fb-form-title">새 피드백</label>
+        <input type="date" id="fb-date" style="margin-bottom:8px"><textarea id="fb-content" maxlength="1000" placeholder="예) 첫 주 수업 잘 따라오고 있어요. 오답노트를 꾸준히 쓰면 좋겠어요."></textarea></div>
+      <div class="err" id="fb-err"></div>
+      <div class="actions"><button type="button" class="btn primary" id="fb-save">저장</button><button type="button" class="btn" id="fb-cancel-edit" style="display:none">수정 취소</button><button type="button" class="btn" id="fb-done">닫기</button></div>
     </div>
   </div>
 </div>
@@ -422,6 +441,7 @@
     student_phone: '학생 연락처', parent_phone: '학부모 연락처', note: '메모', status: '상태', cancel_reason: '취소 사유',
     paid_at: '결제일', pay_method: '결제 방법', paid_amount: '납부 금액', fee_override: '실제 수강료(직접)', fee_note: '수강료 메모',
   };
+  const FB_LABELS = { feedback_date: '날짜', content: '내용' };
   const STATUS_LABEL = { pending: '확인 대기', confirmed: '확정', waitlist: '대기', cancelled: '취소' };
   let curLabels = LABELS;
   function hv(k, v) {
@@ -449,7 +469,7 @@
   }
   async function openHistory(id, title, table) {
     table = table || 'special_lectures';
-    curLabels = table === 'special_lecture_applications' ? APP_LABELS : LABELS;
+    curLabels = table === 'special_lecture_applications' ? APP_LABELS : table === 'special_lecture_feedback' ? FB_LABELS : LABELS;
     $('hist-title').textContent = `${title} 변경 이력`;
     $('hist-body').innerHTML = '<div class="loading">불러오는 중...</div>';
     $('hist-overlay').style.display = 'flex';
@@ -470,6 +490,7 @@
   $('form-overlay').addEventListener('click', (e) => { if (e.target.id === 'form-overlay') closeForm(); });
 
   // ---- 신청 현황 ----
+  let fbRows = [];
   let appLectureId = null, appRows = [], addMode = 'add', addTargetId = null, activeStudents = null;
   function fmtPhone(v) {
     const d = String(v || '').replace(/\D/g, '');
@@ -494,6 +515,8 @@
     const { data, error } = await sb.rpc('rpc_admin_list_applications', { p_password: getAdminPassword(), p_lecture_id: appLectureId });
     if (error) { $('app-body').innerHTML = `<div class="loading">${esc(noSql58(error))}</div>`; return; }
     appRows = data || [];
+    const fb = await sb.rpc('rpc_admin_list_special_feedback', { p_password: getAdminPassword(), p_lecture_id: appLectureId });
+    fbRows = fb.error ? [] : (fb.data || []);
     renderApps();
   }
   const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
@@ -540,6 +563,7 @@
         <br><span class="t">신청 ${esc(fmtWhen(a.created_at))}</span></div>
       ${payHtml(a)}
       <div class="acts">
+        ${a.status === 'confirmed' ? `<button type="button" class="mini" data-aact="fb" data-id="${esc(a.id)}">피드백${fbRows.filter((f) => f.application_id === a.id).length ? ' ' + fbRows.filter((f) => f.application_id === a.id).length : ''}</button>` : ''}
         ${a.status === 'confirmed' ? `<button type="button" class="mini ok" data-aact="pay" data-id="${esc(a.id)}">${a.paid_at ? '결제 수정' : '결제 입력'}</button>` : ''}
         ${btns.map(([st, lb, cls]) => `<button type="button" class="mini ${cls}" data-aact="status" data-st="${st}" data-id="${esc(a.id)}">${lb}</button>`).join('')}
         <button type="button" class="mini" data-aact="edit" data-id="${esc(a.id)}">정보 수정</button>
@@ -576,6 +600,7 @@
     if (btn.dataset.aact === 'hist') { openHistory(a.id, a.student_name + ' 신청', 'special_lecture_applications'); return; }
     if (btn.dataset.aact === 'edit') { openAdd(a); return; }
     if (btn.dataset.aact === 'pay') { openPay(a); return; }
+    if (btn.dataset.aact === 'fb') { openFb(a); return; }
     const st = btn.dataset.st;
     let reason = null;
     if (st === 'cancelled') {
@@ -655,6 +680,44 @@
     if (res.error) { err.textContent = noSql58(res.error); return; }
     closeAdd(); await reloadApps(); load();
   });
+
+  // 선생님 피드백 (여러 번 · 자유 글)
+  let fbTarget = null, fbEditId = null;
+  function renderFb() {
+    const rows = fbRows.filter((f) => f.application_id === fbTarget.id);
+    $('fb-list').innerHTML = rows.length ? rows.map((f) => `<div class="fb-item"><div class="d">${esc(String(f.feedback_date).slice(5).replace('-', '/'))}</div><div class="c">${esc(f.content)}</div>
+      <div class="acts" style="display:flex; gap:5px; margin-top:5px"><button type="button" class="mini" data-fb="edit" data-id="${esc(f.id)}">수정</button><button type="button" class="mini warn" data-fb="del" data-id="${esc(f.id)}">삭제</button><button type="button" class="mini" data-fb="hist" data-id="${esc(f.id)}">이력</button></div></div>`).join('')
+      : '<div class="hint">아직 남긴 피드백이 없어요.</div>';
+  }
+  function fbReset() {
+    fbEditId = null; $('fb-date').value = seoulToday(); $('fb-content').value = ''; $('fb-err').textContent = '';
+    $('fb-form-title').textContent = '새 피드백'; $('fb-cancel-edit').style.display = 'none';
+  }
+  function openFb(a) { fbTarget = a; $('fb-title').textContent = `${a.student_name} 피드백`; renderFb(); fbReset(); $('fb-overlay').style.display = 'flex'; }
+  $('fb-list').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-fb]'); if (!btn) return;
+    const f = fbRows.find((x) => x.id === btn.dataset.id); if (!f) return;
+    if (btn.dataset.fb === 'hist') { openHistory(f.id, '피드백', 'special_lecture_feedback'); return; }
+    if (btn.dataset.fb === 'edit') {
+      fbEditId = f.id; $('fb-date').value = String(f.feedback_date).slice(0, 10); $('fb-content').value = f.content;
+      $('fb-form-title').textContent = '피드백 수정'; $('fb-cancel-edit').style.display = ''; $('fb-content').focus(); return;
+    }
+    if (!confirm('이 피드백을 삭제할까요? (변경 이력에는 남아요)')) return;
+    const { error } = await sb.rpc('rpc_admin_delete_special_feedback', { p_password: getAdminPassword(), p_id: f.id });
+    if (error) { $('fb-err').textContent = isMissingFn(error) ? '피드백 기능 SQL(66)이 아직 실행되지 않았어요.' : error.message; return; }
+    await reloadApps(); renderFb(); fbReset();
+  });
+  $('fb-save').addEventListener('click', async () => {
+    $('fb-err').textContent = ''; $('fb-save').disabled = true;
+    const { error } = await sb.rpc('rpc_admin_save_special_feedback', {
+      p_password: getAdminPassword(), p_id: fbEditId, p_application_id: fbTarget.id, p_date: $('fb-date').value || null, p_content: $('fb-content').value });
+    $('fb-save').disabled = false;
+    if (error) { $('fb-err').textContent = isMissingFn(error) ? '피드백 기능 SQL(66)이 아직 실행되지 않았어요.' : error.message; return; }
+    await reloadApps(); renderFb(); fbReset();
+  });
+  $('fb-cancel-edit').addEventListener('click', fbReset);
+  $('fb-close').addEventListener('click', () => { $('fb-overlay').style.display = 'none'; });
+  $('fb-done').addEventListener('click', () => { $('fb-overlay').style.display = 'none'; });
 
   // 결제 입력 / 수정
   let payTarget = null;

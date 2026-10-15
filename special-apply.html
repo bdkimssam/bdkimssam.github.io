@@ -258,6 +258,14 @@ $('lk').addEventListener('submit', async e => {
   $('lk-submit').disabled = false;
   if (error) return showErr('lk-err', friendly(error));
   if (!data || !data.length) return showErr('lk-err', '일치하는 신청 내역이 없어요. 이름과 연락처를 다시 확인해 주세요.');
+  // 선생님 피드백 (수강 확정된 특강만, 없거나 기능이 준비 전이면 조용히 생략)
+  const fb = await sb.rpc('rpc_public_lookup_feedback', { p_student_name: name, p_parent_phone: phone });
+  const fbRows = fb.error || !fb.data ? [] : fb.data;
+  const fbHtml = title => {
+    const rows = fbRows.filter(f => f.lecture_title === title);
+    return rows.length ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--gray-200)"><b style="font-size:12.5px">선생님 피드백</b>${rows.map(f =>
+      `<div style="margin-top:6px; font-size:13px; line-height:1.6"><span style="color:var(--muted); font-size:11.5px">${esc(String(f.feedback_date).slice(5).replace('-', '/'))}</span><br><span style="white-space:pre-line">${esc(f.content)}</span></div>`).join('')}</div>` : '';
+  };
   $('lk-result').innerHTML = data.map(r => {
     const [label, desc] = STATUS[r.status] || [r.status, ''];
     return `<div class="card res ${esc(r.status)}">
@@ -268,7 +276,7 @@ $('lk').addEventListener('submit', async e => {
         ${r.schedule_text ? `<div><b>시간</b>${esc(r.schedule_text)}</div>` : ''}
         ${r.classroom ? `<div><b>강의실</b>${esc(r.classroom)}</div>` : ''}
         <div class="note" style="margin-top:6px">${esc(desc)}</div>
-      </div></div>`;
+      </div>${r.status === 'confirmed' ? fbHtml(r.lecture_title) : ''}</div>`;
   }).join('');
 });
 

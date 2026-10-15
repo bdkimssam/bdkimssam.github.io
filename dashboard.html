@@ -951,6 +951,14 @@
     const md = (d) => { if (!d) return ''; const [, m, dd] = String(d).slice(0, 10).split('-'); return `${+m}/${+dd}`; };
     const range = (a, b) => (a && b ? `${md(a)} ~ ${md(b)}` : a ? `${md(a)} ~` : '');
     const badge = (text, bg, fg) => `<span style="font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:999px; background:${bg}; color:${fg};">${text}</span>`;
+    // 선생님 피드백 (수강 확정된 특강만, 기능이 준비 전이면 조용히 생략)
+    const fbRes = await sb.rpc('rpc_get_special_feedback', { p_student_code: studentCode });
+    const fbRows = fbRes.error || !fbRes.data ? [] : fbRes.data;
+    const fbHtml = (lectureId) => {
+      const rows = fbRows.filter((f) => f.lecture_id === lectureId);
+      return rows.length ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--gray-200);"><div style="font-size:12.5px; font-weight:800;">📝 선생님 피드백</div>${rows.map((f) =>
+        `<div style="margin-top:6px; font-size:13px; line-height:1.6;"><span style="color:var(--faint); font-size:11.5px;">${esc(md(f.feedback_date))}</span><br><span style="white-space:pre-line;">${esc(f.content)}</span></div>`).join('')}</div>` : '';
+    };
 
     setCardState('card-speclec', `<div style="display:flex; flex-direction:column; gap:12px;">${data.map((l) => {
       let status = '', action = '';
@@ -977,7 +985,7 @@
           })()}</div>` : ''}
           ${l.apply_deadline ? `<div>⏰ 신청 마감 ${esc(md(l.apply_deadline))}</div>` : ''}
           ${!l.my_status && l.state === 'open' ? `<div>🪑 남은 자리 ${left}자리 (정원 ${l.capacity}명)</div>` : ''}
-        </div>${action}</div>`;
+        </div>${action}${l.my_status === 'confirmed' ? fbHtml(l.id) : ''}</div>`;
     }).join('')}<div style="font-size:11.5px; color:var(--faint); line-height:1.6;">신청 후 취소·변경은 학원으로 문의해 주세요.</div></div>`);
 
     document.querySelectorAll('#card-speclec .speclec-apply').forEach((btn) => {

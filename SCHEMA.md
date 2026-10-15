@@ -392,3 +392,9 @@ order by table_name;
 - `rpc_admin_set_application_payment(p_password, p_id, p_paid_at, p_pay_method, p_fee_override, p_fee_note)` — **확정(confirmed) 신청만**, 완납 1건. 금액 = override 우선 → 결제일 ≤ `early_bird_deadline`이면 `early_bird_fee` → 아니면 `fee`. 결제일 미래 불가. `p_paid_at` null이면 납부 기록 삭제(override·메모는 유지, 환불용). 변경 이력은 기존 트리거가 기록.
 - `rpc_admin_set_application_status`: 납부 기록이 있는 신청은 취소 불가(결제 기록을 먼저 지움).
 - `admin/special-lectures.html` 신청 현황: 확정 카드에 납부/미납 줄 + "결제 입력/수정" 모달(예상 금액 미리보기), 상단에 납부 N/확정 M · 합계. 학부모 화면 납부 표시는 아직 없음(원장님 결정).
+
+### 방학특강 선생님 피드백 (66 마이그레이션, 3단계)
+- `special_lecture_feedback(id, application_id→신청, feedback_date, content ≤1000자)` — **수강 확정된 학생에게 여러 번**, 자유 글. 변경 이력 트리거 적용(삭제도 기록).
+- 원장님: `rpc_admin_list_special_feedback(p_password, p_lecture_id)`, `rpc_admin_save_special_feedback(p_password, p_id, p_application_id, p_date, p_content)`(p_id 없으면 추가 — 확정 신청만), `rpc_admin_delete_special_feedback`. `admin/special-lectures.html` 신청 현황의 "피드백" 버튼.
+- 재원생: `rpc_get_special_feedback(p_student_code)` → 학부모 대시보드 방학특강 카드의 해당 특강 아래 "선생님 피드백".
+- 외부생(대시보드 없음): `rpc_public_lookup_feedback(이름, 학부모 연락처)` → `special-apply.html` "내 신청 조회"의 수강 확정된 특강 아래에 표시.
