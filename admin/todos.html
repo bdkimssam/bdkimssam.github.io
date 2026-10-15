@@ -80,6 +80,7 @@
   .todo .tmemo { margin-top:5px; font-size:12.5px; color:#4B5563; white-space:pre-wrap; word-break:break-word; }
   .todo .acts { display:flex; gap:5px; flex:none; }
   .mini { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:4px 9px; font-size:11.5px; font-weight:800; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .mini.postpone { background:#FEF3C7; border-color:#FCD34D; color:#B45309; }
   .badge.late { background:#FEE2E2; color:#B91C1C; } .badge.today { background:#FEF3C7; color:#92400E; } .badge.rep { background:#EDE9FE; color:#6D28D9; }
   .empty { color:var(--muted); font-size:13px; text-align:center; padding:28px 6px; }
 </style>
@@ -101,12 +102,13 @@
       <input type="date" id="q-date" title="기한 (비워두면 기한 없음)">
       <select id="q-repeat" title="반복">
         <option value="none">반복 없음</option>
+        <option value="daily">매일</option>
         <option value="weekly">매주</option>
         <option value="monthly">매월</option>
       </select>
       <button class="btn primary" id="q-add" type="button">추가</button>
     </div>
-    <div class="hint">매주·매월 반복은 기한(첫 날짜)이 꼭 필요해요. 완료하면 다음 날짜로 자동으로 넘어가요.</div>
+    <div class="hint">매일·매주·매월 반복은 기한(첫 날짜)이 꼭 필요해요. 완료하면 다음 날짜로 자동으로 넘어가요. 오늘 못 한 일은 <b>내일로</b> 버튼으로 미룰 수 있어요.</div>
     <div class="err" id="q-err"></div>
   </div>
 
@@ -128,7 +130,7 @@
       <div class="row2">
         <div class="field"><label>기한</label><input type="date" id="f-date"></div>
         <div class="field"><label>반복</label>
-          <select id="f-repeat"><option value="none">반복 없음</option><option value="weekly">매주</option><option value="monthly">매월</option></select>
+          <select id="f-repeat"><option value="none">반복 없음</option><option value="daily">매일</option><option value="weekly">매주</option><option value="monthly">매월</option></select>
         </div>
       </div>
       <div class="hint">매월 반복은 기한의 '일'을 기준으로 해요. 31일로 두면 짧은 달은 말일에 와요.</div>
@@ -155,7 +157,7 @@
 
   let todos = [];
   let editingId = null;
-  const REPEAT = { none: '', weekly: '매주', monthly: '매월' };
+  const REPEAT = { none: '', daily: '매일', weekly: '매주', monthly: '매월' };
   const LABELS = { title: '내용', memo: '메모', due_date: '기한', repeat_type: '반복', is_done: '완료', done_at: '완료 시각', last_done_date: '마지막 완료일', archived: '보관' };
 
   const $ = (id) => document.getElementById(id);
@@ -195,7 +197,8 @@
     if (t.repeat_type !== 'none') badges.push(`<span class="badge rep"><i class="fa-solid fa-rotate"></i> ${REPEAT[t.repeat_type]} 반복</span>`);
     const acts = t.is_done
       ? `<button class="mini" data-act="hist" data-id="${esc(t.id)}">이력</button>`
-      : `<button class="mini" data-act="edit" data-id="${esc(t.id)}">수정</button>
+      : `${due && due <= seoulToday() ? `<button class="mini postpone" data-act="postpone" data-id="${esc(t.id)}" title="오늘 못 했어요 — 기한을 내일로 미뤄요">내일로</button>` : ''}
+         <button class="mini" data-act="edit" data-id="${esc(t.id)}">수정</button>
          <button class="mini" data-act="hist" data-id="${esc(t.id)}">이력</button>
          <button class="mini" data-act="archive" data-id="${esc(t.id)}">보관</button>`;
     return `<div class="todo ${kind === 'late' ? 'late' : ''} ${t.is_done ? 'done' : ''}">
@@ -252,7 +255,13 @@
   $('list').addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-act]'); if (!btn) return;
     const t = todos.find((x) => x.id === btn.dataset.id);
-    if (btn.dataset.act === 'edit') openForm(t);
+    if (btn.dataset.act === 'postpone') {
+      btn.disabled = true;
+      const { error } = await sb.rpc('rpc_admin_postpone_todo', { p_password: getAdminPassword(), p_id: t.id });
+      if (error) alert(isMissingFn(error) ? '할 일 SQL(68)이 아직 실행되지 않았어요.' : '실패했어요: ' + error.message);
+      load();
+    }
+    else if (btn.dataset.act === 'edit') openForm(t);
     else if (btn.dataset.act === 'hist') openHistory(t);
     else if (btn.dataset.act === 'archive') {
       if (!confirm(`'${t.title}'을(를) 보관할까요? (목록에서만 사라지고 이력은 남아요)`)) return;

@@ -401,3 +401,9 @@ order by table_name;
 
 ### 외부생 조회: 보관된 특강 숨김 (67 마이그레이션)
 - `rpc_public_lookup_applications` 반환에 `archived` 추가(drop 후 재생성). `special-apply.html`은 보관된 특강 신청을 감추고, 보이는 신청이 없으면 "보관기간이 지났습니다" 안내. `rpc_public_lookup_feedback`은 보관된 특강 제외.
+
+### 할 일: 매일 반복 + 내일로 이월 (68 마이그레이션)
+- `admin_todos.repeat_type`에 `'daily'` 추가(check 제약 재생성). 완료하면 `todo_next_due`가 (기한·오늘 중 늦은 날)+1일로 넘김.
+- `admin_todos.repeat_anchor`(매주 반복의 처음 기한) 추가 — 이월로 기한이 밀려도 요일이 바뀌지 않게 `todo_next_due(p_type, p_day, p_due, p_today, p_anchor)`가 anchor 기준으로 계산(기존 weekly는 due_date로 백필). 시그니처 변경(구 4인자 버전 drop).
+- `rpc_admin_postpone_todo(p_password, p_id)` — **기한이 오늘이거나 지난** 미완료·비보관 할 일의 기한을 내일(오늘+1)로. 반복 주기는 그대로. 수동 버튼 방식(자동 이월 없음): 목록의 "내일로" 버튼. 변경 이력은 기존 트리거가 기록.
+- `rpc_admin_save_todo`/`rpc_admin_complete_todo`는 daily·anchor 처리로 재정의.
