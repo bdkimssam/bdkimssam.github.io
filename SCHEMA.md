@@ -411,3 +411,6 @@ order by table_name;
 ### 학부모 대시보드 숙제인증 페이징 (69 마이그레이션)
 - `rpc_get_homework_verifications_page(p_student_code, p_offset, p_limit)` — 최신 제출순, `total_count` 포함, limit 1~30로 제한. 기존 `rpc_get_homework_verifications`(최근 10건)는 그대로 둠(새 함수가 없으면 대시보드가 예전 방식으로 대체).
 - `dashboard.html`: 처음 3건 → "이전 기록 더 보기 (남은 N건)" 누를 때마다 10건씩 이어서 불러옴(`HW_FIRST=3`, `HW_MORE=10`).
+
+### 보강 처리 함수 복구 (70 마이그레이션)
+- `rpc_admin_set_makeup(p_password, p_id, p_status('완료'|'불필요'|''), p_date)`가 DB에서 빠져 있어(보강 대기 화면 "보강 완료/불필요" 저장 시 "Could not find the function") 46번 사양대로 다시 만듦. 원장·강사 공통. '완료'는 `makeup_date`(비우면 오늘), '불필요'는 날짜 없음, ''은 되돌리기(둘 다 null). 보강 예정일(`makeup_planned_date`)은 건드리지 않음.
