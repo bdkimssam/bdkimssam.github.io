@@ -378,3 +378,8 @@ order by table_name;
 - `rpc_get_special_lectures(p_student_code)` — 공개(학생 코드 기반, 다른 대시보드 RPC와 같은 방식). 특강 정보 + `state`(open/waitlist/full/soon/closed, 재원생 신청 시작일 기준) + `my_status`/`my_wait_pos`(대기 순번).
 - `rpc_apply_special_lecture(p_student_code, p_lecture_id)` — 공개. 특강 행 잠금 후: 대상 학년·마감·재원생 신청 시작일 확인, 정원이 남으면 `confirmed`, 차면 `waitlist`(최대 3명), 다 차면 거절. 이름·학년·학교·학생 연락처는 학생 정보에서, 학부모 연락처는 `attendance_phone`→`attendance_phone2`→`students.parent_phone` 순. 이미 신청했거나, 취소 처리된 신청은 거절("학원으로 문의"). 신청 시 원장님 텔레그램 알림.
 - 학부모는 취소·변경 불가(원장님만, 신청 현황에서). 결제 상태 표시는 3단계에서 추가 예정.
+
+### 방학특강 얼리버드 할인 (63 마이그레이션)
+- `special_lectures.early_bird_fee`(할인 수강료) / `early_bird_deadline`(얼리버드 **납부** 마감일) — 둘 다 입력하거나 둘 다 비움, 할인가는 정상 수강료보다 작아야 함(`rpc_admin_save_special_lecture`에 `p_early_bird_fee`, `p_early_bird_deadline` 추가, 기본값 null).
+- 기준은 신청일이 아니라 **납부일**: 마감일까지 납부하면 할인가. 학부모 대시보드·외부생 신청 페이지는 마감일 전까지 "정가(취소선) + 얼리버드가 (N/N까지 납부 시)"로 표시, 지난 뒤에는 정가만. 실제 적용 판단은 3단계(결제 기록)에서 결제일과 비교 예정.
+- 63은 59·62의 목록 함수(`rpc_public_list_special_lectures`, `rpc_get_special_lectures`)를 얼리버드 컬럼이 포함된 버전으로 다시 만들므로 **59·62 이후에 실행**.

@@ -121,6 +121,11 @@
         <div class="field"><label for="f-capacity">정원 (명) *</label><input type="number" id="f-capacity" min="1" value="10"></div>
         <div class="field"><label for="f-fee">수강료 (원)</label><input type="number" id="f-fee" min="0" step="1000" placeholder="예) 300000"></div>
       </div>
+      <div class="row2">
+        <div class="field"><label for="f-eb-fee">얼리버드 수강료 (원)</label><input type="number" id="f-eb-fee" min="0" step="1000" placeholder="없으면 비우기"></div>
+        <div class="field"><label for="f-eb-date">얼리버드 납부 마감일</label><input type="date" id="f-eb-date"></div>
+      </div>
+      <div class="hint" style="margin:-4px 0 12px;">이 날짜까지 <b>납부</b>하면 얼리버드 수강료가 적용돼요. 두 칸을 같이 입력하거나 같이 비워 주세요.</div>
       <div class="row3">
         <div class="field"><label for="f-member-open">재원생 신청 시작일</label><input type="date" id="f-member-open"></div>
         <div class="field"><label for="f-outsider-open">외부생 신청 시작일</label><input type="date" id="f-outsider-open"></div>
@@ -268,7 +273,7 @@
         <div class="info">
           ${period ? `<div><b>기간</b>${esc(period)}${l.schedule_text ? ' · ' + esc(l.schedule_text) : ''}</div>` : (l.schedule_text ? `<div><b>일정</b>${esc(l.schedule_text)}</div>` : '')}
           <div><b>강의실</b>${esc(l.classroom || '-')} <b style="margin-left:8px;">담당</b>${esc(l.teacher || '원장님')}</div>
-          <div><b>정원</b>${esc(l.capacity)}명${l.fee != null ? ` <b style="margin-left:8px;">수강료</b>${Number(l.fee).toLocaleString('ko-KR')}원` : ''}</div>
+          <div><b>정원</b>${esc(l.capacity)}명${l.fee != null ? ` <b style="margin-left:8px;">수강료</b>${Number(l.fee).toLocaleString('ko-KR')}원` : ''}${l.early_bird_fee != null ? ` <b style="margin-left:8px;">얼리버드</b>${Number(l.early_bird_fee).toLocaleString('ko-KR')}원 (${esc(fmtDate(l.early_bird_deadline))}까지 납부)` : ''}</div>
           <div><b>신청</b>재원생 ${esc(fmtDate(l.member_open_date) || '-')}부터 · 외부생 ${esc(fmtDate(l.outsider_open_date) || '-')}부터 · 마감 ${esc(fmtDate(l.apply_deadline) || '-')}</div>
         </div>
         ${countsHtml(l)}
@@ -326,6 +331,8 @@
     $('f-teacher').value = l ? l.teacher || '원장님' : '원장님';
     $('f-capacity').value = l ? l.capacity : 10;
     $('f-fee').value = l && l.fee != null ? l.fee : '';
+    $('f-eb-fee').value = l && l.early_bird_fee != null ? l.early_bird_fee : '';
+    $('f-eb-date').value = l ? d10(l.early_bird_deadline) : '';
     $('f-member-open').value = l ? d10(l.member_open_date) : '';
     $('f-outsider-open').value = l ? d10(l.outsider_open_date) : '';
     outsiderTouched = !!(l && l.outsider_open_date);
@@ -369,6 +376,8 @@
       p_outsider_open_date: oo || null,
       p_apply_deadline: $('f-deadline').value || null,
       p_memo: $('f-memo').value.trim() || null,
+      p_early_bird_fee: $('f-eb-fee').value.trim() === '' ? null : parseInt($('f-eb-fee').value, 10),
+      p_early_bird_deadline: $('f-eb-date').value || null,
     });
     btn.disabled = false;
     if (error) { err.textContent = isMissingFn(error) ? '특강 기능 SQL(56)이 아직 실행되지 않았어요.' : '저장 실패: ' + error.message; return; }
@@ -379,7 +388,7 @@
   // ---- 변경 이력 ----
   const LABELS = {
     title: '특강 이름', target_grades: '대상 학년', start_date: '시작일', end_date: '종료일', schedule_text: '요일·시간',
-    classroom: '강의실', teacher: '담당', capacity: '정원', fee: '수강료', member_open_date: '재원생 신청 시작일',
+    classroom: '강의실', teacher: '담당', capacity: '정원', fee: '수강료', early_bird_fee: '얼리버드 수강료', early_bird_deadline: '얼리버드 납부 마감일', member_open_date: '재원생 신청 시작일',
     outsider_open_date: '외부생 신청 시작일', apply_deadline: '신청 마감일', is_closed: '마감', archived: '보관', memo: '메모',
   };
   const APP_LABELS = {
@@ -395,7 +404,7 @@
     if (k === 'student_phone' || k === 'parent_phone') return esc(fmtPhone(v));
     if (Array.isArray(v)) return esc(v.join(', '));
     if (typeof v === 'boolean') return v ? '예' : '아니오';
-    if (k === 'fee') return Number(v).toLocaleString('ko-KR') + '원';
+    if (k === 'fee' || k === 'early_bird_fee') return Number(v).toLocaleString('ko-KR') + '원';
     return esc(v);
   }
   function hSummary(h) {

@@ -969,7 +969,12 @@
         <div style="margin-top:6px; font-size:12.5px; color:var(--ink); line-height:1.75;">
           ${l.start_date ? `<div>📅 ${esc(range(l.start_date, l.end_date))}</div>` : ''}
           ${l.schedule_text ? `<div>🕒 ${esc(l.schedule_text)}</div>` : ''}
-          ${l.fee != null ? `<div>💳 ${Number(l.fee).toLocaleString('ko-KR')}원</div>` : ''}
+          ${l.fee != null ? `<div>💳 ${(() => {
+            const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+            const eb = l.early_bird_fee != null && l.early_bird_deadline && today <= String(l.early_bird_deadline).slice(0, 10);
+            const f = (n) => Number(n).toLocaleString('ko-KR') + '원';
+            return eb ? `<s style="color:var(--faint);">${f(l.fee)}</s> <b style="color:#B45309;">얼리버드 ${f(l.early_bird_fee)}</b> <span style="color:var(--faint);">(${md(l.early_bird_deadline)}까지 납부 시)</span>` : f(l.fee);
+          })()}</div>` : ''}
           ${l.apply_deadline ? `<div>⏰ 신청 마감 ${esc(md(l.apply_deadline))}</div>` : ''}
           ${!l.my_status && l.state === 'open' ? `<div>🪑 남은 자리 ${left}자리 (정원 ${l.capacity}명)</div>` : ''}
         </div>${action}</div>`;
