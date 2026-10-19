@@ -414,3 +414,9 @@ order by table_name;
 
 ### 보강 처리 함수 복구 (70 마이그레이션)
 - `rpc_admin_set_makeup(p_password, p_id, p_status('완료'|'불필요'|''), p_date)`가 DB에서 빠져 있어(보강 대기 화면 "보강 완료/불필요" 저장 시 "Could not find the function") 46번 사양대로 다시 만듦. 원장·강사 공통. '완료'는 `makeup_date`(비우면 오늘), '불필요'는 날짜 없음, ''은 되돌리기(둘 다 null). 보강 예정일(`makeup_planned_date`)은 건드리지 않음.
+
+## 선생님 출퇴근 (71 마이그레이션, 2026-10-19)
+- `staff_members`(id, name, phone 숫자만, role 기본 '강사', active) / `staff_checks`(id, staff_id, staff_name, check_type '출근'|'퇴근', checked_at, check_date 한국날짜). RLS 켜짐/정책 없음. 둘 다 `log_row_change()` 트리거로 `change_history`에 이력.
+- 키오스크: `rpc_kiosk_find_staff(p_kiosk_code, p_last4)`, `rpc_kiosk_staff_check(p_kiosk_code, p_staff_id, p_check_type)`(2분 내 중복 터치는 기존 기록 반환). `attendance-kiosk.html`이 뒷 4자리로 학생+선생님을 같이 찾아 한 목록에 보여줌(선생님은 파란 표시). 선생님 함수가 없어도 학생 출석은 그대로 동작.
+- 관리자(원장님 전용): `rpc_admin_list_staff`, `rpc_admin_save_staff`(p_id 비우면 추가), `rpc_admin_list_staff_checks(p_from, p_to)`, `rpc_admin_set_staff_day(p_staff_id, p_date, 'HH:MM' 출근, 퇴근)` — 빈 값이면 삭제. 화면: `admin/staff-attendance.html`.
+- 일정: 아이출첵은 2027년 1월 말까지만 사용(년 결제 만료 2월 초, 재결제 안 함). 11월 키오스크 테스트부터 병행.

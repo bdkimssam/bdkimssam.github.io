@@ -40,6 +40,8 @@
   .student-list { display:flex; flex-direction:column; gap:12px; margin-bottom:16px; }
   button.student { width:100%; padding:20px; border-radius:18px; border:1px solid var(--gray-200); background:#fff; font-family:inherit; font-size:24px; font-weight:900; color:var(--ink); cursor:pointer; box-shadow:0 4px 12px rgba(11,18,32,.05); display:flex; align-items:center; justify-content:space-between; }
   button.student small { font-size:15px; font-weight:700; color:var(--muted); }
+  button.student.staff { border-color:#1D4ED8; background:#EFF6FF; }
+  button.student.staff small { color:#1D4ED8; }
   button.student:active { background:var(--gray-50); }
 
   /* 등원/하원 */
@@ -237,18 +239,27 @@
     busy = true;
     $('keypad-msg').style.color = '#6B7280';
     $('keypad-msg').textContent = '찾는 중...';
-    const { data, error } = await sb.rpc('rpc_kiosk_find_students', { p_kiosk_code: kioskCode, p_last4: digits });
+    const [sr, tr] = await Promise.all([
+      sb.rpc('rpc_kiosk_find_students', { p_kiosk_code: kioskCode, p_last4: digits }),
+      sb.rpc('rpc_kiosk_find_staff', { p_kiosk_code: kioskCode, p_last4: digits }),
+    ]);
     busy = false;
     $('keypad-msg').style.color = '';
+    const error = sr.error;
     if (error) {
       if (handleAuthError(error)) return;
       $('keypad-msg').textContent = '조회하지 못했어요. 잠시 후 다시 해주세요.';
       digits = ''; renderDots();
       return;
     }
-    const list = data || [];
+    // 선생님 조회는 SQL(71)이 아직 없거나 실패해도 학생 출석은 그대로 동작
+    const staff = (tr.error ? [] : (tr.data || [])).map((t) => ({
+      kind: 'staff', staff_id: t.staff_id, student_name: t.staff_name, grade: t.role || '선생님',
+      last_check_type: t.last_check_type, last_checked_at: t.last_checked_at,
+    }));
+    const list = staff.concat(sr.data || []);
     if (list.length === 0) {
-      $('keypad-msg').textContent = '일치하는 학생이 없어요. 번호를 다시 확인해 주세요.';
+      $('keypad-msg').textContent = '일치하는 분이 없어요. 번호를 다시 확인해 주세요.';
       digits = ''; renderDots();
       return;
     }
@@ -262,11 +273,11 @@
     list.forEach((s) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'student';
+      b.className = 'student' + (s.kind === 'staff' ? ' staff' : '');
       const name = document.createElement('span');
       name.textContent = s.student_name || '';
       const grade = document.createElement('small');
-      grade.textContent = s.grade || '';
+      grade.textContent = s.kind === 'staff' ? ('선생님 · ' + (s.grade || '')) : (s.grade || '');
       b.appendChild(name); b.appendChild(grade);
       b.addEventListener('click', () => pickStudent(s));
       box.appendChild(b);
@@ -281,20 +292,22 @@
     currentStudent = s;
     $('who').textContent = s.student_name || '';
     $('action-msg').textContent = '';
+    const isStaff = s.kind === 'staff';
+    const T_IN = isStaff ? '출근' : '등원', T_OUT = isStaff ? '퇴근' : '하원';
     if (s.last_check_type && s.last_checked_at) {
       $('state').textContent = `오늘 ${fmtTime(s.last_checked_at)} ${s.last_check_type} 완료`;
     } else {
       $('state').textContent = '오늘은 아직 기록이 없어요';
     }
     // 마지막 기록이 '등원'이면 하원을, 그 외에는 등원을 크게 보여줌
-    const suggested = s.last_check_type === '등원' ? '하원' : '등원';
-    const order = suggested === '등원' ? ['등원', '하원'] : ['하원', '등원'];
+    const suggested = s.last_check_type === T_IN ? T_OUT : T_IN;
+    const order = suggested === T_IN ? [T_IN, T_OUT] : [T_OUT, T_IN];
     const box = $('actions');
     box.innerHTML = '';
     order.forEach((type) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'act ' + (type === '등원' ? 'in' : 'out') + (type === suggested ? ' suggested' : '');
+      b.className = 'act ' + (type === T_IN ? 'in' : 'out') + (type === suggested ? ' suggested' : '');
       b.textContent = type;
       b.addEventListener('click', () => doCheck(type));
       box.appendChild(b);
@@ -307,9 +320,10 @@
     busy = true;
     document.querySelectorAll('#actions button').forEach((b) => { b.disabled = true; });
     $('action-msg').textContent = '';
-    const { data, error } = await sb.rpc('rpc_kiosk_check', {
-      p_kiosk_code: kioskCode, p_student_code: currentStudent.student_code, p_check_type: type,
-    });
+    const isStaff = currentStudent.kind === 'staff';
+    const { data, error } = isStaff
+      ? await sb.rpc('rpc_kiosk_staff_check', { p_kiosk_code: kioskCode, p_staff_id: currentStudent.staff_id, p_check_type: type })
+      : await sb.rpc('rpc_kiosk_check', { p_kiosk_code: kioskCode, p_student_code: currentStudent.student_code, p_check_type: type });
     busy = false;
     if (error) {
       if (handleAuthError(error)) return;
@@ -318,7 +332,7 @@
       return;
     }
     const row = Array.isArray(data) ? data[0] : data;
-    $('done-mark').className = 'done-mark' + (type === '하원' ? ' out' : '');
+    $('done-mark').className = 'done-mark' + ((type === '하원' || type === '퇴근') ? ' out' : '');
     $('done-text').textContent = `${currentStudent.student_name} ${type} 완료!`;
     $('done-time').textContent = row && row.r_checked_at ? fmtTime(row.r_checked_at) : '';
     show('done');

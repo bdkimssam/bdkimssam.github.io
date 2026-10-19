@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>선생님 출퇴근 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --green:#16A34A; --red:#C0392B; --amber:#B45309; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  h2 { font-size: 15px; font-weight: 900; margin: 0 0 10px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 18px; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:20px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom:18px; }
+  input, select { font-family:inherit; font-size:14px; padding:9px 11px; border-radius:10px; border:1px solid var(--gray-200); background:#fff; }
+  input:focus, select:focus { outline:none; border-color: var(--navy-900); }
+  button.btn { padding:10px 16px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:13.5px; cursor:pointer; font-family:inherit; }
+  button.btn:disabled { opacity:.5; cursor:not-allowed; }
+  button.btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--gray-200); }
+  button.mini { padding:5px 10px; font-size:12px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; font-weight:700; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  table { width:100%; border-collapse: collapse; }
+  th, td { text-align:left; padding: 9px 6px; font-size: 13px; border-top: 1px solid var(--gray-200); vertical-align: middle; }
+  th { color: var(--muted); font-weight:700; font-size:12px; border-top:none; }
+  .scroll { overflow-x:auto; }
+  .muted { color: var(--muted); }
+  .off { color:#98A1B3; text-decoration: line-through; }
+  .miss { color: var(--red); font-weight:800; }
+  .loading, .empty { color: var(--muted); font-size: 13px; padding: 22px 6px; text-align:center; }
+  .chip { font-size:12.5px; font-weight:800; padding:5px 11px; border-radius:999px; background:var(--gray-50); border:1px solid var(--gray-200); }
+  .banner { background:#FFF7ED; border:1px solid #FED7AA; color:#9A3412; border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.6; margin-bottom:18px; display:none; }
+  .msg { font-size:13px; margin-top:8px; min-height:18px; }
+  .msg.err { color: var(--red); } .msg.ok { color: var(--green); }
+  tr.edit td { background:#F8FAFC; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">선생님 출퇴근</span>
+</header>
+<main>
+  <h1>선생님 출퇴근</h1>
+  <p class="sub">선생님이 학원 키오스크에서 휴대폰 뒷 4자리로 찍은 출근·퇴근 기록이에요. 하루에 여러 번 찍으면 첫 출근과 마지막 퇴근을 보여줘요. 못 찍은 날은 아래에서 시간을 직접 넣거나 고칠 수 있고, 고친 내용은 변경 이력에 남아요.</p>
+  <div class="banner" id="sql-banner">선생님 출퇴근 기능이 DB에 아직 없습니다. 안내드린 SQL(71번)을 Supabase에서 먼저 실행해 주세요.</div>
+
+  <div class="panel">
+    <h2>선생님 명단</h2>
+    <div class="row" style="margin-bottom:12px">
+      <input id="f-name" placeholder="이름" style="width:110px">
+      <input id="f-phone" placeholder="휴대폰 번호" style="width:150px" inputmode="tel">
+      <input id="f-role" placeholder="구분 (강사/원장)" style="width:120px">
+      <button class="btn" id="f-add">추가</button>
+    </div>
+    <div class="msg" id="staff-msg"></div>
+    <div class="scroll"><table id="staff-table"></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:12px">
+      <button class="mini" id="m-prev">◀</button>
+      <strong id="m-label"></strong>
+      <button class="mini" id="m-next">▶</button>
+      <select id="m-staff"></select>
+      <span class="chip" id="m-total"></span>
+    </div>
+    <div class="msg" id="rec-msg"></div>
+    <div class="scroll" id="rec-wrap"><div class="loading">불러오는 중...</div></div>
+  </div>
+</main>
+
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  requireDirector();
+  const esc = (v) => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const $ = (id) => document.getElementById(id);
+  const seoulToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+  const WD = ['일','월','화','수','목','금','토'];
+  let staff = [], checks = [], ym = seoulToday().slice(0, 7), editKey = null;
+
+  function missingFn(error) { return error && (error.code === 'PGRST202' || /Could not find the function|relation .* does not exist/i.test(error.message || '')); }
+  function hhmm(ts) { return new Date(ts).toLocaleTimeString('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false }); }
+  function fmtPhone(p) { return String(p || '').replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3'); }
+  function monthRange() {
+    const [y, m] = ym.split('-').map(Number);
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    return { from: `${ym}-01`, to: `${ym}-${String(last).padStart(2, '0')}`, last };
+  }
+
+  // ---------- 명단 ----------
+  async function loadStaff() {
+    const { data, error } = await sb.rpc('rpc_admin_list_staff', { p_password: getAdminPassword() });
+    if (error) {
+      if (missingFn(error)) { $('sql-banner').style.display = 'block'; $('rec-wrap').innerHTML = ''; return false; }
+      $('staff-msg').className = 'msg err'; $('staff-msg').textContent = '불러오지 못했어요: ' + error.message; return false;
+    }
+    staff = data || [];
+    renderStaff();
+    const cur = $('m-staff').value;
+    $('m-staff').innerHTML = '<option value="">전체</option>' + staff.filter((s) => s.active).map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    $('m-staff').value = cur;
+    return true;
+  }
+  function renderStaff() {
+    if (!staff.length) { $('staff-table').innerHTML = '<tr><td class="empty">아직 등록된 선생님이 없어요. 위에서 추가해 주세요.</td></tr>'; return; }
+    $('staff-table').innerHTML = '<tr><th>이름</th><th>휴대폰</th><th>구분</th><th></th></tr>' + staff.map((s) => `
+      <tr>
+        <td class="${s.active ? '' : 'off'}"><b>${esc(s.name)}</b>${s.active ? '' : ' <span class="muted">(퇴직)</span>'}</td>
+        <td>${esc(fmtPhone(s.phone))}</td><td>${esc(s.role)}</td>
+        <td style="text-align:right"><button class="mini" data-edit="${s.id}">수정</button>
+        <button class="mini" data-toggle="${s.id}">${s.active ? '퇴직 처리' : '복직'}</button></td>
+      </tr>`).join('');
+  }
+  async function saveStaff(id, name, phone, role, active) {
+    const { error } = await sb.rpc('rpc_admin_save_staff', { p_password: getAdminPassword(), p_id: id, p_name: name, p_phone: phone, p_role: role, p_active: active });
+    if (error) { $('staff-msg').className = 'msg err'; $('staff-msg').textContent = error.message; return false; }
+    $('staff-msg').className = 'msg ok'; $('staff-msg').textContent = '저장했어요.';
+    await loadStaff();
+    return true;
+  }
+  $('f-add').addEventListener('click', async () => {
+    const ok = await saveStaff(null, $('f-name').value, $('f-phone').value, $('f-role').value, true);
+    if (ok) { $('f-name').value = $('f-phone').value = $('f-role').value = ''; }
+  });
+  $('staff-table').addEventListener('click', async (e) => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.toggle) {
+      const s = staff.find((x) => x.id === t.dataset.toggle);
+      await saveStaff(s.id, s.name, s.phone, s.role, !s.active);
+    } else if (t.dataset.edit) {
+      const s = staff.find((x) => x.id === t.dataset.edit);
+      const name = prompt('이름', s.name); if (name === null) return;
+      const phone = prompt('휴대폰 번호', fmtPhone(s.phone)); if (phone === null) return;
+      const role = prompt('구분', s.role); if (role === null) return;
+      await saveStaff(s.id, name, phone, role, s.active);
+    }
+  });
+
+  // ---------- 월별 기록 ----------
+  async function loadRecords() {
+    const { from, to } = monthRange();
+    $('m-label').textContent = `${ym.slice(0, 4)}년 ${Number(ym.slice(5))}월`;
+    $('rec-wrap').innerHTML = '<div class="loading">불러오는 중...</div>';
+    const { data, error } = await sb.rpc('rpc_admin_list_staff_checks', { p_password: getAdminPassword(), p_from: from, p_to: to });
+    if (error) { $('rec-wrap').innerHTML = ''; $('rec-msg').className = 'msg err'; $('rec-msg').textContent = '기록을 불러오지 못했어요: ' + error.message; return; }
+    checks = data || [];
+    renderRecords();
+  }
+  function dayMap() {
+    // key staffId|date -> {in, out}
+    const m = {};
+    checks.forEach((c) => {
+      const k = c.staff_id + '|' + c.check_date;
+      const o = m[k] || (m[k] = { in: null, out: null });
+      if (c.check_type === '출근') { if (!o.in || c.checked_at < o.in) o.in = c.checked_at; }
+      else if (!o.out || c.checked_at > o.out) o.out = c.checked_at;
+    });
+    return m;
+  }
+  function renderRecords() {
+    const { last } = monthRange();
+    const sel = $('m-staff').value;
+    const list = staff.filter((s) => (sel ? s.id === sel : (s.active || checks.some((c) => c.staff_id === s.id))));
+    const m = dayMap();
+    const today = seoulToday();
+    let rows = '', totalMin = 0, days = 0;
+    for (let d = 1; d <= last; d++) {
+      const date = `${ym}-${String(d).padStart(2, '0')}`;
+      const wd = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5) - 1, d)).getUTCDay();
+      list.forEach((s) => {
+        const o = m[s.id + '|' + date];
+        const key = s.id + '|' + date;
+        if (!o && !(sel && date <= today && wd !== 0 && wd !== 6) && editKey !== key) return; // 개인 선택 시 평일 빈 날도 표시
+        let work = '';
+        if (o && o.in && o.out && o.out > o.in) { const mn = Math.round((new Date(o.out) - new Date(o.in)) / 60000); totalMin += mn; days++; work = `${Math.floor(mn / 60)}시간 ${mn % 60}분`; }
+        else if (o && (o.in || o.out)) work = '<span class="miss">기록 누락</span>';
+        rows += `<tr><td>${d}일 (${WD[wd]})</td><td><b>${esc(s.name)}</b></td>
+          <td>${o && o.in ? hhmm(o.in) : '<span class="muted">-</span>'}</td>
+          <td>${o && o.out ? hhmm(o.out) : '<span class="muted">-</span>'}</td><td>${work}</td>
+          <td style="text-align:right"><button class="mini" data-day="${key}">${o ? '수정' : '입력'}</button></td></tr>`;
+        if (editKey === key) {
+          rows += `<tr class="edit"><td colspan="6"><div class="row">
+            출근 <input type="time" id="e-in" value="${o && o.in ? hhmm(o.in) : ''}">
+            퇴근 <input type="time" id="e-out" value="${o && o.out ? hhmm(o.out) : ''}">
+            <button class="btn" id="e-save">저장</button><button class="btn ghost" id="e-cancel">취소</button>
+            <span class="muted" style="font-size:12px">시간을 비우면 그 기록이 삭제돼요.</span></div></td></tr>`;
+        }
+      });
+    }
+    $('m-total').textContent = `근무 ${days}일 · 합계 ${Math.floor(totalMin / 60)}시간 ${totalMin % 60}분`;
+    $('rec-wrap').innerHTML = rows
+      ? `<table><tr><th>날짜</th><th>선생님</th><th>출근</th><th>퇴근</th><th>근무시간</th><th></th></tr>${rows}</table>`
+      : '<div class="empty">이 달 기록이 없어요.</div>';
+  }
+  $('rec-wrap').addEventListener('click', async (e) => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.day) { editKey = t.dataset.day; renderRecords(); return; }
+    if (t.id === 'e-cancel') { editKey = null; renderRecords(); return; }
+    if (t.id === 'e-save') {
+      const [sid, date] = editKey.split('|');
+      t.disabled = true;
+      const { error } = await sb.rpc('rpc_admin_set_staff_day', { p_password: getAdminPassword(), p_staff_id: sid, p_date: date, p_in: $('e-in').value, p_out: $('e-out').value });
+      if (error) { $('rec-msg').className = 'msg err'; $('rec-msg').textContent = error.message; t.disabled = false; return; }
+      $('rec-msg').className = 'msg ok'; $('rec-msg').textContent = '저장했어요.';
+      editKey = null;
+      await loadRecords();
+    }
+  });
+  $('m-staff').addEventListener('change', renderRecords);
+  function shiftMonth(n) { const [y, m] = ym.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); ym = d.toISOString().slice(0, 7); editKey = null; loadRecords(); }
+  $('m-prev').addEventListener('click', () => shiftMonth(-1));
+  $('m-next').addEventListener('click', () => shiftMonth(1));
+
+  (async () => { if (await loadStaff()) await loadRecords(); })();
+</script>
+</body>
+</html>
