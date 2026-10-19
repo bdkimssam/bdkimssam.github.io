@@ -422,3 +422,9 @@ order by table_name;
 - 관리자(원장님 전용): `rpc_admin_list_staff`, `rpc_admin_save_staff(p_staff_code 비우면 추가)`, `rpc_admin_resign_staff`, `rpc_admin_reinstate_staff`, `rpc_admin_list_staff_checks(p_from, p_to)`, `rpc_admin_set_staff_day(p_staff_code, p_date, 'HH:MM' 출근, 퇴근)` — 빈 값이면 삭제. 화면: `admin/staff-attendance.html`.
 - 일정: 아이출첵은 2027년 1월 말까지만 사용(년 결제 만료 2월 초, 재결제 안 함). 11월 키오스크 테스트부터 병행.
 - **(72 마이그레이션)** `rpc_kiosk_staff_check`가 새 기록이 쌓일 때만 `telegram_send`로 원장님께 알림(예: `👤 김쌤(T-001) 퇴근 18:30 · 오늘 9시간 25분`). 2분 내 중복 터치·관리자 화면 수정은 알리지 않음. 텔레그램이 실패해도 출퇴근 기록은 그대로 저장. 선생님 본인 폰 알림톡은 템플릿 승인 후 연결 예정(출근/퇴근은 `#{구분}` 변수 하나의 템플릿).
+
+## 학생 등원 요일 (73 마이그레이션, 2026-10-19)
+- 시간표는 시간 없이 **등원 요일만** 관리. `student_schedules`(id, student_code unique, `days` text[] — '월'~'일', 월→일 순서·중복 없음, updated_at). `student_days_normalize()`(immutable)와 CHECK 제약으로 잘못된 값/중복/순서 뒤섞임은 DB에서 거부. RLS 켜짐/정책 없음. `log_row_change()` 트리거(`trg_log_student_schedules`)로 변경 이력 — 요일이 바뀐 날짜와 이전→이후 요일이 남음. 행이 없거나 빈 배열이면 '요일 미설정'.
+- `rpc_admin_list_student_days(p_password, p_classroom)` — 재원생 + 강의실/학년 + days (원장님·강사쌤 조회 가능, 강사쌤은 자기 강의실만). `rpc_admin_set_student_days(p_password, p_items jsonb)` — 원장님 전용, 바뀐 학생만 저장하고 저장 인원 수 반환(예: `[{"student_code":"26M-001","days":["월","수","금"]}]`). `rpc_admin_student_days_history(p_password, p_student_code)` — 원장님 전용.
+- 학기·방학 요일은 구분하지 않음. 방학에 요일이 다른 학생만 원장님이 직접 수정(이력으로 날짜 확인).
+- 화면: `admin/student-days.html`(원장님 전용, 강의실·학년 필터, 요일 헤더 클릭 시 보이는 학생 일괄 체크). 출결·숙제·진도 화면에서 '오늘 오는 학생만' 보이게 하는 연결과 보강 표시는 다음 단계.

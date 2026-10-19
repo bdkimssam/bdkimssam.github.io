@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>등원 요일 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --green:#16A34A; --red:#C0392B; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 20px 110px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  h2 { font-size: 15px; font-weight: 900; margin: 0 0 10px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 18px; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:16px 20px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom:18px; }
+  select { font-family:inherit; font-size:14px; padding:9px 11px; border-radius:10px; border:1px solid var(--gray-200); background:#fff; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .row label.chk { font-size:13px; font-weight:700; color:var(--muted); display:flex; gap:6px; align-items:center; cursor:pointer; }
+  button.btn { padding:11px 18px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
+  button.btn:disabled { opacity:.45; cursor:not-allowed; }
+  button.btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--gray-200); }
+  button.mini { padding:5px 9px; font-size:12px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; font-weight:700; }
+  .scroll { overflow-x:auto; }
+  table { width:100%; border-collapse: collapse; }
+  th, td { text-align:center; padding: 8px 4px; font-size: 13.5px; border-top: 1px solid var(--gray-200); }
+  th { color: var(--muted); font-weight:700; font-size:12px; border-top:none; }
+  th.l, td.l { text-align:left; }
+  td.name { font-weight:700; }
+  td.sub { color: var(--muted); font-size:12.5px; }
+  td.day input { width:20px; height:20px; cursor:pointer; accent-color: var(--navy-900); }
+  tr.unset td { background:#FFFBEB; }
+  tr.dirty td { background:#EFF6FF; }
+  th.dayh { cursor:pointer; user-select:none; }
+  th.dayh:hover { color: var(--ink); }
+  .loading, .empty { color: var(--muted); font-size: 13px; padding: 28px 6px; text-align:center; }
+  .chip { font-size:12.5px; font-weight:800; padding:5px 11px; border-radius:999px; background:var(--gray-50); border:1px solid var(--gray-200); }
+  .bar { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--gray-200); padding:12px 20px; display:none; justify-content:center; gap:12px; align-items:center; z-index:20; }
+  .bar.show { display:flex; }
+  .msg { font-size:13px; min-height:18px; margin-bottom:8px; }
+  .msg.err { color: var(--red); } .msg.ok { color: var(--green); }
+  .overlay { display:none; position:fixed; inset:0; background:rgba(11,18,32,.45); z-index:50; align-items:center; justify-content:center; padding:16px; }
+  .overlay.show { display:flex; }
+  .modal { background:#fff; border-radius:16px; padding:22px; width:100%; max-width:420px; max-height:90vh; overflow:auto; }
+  .hist { font-size:13px; padding:9px 0; border-top:1px solid var(--gray-200); line-height:1.6; }
+  .hist:first-of-type { border-top:none; }
+  .banner { background:#FFF7ED; border:1px solid #FED7AA; color:#9A3412; border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.6; margin-bottom:18px; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">등원 요일</span>
+</header>
+<main>
+  <h1>학생 등원 요일</h1>
+  <p class="sub">학생마다 오는 요일에 체크해 주세요. 시간은 입력하지 않아요. 체크한 뒤 맨 아래 <b>저장</b>을 누르면 바뀐 학생만 저장되고, 요일이 바뀐 기록은 학생별 <b>이력</b>에서 볼 수 있어요. 요일 이름(월·화…)을 누르면 보이는 학생 전체가 한꺼번에 체크/해제돼요.</p>
+  <div class="banner" id="sql-banner">등원 요일 기능이 DB에 아직 없습니다. 안내드린 SQL(73번)을 Supabase에서 먼저 실행해 주세요.</div>
+
+  <div class="panel">
+    <div class="row">
+      <select id="f-room"></select>
+      <select id="f-grade"></select>
+      <label class="chk"><input type="checkbox" id="f-unset"> 요일 미설정만</label>
+      <span class="chip" id="cnt"></span>
+    </div>
+  </div>
+  <div class="msg" id="msg"></div>
+  <div class="panel scroll" id="wrap"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<div class="bar" id="bar">
+  <span id="bar-txt" style="font-weight:800;font-size:14px"></span>
+  <button class="btn ghost" id="b-reset">되돌리기</button>
+  <button class="btn" id="b-save">저장</button>
+</div>
+<div class="overlay" id="ov"><div class="modal" id="ov-body"></div></div>
+
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  requireDirector();
+  const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  let rows = [];          // {student_code, student_name, grade, classroom, days:[...] (저장된 값)}
+  let draft = {};         // student_code -> days[] (바뀐 것만)
+
+  const cur = (r) => (draft[r.student_code] || r.days || []);
+  const sameDays = (a, b) => a.length === b.length && a.every((d, i) => d === b[i]);
+  const sortDays = (arr) => DAYS.filter((d) => arr.includes(d));
+  function missingFn(e) { return e && (e.code === 'PGRST202' || /Could not find the function|does not exist/i.test(e.message || '')); }
+  function setMsg(t, cls) { $('msg').className = 'msg ' + (cls || ''); $('msg').textContent = t || ''; }
+
+  async function load() {
+    const { data, error } = await sb.rpc('rpc_admin_list_student_days', { p_password: getAdminPassword(), p_classroom: null });
+    if (error) {
+      if (missingFn(error)) { $('sql-banner').style.display = 'block'; $('wrap').innerHTML = ''; return; }
+      $('wrap').innerHTML = ''; setMsg('불러오지 못했어요: ' + error.message, 'err'); return;
+    }
+    rows = (data || []).slice().sort((a, b) => {
+      const g = compareGrades(a.grade || '', b.grade || ''); if (g) return g;
+      return (a.student_name || '').localeCompare(b.student_name || '', 'ko');
+    });
+    draft = {};
+    const rooms = [...new Set(rows.map((r) => r.classroom || ''))].sort();
+    $('f-room').innerHTML = '<option value="__all">모든 강의실</option>' + rooms.map((x) => `<option value="${esc(x)}">${esc(x || '(강의실 미배정)')}</option>`).join('');
+    const grades = [...new Set(rows.map((r) => r.grade || ''))].sort((a, b) => compareGrades(a, b));
+    $('f-grade').innerHTML = '<option value="__all">모든 학년</option>' + grades.map((x) => `<option value="${esc(x)}">${esc(x || '(학년 없음)')}</option>`).join('');
+    render();
+  }
+  function visible() {
+    const room = $('f-room').value, grade = $('f-grade').value, unset = $('f-unset').checked;
+    return rows.filter((r) => (room === '__all' || (r.classroom || '') === room)
+      && (grade === '__all' || (r.grade || '') === grade)
+      && (!unset || cur(r).length === 0));
+  }
+  function render() {
+    const list = visible();
+    $('cnt').textContent = `${list.length}명 · 요일 미설정 ${rows.filter((r) => cur(r).length === 0).length}명`;
+    if (!list.length) { $('wrap').innerHTML = '<div class="empty">조건에 맞는 학생이 없어요.</div>'; updateBar(); return; }
+    $('wrap').innerHTML = `<table><tr><th class="l">이름</th><th class="l">학년</th><th class="l">강의실</th>${DAYS.map((d) => `<th class="dayh" data-day="${d}" title="보이는 학생 전체 체크/해제">${d}</th>`).join('')}<th></th></tr>` +
+      list.map((r) => {
+        const c = cur(r), dirty = !!draft[r.student_code];
+        return `<tr class="${dirty ? 'dirty' : (c.length ? '' : 'unset')}" data-code="${esc(r.student_code)}">
+          <td class="l name">${esc(r.student_name)}</td><td class="l sub">${esc(r.grade || '-')}</td><td class="l sub">${esc(r.classroom || '-')}</td>
+          ${DAYS.map((d) => `<td class="day"><input type="checkbox" data-d="${d}" ${c.includes(d) ? 'checked' : ''}></td>`).join('')}
+          <td><button class="mini" data-hist="${esc(r.student_code)}">이력</button></td></tr>`;
+      }).join('') + '</table>';
+    updateBar();
+  }
+  function setDraft(r, days) {
+    const d = sortDays(days);
+    if (sameDays(d, r.days || [])) delete draft[r.student_code]; else draft[r.student_code] = d;
+  }
+  $('wrap').addEventListener('change', (e) => {
+    const cb = e.target.closest('input[data-d]'); if (!cb) return;
+    const tr = cb.closest('tr'); const r = rows.find((x) => x.student_code === tr.dataset.code);
+    const days = new Set(cur(r)); cb.checked ? days.add(cb.dataset.d) : days.delete(cb.dataset.d);
+    setDraft(r, [...days]);
+    const dirty = !!draft[r.student_code];
+    tr.className = dirty ? 'dirty' : (cur(r).length ? '' : 'unset');
+    updateBar();
+  });
+  $('wrap').addEventListener('click', async (e) => {
+    const h = e.target.closest('th[data-day]');
+    if (h) {
+      const d = h.dataset.day, list = visible();
+      const allOn = list.length && list.every((r) => cur(r).includes(d));
+      list.forEach((r) => { const s = new Set(cur(r)); allOn ? s.delete(d) : s.add(d); setDraft(r, [...s]); });
+      render(); return;
+    }
+    const b = e.target.closest('button[data-hist]'); if (b) showHistory(b.dataset.hist);
+  });
+  ['f-room', 'f-grade', 'f-unset'].forEach((id) => $(id).addEventListener('change', render));
+
+  function updateBar() {
+    const n = Object.keys(draft).length;
+    $('bar').classList.toggle('show', n > 0);
+    $('bar-txt').textContent = `${n}명 변경됨`;
+  }
+  $('b-reset').addEventListener('click', () => { draft = {}; setMsg(''); render(); });
+  $('b-save').addEventListener('click', async () => {
+    const items = Object.entries(draft).map(([student_code, days]) => ({ student_code, days }));
+    if (!items.length) return;
+    $('b-save').disabled = true;
+    const { data, error } = await sb.rpc('rpc_admin_set_student_days', { p_password: getAdminPassword(), p_items: items });
+    $('b-save').disabled = false;
+    if (error) { setMsg('저장하지 못했어요: ' + error.message, 'err'); return; }
+    items.forEach((it) => { const r = rows.find((x) => x.student_code === it.student_code); if (r) r.days = it.days; });
+    draft = {}; setMsg(`${data}명 저장했어요.`, 'ok'); render();
+  });
+  window.addEventListener('beforeunload', (e) => { if (Object.keys(draft).length) { e.preventDefault(); e.returnValue = ''; } });
+
+  async function showHistory(code) {
+    const r = rows.find((x) => x.student_code === code);
+    $('ov-body').innerHTML = `<h2>${esc(r ? r.student_name : code)} 요일 변경 이력</h2><div class="loading">불러오는 중...</div><div style="margin-top:12px"><button class="btn ghost" id="h-close">닫기</button></div>`;
+    $('ov').classList.add('show');
+    const { data, error } = await sb.rpc('rpc_admin_student_days_history', { p_password: getAdminPassword(), p_student_code: code });
+    const fmt = (a) => (a && a.length ? a.join('') : '없음');
+    const when = (t) => new Date(t).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+    const body = error ? `<div class="msg err">${esc(error.message)}</div>`
+      : (data && data.length ? data.map((h) => `<div class="hist"><b>${esc(when(h.changed_at))}</b><br>${h.old_days ? esc(fmt(h.old_days)) + ' → ' : '처음 입력: '}<b>${esc(fmt(h.new_days))}</b></div>`).join('') : '<div class="empty">변경 이력이 없어요.</div>');
+    $('ov-body').innerHTML = `<h2>${esc(r ? r.student_name : code)} 요일 변경 이력</h2>${body}<div style="margin-top:12px"><button class="btn ghost" id="h-close">닫기</button></div>`;
+  }
+  $('ov').addEventListener('click', (e) => { if (e.target === $('ov') || e.target.id === 'h-close') $('ov').classList.remove('show'); });
+
+  load();
+</script>
+</body>
+</html>
