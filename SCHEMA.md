@@ -421,3 +421,4 @@ order by table_name;
 - 키오스크: `rpc_kiosk_find_staff(p_kiosk_code, p_last4)`(재직자만), `rpc_kiosk_staff_check(p_kiosk_code, p_staff_code, p_check_type)`(2분 내 중복 터치는 기존 기록 반환). `attendance-kiosk.html`이 뒷 4자리로 학생+선생님을 같이 찾아 한 목록에 보여줌(선생님은 파란 표시). 선생님 함수가 없어도 학생 출석은 그대로 동작.
 - 관리자(원장님 전용): `rpc_admin_list_staff`, `rpc_admin_save_staff(p_staff_code 비우면 추가)`, `rpc_admin_resign_staff`, `rpc_admin_reinstate_staff`, `rpc_admin_list_staff_checks(p_from, p_to)`, `rpc_admin_set_staff_day(p_staff_code, p_date, 'HH:MM' 출근, 퇴근)` — 빈 값이면 삭제. 화면: `admin/staff-attendance.html`.
 - 일정: 아이출첵은 2027년 1월 말까지만 사용(년 결제 만료 2월 초, 재결제 안 함). 11월 키오스크 테스트부터 병행.
+- **(72 마이그레이션)** `rpc_kiosk_staff_check`가 새 기록이 쌓일 때만 `telegram_send`로 원장님께 알림(예: `👤 김쌤(T-001) 퇴근 18:30 · 오늘 9시간 25분`). 2분 내 중복 터치·관리자 화면 수정은 알리지 않음. 텔레그램이 실패해도 출퇴근 기록은 그대로 저장. 선생님 본인 폰 알림톡은 템플릿 승인 후 연결 예정(출근/퇴근은 `#{구분}` 변수 하나의 템플릿).
