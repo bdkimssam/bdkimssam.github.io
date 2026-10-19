@@ -39,6 +39,13 @@
   .msg { font-size:13px; margin-top:8px; min-height:18px; }
   .msg.err { color: var(--red); } .msg.ok { color: var(--green); }
   tr.edit td { background:#F8FAFC; }
+  .mini.tab.on { background:var(--navy-900); color:#fff; border-color:var(--navy-900); }
+  .overlay { display:none; position:fixed; inset:0; background:rgba(11,18,32,.45); z-index:50; align-items:center; justify-content:center; padding:16px; }
+  .overlay.show { display:flex; }
+  .modal { background:#fff; border-radius:16px; padding:22px; width:100%; max-width:420px; max-height:92vh; overflow:auto; }
+  .modal label { display:block; font-size:12px; font-weight:700; color:var(--muted); margin:12px 0 4px; }
+  .modal input, .modal select, .modal textarea { width:100%; font-family:inherit; font-size:14px; padding:9px 11px; border-radius:10px; border:1px solid var(--gray-200); }
+  .code { font-family: Consolas, monospace; font-size:12px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -52,16 +59,17 @@
   <div class="banner" id="sql-banner">선생님 출퇴근 기능이 DB에 아직 없습니다. 안내드린 SQL(71번)을 Supabase에서 먼저 실행해 주세요.</div>
 
   <div class="panel">
-    <h2>선생님 명단</h2>
-    <div class="row" style="margin-bottom:12px">
-      <input id="f-name" placeholder="이름" style="width:110px">
-      <input id="f-phone" placeholder="휴대폰 번호" style="width:150px" inputmode="tel">
-      <input id="f-role" placeholder="구분 (강사/원장)" style="width:120px">
-      <button class="btn" id="f-add">추가</button>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <div class="row"><h2 style="margin:0">선생님 명단</h2>
+        <button class="mini tab on" data-tab="active">재직</button>
+        <button class="mini tab" data-tab="resigned">퇴사</button></div>
+      <button class="btn" id="f-new">+ 선생님 추가</button>
     </div>
     <div class="msg" id="staff-msg"></div>
     <div class="scroll"><table id="staff-table"></table></div>
   </div>
+
+  <div class="overlay" id="ov"><div class="modal" id="ov-body"></div></div>
 
   <div class="panel">
     <div class="row" style="margin-bottom:12px">
@@ -95,6 +103,8 @@
   }
 
   // ---------- 명단 ----------
+  const CLASSROOM_OPTS = ['1강의실', '2강의실', '4강의실', '5강의실', '원장님'];
+  let tab = 'active';
   async function loadStaff() {
     const { data, error } = await sb.rpc('rpc_admin_list_staff', { p_password: getAdminPassword() });
     if (error) {
@@ -104,42 +114,82 @@
     staff = data || [];
     renderStaff();
     const cur = $('m-staff').value;
-    $('m-staff').innerHTML = '<option value="">전체</option>' + staff.filter((s) => s.active).map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    $('m-staff').innerHTML = '<option value="">전체</option>' + staff.map((s) => `<option value="${esc(s.staff_code)}">${esc(s.name)}${s.active ? '' : ' (퇴사)'}</option>`).join('');
     $('m-staff').value = cur;
     return true;
   }
   function renderStaff() {
-    if (!staff.length) { $('staff-table').innerHTML = '<tr><td class="empty">아직 등록된 선생님이 없어요. 위에서 추가해 주세요.</td></tr>'; return; }
-    $('staff-table').innerHTML = '<tr><th>이름</th><th>휴대폰</th><th>구분</th><th></th></tr>' + staff.map((s) => `
+    const list = staff.filter((s) => (tab === 'active') === !!s.active);
+    if (!list.length) { $('staff-table').innerHTML = `<tr><td class="empty">${tab === 'active' ? '재직 중인 선생님이 없어요. 오른쪽 위에서 추가해 주세요.' : '퇴사한 선생님이 없어요.'}</td></tr>`; return; }
+    $('staff-table').innerHTML = '<tr><th>코드</th><th>이름</th><th>휴대폰</th><th>구분</th><th>강의실</th><th>' + (tab === 'active' ? '입사일' : '퇴사일') + '</th><th></th></tr>' + list.map((s) => `
       <tr>
-        <td class="${s.active ? '' : 'off'}"><b>${esc(s.name)}</b>${s.active ? '' : ' <span class="muted">(퇴직)</span>'}</td>
-        <td>${esc(fmtPhone(s.phone))}</td><td>${esc(s.role)}</td>
-        <td style="text-align:right"><button class="mini" data-edit="${s.id}">수정</button>
-        <button class="mini" data-toggle="${s.id}">${s.active ? '퇴직 처리' : '복직'}</button></td>
+        <td class="code">${esc(s.staff_code)}</td>
+        <td><b>${esc(s.name)}</b></td>
+        <td>${esc(fmtPhone(s.phone))}</td><td>${esc(s.role)}</td><td>${esc(s.classroom || '-')}</td>
+        <td>${esc((tab === 'active' ? s.hire_date : s.resign_date) || '-')}</td>
+        <td style="text-align:right;white-space:nowrap"><button class="mini" data-edit="${esc(s.staff_code)}">수정</button>
+        <button class="mini" data-${s.active ? 'resign' : 'back'}="${esc(s.staff_code)}">${s.active ? '퇴사 처리' : '복직'}</button></td>
       </tr>`).join('');
   }
-  async function saveStaff(id, name, phone, role, active) {
-    const { error } = await sb.rpc('rpc_admin_save_staff', { p_password: getAdminPassword(), p_id: id, p_name: name, p_phone: phone, p_role: role, p_active: active });
-    if (error) { $('staff-msg').className = 'msg err'; $('staff-msg').textContent = error.message; return false; }
-    $('staff-msg').className = 'msg ok'; $('staff-msg').textContent = '저장했어요.';
-    await loadStaff();
-    return true;
+  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
+    tab = b.dataset.tab;
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === b));
+    renderStaff();
+  }));
+
+  function openModal(html) { $('ov-body').innerHTML = html; $('ov').classList.add('show'); }
+  function closeModal() { $('ov').classList.remove('show'); }
+  function showFormMsg(t) { const m = $('mm'); if (m) { m.className = 'msg err'; m.textContent = t; } }
+
+  function openEdit(code) {
+    const s = code ? staff.find((x) => x.staff_code === code) : { name: '', phone: '', role: '강사', classroom: '', hire_date: '', memo: '' };
+    openModal(`<h2>${code ? esc(s.staff_code) + ' 수정' : '선생님 추가'}</h2>
+      <label>이름</label><input id="m-name" value="${esc(s.name)}">
+      <label>휴대폰 번호 (키오스크에서 뒷 4자리로 찾아요)</label><input id="m-phone" inputmode="tel" value="${esc(fmtPhone(s.phone))}">
+      <label>구분</label><select id="m-role">${['강사', '원장'].map((r) => `<option ${r === s.role ? 'selected' : ''}>${r}</option>`).join('')}</select>
+      <label>담당 강의실</label><select id="m-room"><option value="">(없음)</option>${CLASSROOM_OPTS.map((r) => `<option ${r === s.classroom ? 'selected' : ''}>${r}</option>`).join('')}</select>
+      <label>입사일</label><input type="date" id="m-hire" value="${esc(s.hire_date || '')}">
+      <label>메모</label><textarea id="m-memo" rows="2">${esc(s.memo || '')}</textarea>
+      <div class="msg" id="mm"></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="m-save" data-code="${esc(code || '')}">저장</button><button class="btn ghost" id="m-close">취소</button></div>`);
   }
-  $('f-add').addEventListener('click', async () => {
-    const ok = await saveStaff(null, $('f-name').value, $('f-phone').value, $('f-role').value, true);
-    if (ok) { $('f-name').value = $('f-phone').value = $('f-role').value = ''; }
+  function openResign(code) {
+    const s = staff.find((x) => x.staff_code === code);
+    openModal(`<h2>${esc(s.name)} 선생님 퇴사 처리</h2>
+      <p class="sub" style="margin:6px 0 0">퇴사 처리하면 키오스크에서 더 이상 나오지 않아요. 지난 출퇴근 기록은 그대로 남고, 언제든 복직시킬 수 있어요.</p>
+      <label>퇴사일</label><input type="date" id="r-date" value="${seoulToday()}">
+      <label>메모 (선택)</label><input id="r-note" placeholder="예: 개인 사정">
+      <div class="msg" id="mm"></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="r-ok" data-code="${esc(code)}">퇴사 처리</button><button class="btn ghost" id="m-close">취소</button></div>`);
+  }
+  $('f-new').addEventListener('click', () => openEdit(null));
+  $('ov').addEventListener('click', async (e) => {
+    if (e.target === $('ov') || e.target.id === 'm-close') { closeModal(); return; }
+    if (e.target.id === 'm-save') {
+      const code = e.target.dataset.code || null;
+      e.target.disabled = true;
+      const { error } = await sb.rpc('rpc_admin_save_staff', {
+        p_password: getAdminPassword(), p_staff_code: code, p_name: $('m-name').value, p_phone: $('m-phone').value,
+        p_role: $('m-role').value, p_classroom: $('m-room').value, p_hire_date: $('m-hire').value || null, p_memo: $('m-memo').value,
+      });
+      if (error) { showFormMsg(error.message); e.target.disabled = false; return; }
+      closeModal(); $('staff-msg').className = 'msg ok'; $('staff-msg').textContent = '저장했어요.'; await loadStaff();
+    }
+    if (e.target.id === 'r-ok') {
+      e.target.disabled = true;
+      const { error } = await sb.rpc('rpc_admin_resign_staff', { p_password: getAdminPassword(), p_staff_code: e.target.dataset.code, p_resign_date: $('r-date').value || null, p_note: $('r-note').value });
+      if (error) { showFormMsg(error.message); e.target.disabled = false; return; }
+      closeModal(); $('staff-msg').className = 'msg ok'; $('staff-msg').textContent = '퇴사 처리했어요.'; await loadStaff();
+    }
   });
   $('staff-table').addEventListener('click', async (e) => {
     const t = e.target.closest('button'); if (!t) return;
-    if (t.dataset.toggle) {
-      const s = staff.find((x) => x.id === t.dataset.toggle);
-      await saveStaff(s.id, s.name, s.phone, s.role, !s.active);
-    } else if (t.dataset.edit) {
-      const s = staff.find((x) => x.id === t.dataset.edit);
-      const name = prompt('이름', s.name); if (name === null) return;
-      const phone = prompt('휴대폰 번호', fmtPhone(s.phone)); if (phone === null) return;
-      const role = prompt('구분', s.role); if (role === null) return;
-      await saveStaff(s.id, name, phone, role, s.active);
+    if (t.dataset.edit) openEdit(t.dataset.edit);
+    else if (t.dataset.resign) openResign(t.dataset.resign);
+    else if (t.dataset.back) {
+      const { error } = await sb.rpc('rpc_admin_reinstate_staff', { p_password: getAdminPassword(), p_staff_code: t.dataset.back });
+      if (error) { $('staff-msg').className = 'msg err'; $('staff-msg').textContent = error.message; return; }
+      $('staff-msg').className = 'msg ok'; $('staff-msg').textContent = '복직 처리했어요.'; await loadStaff();
     }
   });
 
@@ -157,7 +207,7 @@
     // key staffId|date -> {in, out}
     const m = {};
     checks.forEach((c) => {
-      const k = c.staff_id + '|' + c.check_date;
+      const k = c.staff_code + '|' + c.check_date;
       const o = m[k] || (m[k] = { in: null, out: null });
       if (c.check_type === '출근') { if (!o.in || c.checked_at < o.in) o.in = c.checked_at; }
       else if (!o.out || c.checked_at > o.out) o.out = c.checked_at;
@@ -167,7 +217,7 @@
   function renderRecords() {
     const { last } = monthRange();
     const sel = $('m-staff').value;
-    const list = staff.filter((s) => (sel ? s.id === sel : (s.active || checks.some((c) => c.staff_id === s.id))));
+    const list = staff.filter((s) => (sel ? s.staff_code === sel : (s.active || checks.some((c) => c.staff_code === s.staff_code))));
     const m = dayMap();
     const today = seoulToday();
     let rows = '', totalMin = 0, days = 0;
@@ -175,13 +225,13 @@
       const date = `${ym}-${String(d).padStart(2, '0')}`;
       const wd = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5) - 1, d)).getUTCDay();
       list.forEach((s) => {
-        const o = m[s.id + '|' + date];
-        const key = s.id + '|' + date;
+        const o = m[s.staff_code + '|' + date];
+        const key = s.staff_code + '|' + date;
         if (!o && !(sel && date <= today && wd !== 0 && wd !== 6) && editKey !== key) return; // 개인 선택 시 평일 빈 날도 표시
         let work = '';
         if (o && o.in && o.out && o.out > o.in) { const mn = Math.round((new Date(o.out) - new Date(o.in)) / 60000); totalMin += mn; days++; work = `${Math.floor(mn / 60)}시간 ${mn % 60}분`; }
         else if (o && (o.in || o.out)) work = '<span class="miss">기록 누락</span>';
-        rows += `<tr><td>${d}일 (${WD[wd]})</td><td><b>${esc(s.name)}</b></td>
+        rows += `<tr><td>${d}일 (${WD[wd]})</td><td><b>${esc(s.name)}</b>${s.active ? '' : ' <span class="muted">(퇴사)</span>'}</td>
           <td>${o && o.in ? hhmm(o.in) : '<span class="muted">-</span>'}</td>
           <td>${o && o.out ? hhmm(o.out) : '<span class="muted">-</span>'}</td><td>${work}</td>
           <td style="text-align:right"><button class="mini" data-day="${key}">${o ? '수정' : '입력'}</button></td></tr>`;
@@ -206,7 +256,7 @@
     if (t.id === 'e-save') {
       const [sid, date] = editKey.split('|');
       t.disabled = true;
-      const { error } = await sb.rpc('rpc_admin_set_staff_day', { p_password: getAdminPassword(), p_staff_id: sid, p_date: date, p_in: $('e-in').value, p_out: $('e-out').value });
+      const { error } = await sb.rpc('rpc_admin_set_staff_day', { p_password: getAdminPassword(), p_staff_code: sid, p_date: date, p_in: $('e-in').value, p_out: $('e-out').value });
       if (error) { $('rec-msg').className = 'msg err'; $('rec-msg').textContent = error.message; t.disabled = false; return; }
       $('rec-msg').className = 'msg ok'; $('rec-msg').textContent = '저장했어요.';
       editKey = null;

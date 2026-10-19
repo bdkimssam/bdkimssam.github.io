@@ -254,7 +254,7 @@
     }
     // 선생님 조회는 SQL(71)이 아직 없거나 실패해도 학생 출석은 그대로 동작
     const staff = (tr.error ? [] : (tr.data || [])).map((t) => ({
-      kind: 'staff', staff_id: t.staff_id, student_name: t.staff_name, grade: t.role || '선생님',
+      kind: 'staff', staff_code: t.staff_code, student_name: t.staff_name, grade: t.role || '선생님',
       last_check_type: t.last_check_type, last_checked_at: t.last_checked_at,
     }));
     const list = staff.concat(sr.data || []);
@@ -322,7 +322,7 @@
     $('action-msg').textContent = '';
     const isStaff = currentStudent.kind === 'staff';
     const { data, error } = isStaff
-      ? await sb.rpc('rpc_kiosk_staff_check', { p_kiosk_code: kioskCode, p_staff_id: currentStudent.staff_id, p_check_type: type })
+      ? await sb.rpc('rpc_kiosk_staff_check', { p_kiosk_code: kioskCode, p_staff_code: currentStudent.staff_code, p_check_type: type })
       : await sb.rpc('rpc_kiosk_check', { p_kiosk_code: kioskCode, p_student_code: currentStudent.student_code, p_check_type: type });
     busy = false;
     if (error) {
