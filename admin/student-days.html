@@ -127,7 +127,9 @@
   }
   function render() {
     const list = visible();
-    $('cnt').textContent = `${list.length}명 · 요일 미설정 ${rows.filter((r) => cur(r).length === 0).length}명`;
+    const unsetHere = list.filter((r) => cur(r).length === 0).length;
+    const unsetAll = rows.filter((r) => cur(r).length === 0).length;
+    $('cnt').textContent = `${list.length}명 중 미설정 ${unsetHere}명` + (unsetAll !== unsetHere ? ` (전체 미설정 ${unsetAll}명)` : '');
     if (!list.length) { $('wrap').innerHTML = '<div class="empty">조건에 맞는 학생이 없어요.</div>'; updateBar(); return; }
     $('wrap').innerHTML = `<table><tr><th class="l">이름</th><th class="l">학년</th><th class="l">강의실</th>${DAYS.map((d) => `<th class="dayh" data-day="${d}" title="보이는 학생 전체 체크/해제">${d}</th>`).join('')}<th></th></tr>` +
       list.map((r) => {
