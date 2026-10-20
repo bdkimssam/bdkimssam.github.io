@@ -72,6 +72,7 @@ order by table_name;
 - `posted_date` date
 - `created_at` timestamptz NOT NULL DEFAULT now()
 - `target_grade` text NOT NULL DEFAULT '전체' — 학년별 타겟팅 (예: "전체", "중고등", "초3")
+- `attachments` jsonb NOT NULL DEFAULT '[]' — 첨부 목록 `[{name,url,type,size}]` (74 마이그레이션). 파일은 공개 저장소 `announcement-files`(파일당 10MB, 경로 `ann/<uuid>.<확장자>`)에 올림. `log_row_change()` 트리거(`trg_log_announcements`)로 변경 이력. 공지를 삭제해도 저장소 파일은 남음(용량 미미). `rpc_admin_add_announcement`(p_attachments 기본 [])/`rpc_admin_update_announcement`(원장님 전용, 제목·내용·대상학년·작성일·첨부 수정)/`rpc_admin_list_announcements`/`rpc_get_announcements`가 attachments를 주고받음. 화면: `admin/announcements.html`(첨부·수정, 사진은 1600px JPEG로 자동 축소), `dashboard.html`(펼치면 이미지는 바로 보이고 파일은 다운로드 링크).
 
 ### `attendance` — 출결
 - `id` uuid NOT NULL DEFAULT gen_random_uuid()
