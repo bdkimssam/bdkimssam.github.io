@@ -293,6 +293,7 @@ order by table_name;
 - `rpc_admin_list_exam_applications(p_password)` — 원장님 전용. 전체 신청 목록(날짜/회차/학생명 순 정렬).
 - `rpc_admin_update_exam_scores(p_password, p_id, p_predicted_score, p_final_score, p_notes)` — 원장님 전용. 예상점수/최종점수/비고 입력·수정 (35 마이그레이션에서 `p_notes` 추가, 기존 4-인자 함수는 삭제됨).
 - `rpc_admin_delete_exam_application(p_password, p_id)` — 원장님 전용. 신청 삭제.
+- **(75 마이그레이션, 2026-10-20) 납부 확인**: `math_exam_applications.paid`(boolean 기본 false) / `paid_at`(체크한 시각, 자동). 접수비는 학원이 접수처로서 **현금만** 받고 원장님이 주최측에 따로 입금하는 구조라 금액·결제수단은 기록하지 않고 '받았는지'만 체크. `rpc_admin_set_exam_paid(p_password, p_id, p_paid)` — 원장님 전용. `rpc_admin_list_exam_applications`는 paid/paid_at 포함, `rpc_get_my_exam_applications`는 paid 포함. `log_row_change()` 트리거(`trg_log_math_exam_applications`)로 변경 이력. 화면: `admin/exam-applications.html`(신청마다 '납부 확인하기' 버튼, 상단 '납부 확인 N / M명'(시험 종류 필터 기준), '납부 확인 전만 보기'), 학부모 대시보드 수학학력평가 카드에 '신청완료 · 납부 확인됨/납부 확인 전'.
 - `math_exam_applications.notes` — 비고(35 마이그레이션). 예: "아파서 응시 못함" 같은 메모. 관리자 페이지 수정 패널에서 입력.
 
 ### 상담 문자(SMS) 알림 — 솔라피 (31 마이그레이션)

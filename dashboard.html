@@ -892,6 +892,8 @@
     ]);
     const allRounds = roundsRes.data || [];
     const appliedTypes = new Set(applications.map((a) => a.exam_type));
+    const paidByType = {};
+    applications.forEach((a) => { paidByType[a.exam_type] = a.paid; });
     const todayStr = new Date().toISOString().slice(0, 10);
 
     // 접수 마감일이 지났고 아직 신청 안 한 회차는 목록에서 제외 (이미 신청한 건 "신청완료"로 계속 표시)
@@ -914,7 +916,7 @@
             return `
               <button type="button" class="exam-apply-btn" data-exam-type="${r.exam_type}" ${applied ? 'disabled' : ''}
                 style="width:100%; text-align:left; padding:12px 14px; border-radius:10px; border:1px solid ${applied ? 'var(--gray-200)' : 'var(--navy-900)'}; background:${applied ? 'var(--gray-50)' : '#fff'}; cursor:${applied ? 'default' : 'pointer'}; font-weight:700; font-size:13.5px; color:${applied ? 'var(--muted)' : 'var(--ink)'};">
-                ${applied ? '✅ ' : ''}${r.label}${applied ? ' — 신청완료' : ' — 신청하기'}
+                ${applied ? '✅ ' : ''}${r.label}${applied ? ' — 신청완료' + (paidByType[r.exam_type] === true ? ' · 납부 확인됨' : (paidByType[r.exam_type] === false ? ' · 납부 확인 전' : '')) : ' — 신청하기'}
               </button>
             `;
           })

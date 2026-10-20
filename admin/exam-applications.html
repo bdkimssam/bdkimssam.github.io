@@ -31,6 +31,12 @@
   }
   .filter-row button.active { background: var(--navy-900); color:#fff; border-color: var(--navy-900); }
   .app-list { margin-top:4px; }
+  .pay-line { margin-top:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px; }
+  .pay-btn { padding:6px 12px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-weight:800; font-size:12.5px; cursor:pointer; font-family:inherit; color:var(--ink); }
+  .pay-btn.on { background:#DCFCE7; border-color:#86EFAC; color:#15803D; }
+  .pay-date { color:var(--muted); font-size:12px; }
+  .pay-summary { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:12px 0 4px; font-size:13px; font-weight:800; }
+  .pay-summary label { font-weight:700; color:var(--muted); display:flex; align-items:center; gap:6px; cursor:pointer; }
   .app-row { padding:14px 2px; border-top:1px solid var(--gray-200); font-size:13.5px; }
   .app-row:first-child { border-top:none; }
   .app-row .head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
@@ -119,6 +125,7 @@
   let currentApps = [];
   let editingId = null;
   let currentFilter = 'all';
+  let onlyUnpaid = false;
 
   document.querySelectorAll('.filter-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -313,15 +320,24 @@
   }
   loadApps();
 
+  function bindUnpaid() {
+    const cb = document.getElementById('only-unpaid');
+    if (cb) cb.addEventListener('change', () => { onlyUnpaid = cb.checked; renderApps(currentApps); });
+  }
+
   function renderApps(items) {
-    const filtered = items.filter((it) => currentFilter === 'all' || it.exam_type === currentFilter);
+    const byType = items.filter((it) => currentFilter === 'all' || it.exam_type === currentFilter);
+    const paidCnt = byType.filter((it) => it.paid).length;
+    const summary = `<div class="pay-summary"><span>납부 확인 ${paidCnt} / ${byType.length}명</span><label><input type="checkbox" id="only-unpaid" ${onlyUnpaid ? 'checked' : ''}> 납부 확인 전만 보기</label></div>`;
+    const filtered = byType.filter((it) => !onlyUnpaid || !it.paid);
 
     if (filtered.length === 0) {
-      appListEl.innerHTML = '<div class="empty">신청 내역이 없습니다.</div>';
+      appListEl.innerHTML = summary + '<div class="empty">' + (onlyUnpaid && byType.length ? '납부 확인 전인 신청이 없습니다.' : '신청 내역이 없습니다.') + '</div>';
+      bindUnpaid();
       return;
     }
 
-    appListEl.innerHTML = filtered.map((it) => {
+    appListEl.innerHTML = summary + filtered.map((it) => {
       const isEditing = it.id === editingId;
       const editPanel = isEditing ? `
         <div class="edit-panel">
@@ -367,12 +383,33 @@
           <span><span class="label">예상점수</span>${it.predicted_score ?? '-'}</span>
           <span><span class="label">최종점수</span>${it.final_score ?? '-'}</span>
         </div>
+        <div class="pay-line">
+          <span class="label" style="color:var(--muted);font-weight:700;">납부</span>
+          <button type="button" class="pay-btn ${it.paid ? 'on' : ''}" data-id="${it.id}" data-paid="${it.paid ? '1' : '0'}">${it.paid ? '✅ 납부 확인됨' : '납부 확인하기'}</button>
+          ${it.paid && it.paid_at ? `<span class="pay-date">${fmtDateTime(it.paid_at)} 확인</span>` : ''}
+        </div>
         ${it.notes ? `<div class="notes-line"><span class="label">비고</span>${it.notes}</div>` : ''}
         ${editPanel}
       </div>
     `;
     }).join('');
 
+    bindUnpaid();
+    appListEl.querySelectorAll('.pay-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const toPaid = btn.dataset.paid !== '1';
+        if (!toPaid && !confirm('납부 확인을 취소할까요?')) return;
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_set_exam_paid', { p_password: getAdminPassword(), p_id: btn.dataset.id, p_paid: toPaid });
+        btn.disabled = false;
+        if (error) {
+          const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+          alert(missing ? '납부 확인 SQL(75번)이 DB에 아직 없어요. 안내드린 SQL을 먼저 실행해 주세요.' : '저장 실패: ' + error.message);
+          return;
+        }
+        loadApps();
+      });
+    });
     appListEl.querySelectorAll('.edit-btn').forEach((btn) => {
       btn.addEventListener('click', () => { editingId = btn.dataset.id; renderApps(currentApps); });
     });
