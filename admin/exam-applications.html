@@ -36,6 +36,10 @@
   .pay-btn.on { background:#DCFCE7; border-color:#86EFAC; color:#15803D; }
   .pay-date { color:var(--muted); font-size:12px; }
   .pay-summary { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:12px 0 4px; font-size:13px; font-weight:800; }
+  .fee-row { margin-top:6px; font-size:12.5px; font-weight:700; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .fee-input { width:100px; padding:5px 8px; border:1px solid var(--gray-200); border-radius:8px; font-family:inherit; }
+  .fee-save { padding:5px 10px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; font-weight:800; font-size:12px; cursor:pointer; font-family:inherit; }
+  .money { color:#15803D; }
   .pay-summary label { font-weight:700; color:var(--muted); display:flex; align-items:center; gap:6px; cursor:pointer; }
   .app-row { padding:14px 2px; border-top:1px solid var(--gray-200); font-size:13.5px; }
   .app-row:first-child { border-top:none; }
@@ -206,7 +210,8 @@
       const isFormOpen = openFormType === type;
 
       const currentInfo = current
-        ? `<div class="round-current"><span class="sem">${semesterLabel(current.semester_year, current.semester_term)}</span>${current.label} · 접수마감 ${current.apply_deadline ? dateLabel(current.apply_deadline) : '-'}</div>`
+        ? `<div class="round-current"><span class="sem">${semesterLabel(current.semester_year, current.semester_term)}</span>${current.label} · 접수마감 ${current.apply_deadline ? dateLabel(current.apply_deadline) : '-'}</div>
+           <div class="fee-row">응시료 <input type="number" class="fee-input" min="0" step="500" placeholder="예) 25000" value="${current.fee != null ? current.fee : ''}">원 <button type="button" class="fee-save" data-id="${current.id}">응시료 저장</button></div>`
         : `<div class="round-current" style="color:var(--muted);">등록된 회차가 없습니다.</div>`;
 
       // 기본값: 다음 학기 추정 (현재 회차의 연도/학기 기준 +1학기)
@@ -237,6 +242,10 @@
           <div>
             <label>접수마감일</label>
             <input type="date" class="rf-deadline" value="${current && current.apply_deadline ? current.apply_deadline : ''}">
+          </div>
+          <div>
+            <label>응시료(원)</label>
+            <input type="number" class="rf-fee" min="0" step="500" placeholder="예) 25000" value="${current && current.fee != null ? current.fee : ''}">
           </div>
           <div class="full">
             <label>표시 문구</label>
@@ -270,6 +279,23 @@
         renderRounds();
       });
     });
+    roundsCurrentEl.querySelectorAll('.fee-save').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const inp = btn.parentElement.querySelector('.fee-input');
+        const fee = inp.value === '' ? null : Number(inp.value);
+        if (fee !== null && (!(fee >= 0) || !Number.isInteger(fee))) { alert('응시료는 0 이상의 숫자로 입력해 주세요.'); return; }
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_set_exam_round_fee', { p_password: getAdminPassword(), p_id: btn.dataset.id, p_fee: fee });
+        btn.disabled = false;
+        if (error) {
+          const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+          alert(missing ? '응시료 SQL(76번)이 DB에 아직 없어요. 안내드린 SQL을 먼저 실행해 주세요.' : '저장 실패: ' + error.message);
+          return;
+        }
+        await loadRounds();
+        loadApps();
+      });
+    });
     roundsCurrentEl.querySelectorAll('.round-form .cancel-btn').forEach((btn) => {
       btn.addEventListener('click', () => { openFormType = null; renderRounds(); });
     });
@@ -297,6 +323,7 @@
           p_exam_date: examDate,
           p_apply_deadline: deadline === '' ? null : deadline,
           p_label: label,
+          p_fee: card.querySelector('.rf-fee').value === '' ? null : Number(card.querySelector('.rf-fee').value),
         });
         btn.disabled = false;
         if (error) { alert('저장 실패: ' + error.message); return; }
@@ -328,7 +355,12 @@
   function renderApps(items) {
     const byType = items.filter((it) => currentFilter === 'all' || it.exam_type === currentFilter);
     const paidCnt = byType.filter((it) => it.paid).length;
-    const summary = `<div class="pay-summary"><span>납부 확인 ${paidCnt} / ${byType.length}명</span><label><input type="checkbox" id="only-unpaid" ${onlyUnpaid ? 'checked' : ''}> 납부 확인 전만 보기</label></div>`;
+    const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
+    const paidSum = byType.filter((it) => it.paid).reduce((a, it) => a + Number(it.paid_amount != null ? it.paid_amount : (it.fee || 0)), 0);
+    const noFee = byType.filter((it) => it.paid && it.paid_amount == null && it.fee == null).length;
+    const allSum = byType.reduce((a, it) => a + Number(it.fee || 0), 0);
+    const moneyTxt = `<span class="money">받은 금액 ${won(paidSum)}${allSum ? ` (전체 ${won(allSum)})` : ''}${noFee ? ` · 응시료 미입력 ${noFee}명 제외` : ''}</span>`;
+    const summary = `<div class="pay-summary"><span>납부 확인 ${paidCnt} / ${byType.length}명</span>${moneyTxt}<label><input type="checkbox" id="only-unpaid" ${onlyUnpaid ? 'checked' : ''}> 납부 확인 전만 보기</label></div>`;
     const filtered = byType.filter((it) => !onlyUnpaid || !it.paid);
 
     if (filtered.length === 0) {
@@ -386,6 +418,7 @@
         <div class="pay-line">
           <span class="label" style="color:var(--muted);font-weight:700;">납부</span>
           <button type="button" class="pay-btn ${it.paid ? 'on' : ''}" data-id="${it.id}" data-paid="${it.paid ? '1' : '0'}">${it.paid ? '✅ 납부 확인됨' : '납부 확인하기'}</button>
+          ${(it.paid ? (it.paid_amount != null ? it.paid_amount : it.fee) : it.fee) != null ? `<span class="pay-date">${won(it.paid ? (it.paid_amount != null ? it.paid_amount : it.fee) : it.fee)}</span>` : ''}
           ${it.paid && it.paid_at ? `<span class="pay-date">${fmtDateTime(it.paid_at)} 확인</span>` : ''}
         </div>
         ${it.notes ? `<div class="notes-line"><span class="label">비고</span>${it.notes}</div>` : ''}

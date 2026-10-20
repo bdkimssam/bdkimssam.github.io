@@ -430,3 +430,8 @@ order by table_name;
 - `rpc_admin_list_student_days(p_password, p_classroom)` — 재원생 + 강의실/학년 + days (원장님·강사쌤 조회 가능, 강사쌤은 자기 강의실만). `rpc_admin_set_student_days(p_password, p_items jsonb)` — 원장님 전용, 바뀐 학생만 저장하고 저장 인원 수 반환(예: `[{"student_code":"26M-001","days":["월","수","금"]}]`). `rpc_admin_student_days_history(p_password, p_student_code)` — 원장님 전용.
 - 학기·방학 요일은 구분하지 않음. 방학에 요일이 다른 학생만 원장님이 직접 수정(이력으로 날짜 확인).
 - 화면: `admin/student-days.html`(원장님 전용, 강의실·학년 필터, 요일 헤더 클릭 시 보이는 학생 일괄 체크). 출결·숙제·진도 화면에서 '오늘 오는 학생만' 보이게 하는 연결과 보강 표시는 다음 단계.
+
+## 76. 수학학력평가 응시료
+- `math_exam_rounds.fee` (회차별 응시료, null 가능, 0 이상), `math_exam_applications.paid_amount` (납부 확인 시점 금액 스냅샷, 해제하면 null)
+- `rpc_admin_set_exam_round_fee(p_password, p_id, p_fee)`, `rpc_admin_add_exam_round(..., p_fee default null)`, `rpc_admin_get_exam_rounds`(fee 추가), `rpc_admin_list_exam_applications`(paid_amount, fee 추가), `rpc_admin_set_exam_paid`(paid_amount 저장)
+- `math_exam_rounds` 변경 이력 트리거 추가
