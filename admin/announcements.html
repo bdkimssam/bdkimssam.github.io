@@ -40,6 +40,19 @@
   .notice-row .d { font-size: 11.5px; color: #98A1B3; margin-top: 4px; }
   .del-btn { flex-shrink:0; background:none; border:none; color:#C0392B; font-size:13px; cursor:pointer; padding: 4px 6px; }
   .loading { color: var(--muted); font-size: 13px; }
+  .att-list { margin: -6px 0 16px; display:flex; flex-direction:column; gap:6px; }
+  .att-item { display:flex; align-items:center; gap:8px; font-size:13px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:10px; padding:7px 10px; }
+  .att-item img { width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0; }
+  .att-item .n { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .att-item .sz { color:#98A1B3; font-size:11.5px; flex-shrink:0; }
+  .att-item button { background:none; border:none; color:#C0392B; cursor:pointer; font-size:13px; }
+  .hint { font-size:11.5px; color:#98A1B3; margin:-12px 0 12px; }
+  button.cancel { width:100%; padding:11px; border-radius:10px; border:1px solid var(--gray-200); background:#fff; color:var(--ink); font-weight:800; font-size:14px; cursor:pointer; margin-top:8px; display:none; }
+  .edit-btn { flex-shrink:0; background:none; border:none; color:#3D4FA0; font-size:13px; cursor:pointer; padding: 4px 6px; }
+  .c .atts { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .c .atts img { max-width:140px; max-height:140px; border-radius:8px; border:1px solid var(--gray-200); }
+  .c .atts a.file { font-size:12.5px; font-weight:700; color:#3D4FA0; background:#EEF2FF; padding:6px 10px; border-radius:8px; text-decoration:none; }
+  .clip { color:#98A1B3; font-size:11.5px; margin-left:6px; }
 </style>
 </head>
 <body>
@@ -51,7 +64,7 @@
 
 <main>
   <div class="panel">
-    <h1>새 공지 등록</h1>
+    <h1 id="form-title">새 공지 등록</h1>
     <form id="notice-form">
       <label for="target-grade">대상 학년</label>
       <select id="target-grade">
@@ -76,7 +89,13 @@
       <label for="posted-date">작성일</label>
       <input type="date" id="posted-date" required>
 
+      <label for="files">첨부 (이미지·파일)</label>
+      <input type="file" id="files" multiple accept="image/*,.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt" style="margin-bottom:8px">
+      <div class="hint">공지당 최대 5개, 파일 하나당 10MB까지. 사진은 자동으로 줄여서 올려요.</div>
+      <div class="att-list" id="att-list"></div>
+
       <button type="submit" class="submit">등록하기</button>
+      <button type="button" class="cancel" id="cancel-edit">수정 취소</button>
     </form>
   </div>
 
@@ -97,6 +116,96 @@
     return g;
   }
 
+  const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const MAX_FILES = 5, MAX_BYTES = 10 * 1024 * 1024;
+  let items = [];        // 공지 목록
+  let editingId = null;  // 수정 중인 공지 id
+  let kept = [];         // 이미 올라가 있는 첨부 (수정 시)
+  let newFiles = [];     // 이번에 새로 고른 파일
+
+  const fmtSize = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB';
+  const isImg = (a) => /^image\//.test(a.type || '');
+  const dlUrl = (a) => a.url + (a.url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(a.name || 'file');
+
+  // 사진은 가로·세로 1600px 이내 JPEG로 줄여서 올림 (핸드폰 사진이 너무 커서)
+  async function shrinkImage(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 300 * 1024) return file;
+    try {
+      const bmp = await createImageBitmap(file);
+      const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85));
+      if (!blob || blob.size >= file.size) return file;
+      return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+    } catch (e) { return file; }
+  }
+
+  function renderAtt() {
+    const box = document.getElementById('att-list');
+    const rows = [
+      ...kept.map((a, i) => ({ a, i, kind: 'kept' })),
+      ...newFiles.map((f, i) => ({ a: { name: f.name, size: f.size, type: f.type, file: f }, i, kind: 'new' })),
+    ];
+    box.innerHTML = rows.map((r) => {
+      const thumb = isImg(r.a) ? `<img src="${r.kind === 'kept' ? esc(r.a.url) : URL.createObjectURL(r.a.file)}" alt="">` : '<i class="fa-solid fa-file" style="width:40px;text-align:center;color:#98A1B3"></i>';
+      return `<div class="att-item">${thumb}<span class="n">${esc(r.a.name)}</span><span class="sz">${r.a.size ? fmtSize(r.a.size) : ''}</span><button type="button" data-k="${r.kind}" data-i="${r.i}" title="빼기"><i class="fa-solid fa-xmark"></i></button></div>`;
+    }).join('');
+  }
+  document.getElementById('att-list').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-k]'); if (!b) return;
+    (b.dataset.k === 'kept' ? kept : newFiles).splice(+b.dataset.i, 1);
+    renderAtt();
+  });
+  document.getElementById('files').addEventListener('change', async (e) => {
+    const picked = Array.from(e.target.files || []); e.target.value = '';
+    for (const f of picked) {
+      if (kept.length + newFiles.length >= MAX_FILES) { alert(`첨부는 공지당 최대 ${MAX_FILES}개까지예요.`); break; }
+      const g = await shrinkImage(f);
+      if (g.size > MAX_BYTES) { alert(`"${f.name}" 은(는) 10MB가 넘어서 올릴 수 없어요.`); continue; }
+      newFiles.push(g);
+    }
+    renderAtt();
+  });
+
+  function resetForm() {
+    editingId = null; kept = []; newFiles = [];
+    document.getElementById('notice-form').reset();
+    document.getElementById('posted-date').valueAsDate = new Date();
+    document.getElementById('form-title').textContent = '새 공지 등록';
+    document.querySelector('#notice-form button.submit').textContent = '등록하기';
+    document.getElementById('cancel-edit').style.display = 'none';
+    renderAtt();
+  }
+  function startEdit(id) {
+    const it = items.find((x) => x.id === id); if (!it) return;
+    editingId = id; kept = (it.attachments || []).slice(); newFiles = [];
+    document.getElementById('target-grade').value = it.target_grade || '전체';
+    document.getElementById('title').value = it.title || '';
+    document.getElementById('content').value = it.content || '';
+    document.getElementById('posted-date').value = it.posted_date || '';
+    document.getElementById('form-title').textContent = '공지 수정';
+    document.querySelector('#notice-form button.submit').textContent = '수정 저장';
+    document.getElementById('cancel-edit').style.display = 'block';
+    renderAtt();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  document.getElementById('cancel-edit').addEventListener('click', resetForm);
+
+  async function uploadAll() {
+    const out = [];
+    for (const f of newFiles) {
+      const ext = ((f.name.match(/\.([A-Za-z0-9]{1,8})$/) || [])[1] || (f.type.split('/')[1] || 'bin')).toLowerCase();
+      const path = `ann/${crypto.randomUUID()}.${ext}`;
+      const { error } = await sb.storage.from('announcement-files').upload(path, f, { upsert: false, contentType: f.type || undefined });
+      if (error) throw new Error(/bucket/i.test(error.message || '') ? '첨부 저장소가 아직 없어요. 안내드린 SQL(74번)을 먼저 실행해 주세요.' : '파일 올리기 실패: ' + error.message);
+      const { data } = sb.storage.from('announcement-files').getPublicUrl(path);
+      out.push({ name: f.name, url: data.publicUrl, type: f.type || '', size: f.size });
+    }
+    return out;
+  }
+
   async function loadList() {
     const listEl = document.getElementById('notice-list');
     listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
@@ -107,26 +216,33 @@
       listEl.innerHTML = '<div class="loading">목록을 불러오지 못했습니다.</div>';
       return;
     }
-    if (!data || data.length === 0) {
+    items = data || [];
+    if (items.length === 0) {
       listEl.innerHTML = '<div class="loading">등록된 공지가 없습니다.</div>';
       return;
     }
 
-    const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    listEl.innerHTML = data.map((item) => `
+    listEl.innerHTML = items.map((item) => {
+      const atts = item.attachments || [];
+      const attHtml = atts.length ? `<div class="atts">${atts.map((a) => isImg(a)
+        ? `<a href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="${esc(a.name)}"></a>`
+        : `<a class="file" href="${esc(dlUrl(a))}">📎 ${esc(a.name)}</a>`).join('')}</div>` : '';
+      return `
       <div class="notice-row">
         <details>
           <summary>
             <span class="tag">[${esc(gradeLabel(item.target_grade))}]</span>
-            <div class="t">${esc(item.title)}</div>
+            <div class="t">${esc(item.title)}${atts.length ? `<span class="clip"><i class="fa-solid fa-paperclip"></i> ${atts.length}</span>` : ''}</div>
             <div class="d">${esc(item.posted_date || '')}</div>
           </summary>
-          <div class="c">${esc(item.content || '(내용 없음)')}</div>
+          <div class="c">${esc(item.content || '(내용 없음)')}${attHtml}</div>
         </details>
+        <button class="edit-btn" data-edit="${esc(item.id)}" title="수정"><i class="fa-solid fa-pen"></i></button>
         <button class="del-btn" data-id="${esc(item.id)}"><i class="fa-solid fa-trash"></i></button>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
+    listEl.querySelectorAll('.edit-btn').forEach((btn) => btn.addEventListener('click', () => startEdit(btn.dataset.edit)));
     listEl.querySelectorAll('.del-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('이 공지를 삭제할까요?')) return;
@@ -134,6 +250,7 @@
           p_password: getAdminPassword(), p_id: btn.dataset.id,
         });
         if (delErr) { alert('삭제 실패: ' + delErr.message); return; }
+        if (editingId === btn.dataset.id) resetForm();
         loadList();
       });
     });
@@ -142,30 +259,38 @@
   document.getElementById('notice-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = e.target.querySelector('button[type="submit"]');
+    const label = submitBtn.textContent;
     submitBtn.disabled = true;
-    submitBtn.textContent = '등록 중...';
+    submitBtn.textContent = '저장 중...';
 
-    const { error } = await sb.rpc('rpc_admin_add_announcement', {
-      p_password: getAdminPassword(),
-      p_title: document.getElementById('title').value.trim(),
-      p_content: document.getElementById('content').value.trim(),
-      p_target_grade: document.getElementById('target-grade').value,
-      p_posted_date: document.getElementById('posted-date').value,
-    });
-
-    submitBtn.disabled = false;
-    submitBtn.textContent = '등록하기';
-
-    if (error) {
-      alert('등록 실패: ' + error.message);
-      return;
+    try {
+      const uploaded = await uploadAll();
+      const attachments = kept.concat(uploaded);
+      const common = {
+        p_password: getAdminPassword(),
+        p_title: document.getElementById('title').value.trim(),
+        p_content: document.getElementById('content').value.trim(),
+        p_target_grade: document.getElementById('target-grade').value,
+        p_posted_date: document.getElementById('posted-date').value,
+      };
+      let res;
+      if (editingId) res = await sb.rpc('rpc_admin_update_announcement', { ...common, p_id: editingId, p_attachments: attachments });
+      else if (attachments.length) res = await sb.rpc('rpc_admin_add_announcement', { ...common, p_attachments: attachments });
+      else res = await sb.rpc('rpc_admin_add_announcement', common);   // 첨부 없는 공지는 예전 방식 그대로
+      if (res.error) {
+        const missing = res.error.code === 'PGRST202' || /Could not find the function/i.test(res.error.message || '');
+        throw new Error(missing ? '첨부·수정 기능 SQL(74번)이 DB에 아직 없어요. 안내드린 SQL을 먼저 실행해 주세요.' : res.error.message);
+      }
+      resetForm();
+      loadList();
+    } catch (err) {
+      alert((editingId ? '수정 실패: ' : '등록 실패: ') + err.message);
+      submitBtn.textContent = label;
     }
-
-    e.target.reset();
-    document.getElementById('posted-date').valueAsDate = new Date();
-    loadList();
+    submitBtn.disabled = false;
   });
 
+  renderAtt();
   loadList();
 </script>
 

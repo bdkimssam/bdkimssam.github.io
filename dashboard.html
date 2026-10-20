@@ -1017,6 +1017,21 @@
     return `[${targetGrade}]`;
   }
 
+  // 공지 첨부: 이미지는 바로 보이고(누르면 크게), 파일은 다운로드 링크
+  function noticeAttachmentsHtml(list) {
+    if (!Array.isArray(list) || !list.length) return '';
+    const e = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const safe = list.filter((a) => a && /^https:\/\//.test(a.url || ''));
+    if (!safe.length) return '';
+    const imgs = safe.filter((a) => /^image\//.test(a.type || ''));
+    const files = safe.filter((a) => !/^image\//.test(a.type || ''));
+    const dl = (a) => a.url + (a.url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(a.name || 'file');
+    return '<div style="white-space:normal; margin-top:10px;">'
+      + imgs.map((a) => `<a href="${e(a.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="${e(a.url)}" alt="${e(a.name)}" loading="lazy" style="display:block; max-width:100%; border-radius:10px; margin-top:8px;"></a>`).join('')
+      + files.map((a) => `<a href="${e(dl(a))}" onclick="event.stopPropagation()" style="display:block; margin-top:8px; font-size:12.5px; font-weight:700; color:#3D4FA0; background:#EEF2FF; padding:8px 12px; border-radius:8px; text-decoration:none;">📎 ${e(a.name)}</a>`).join('')
+      + '</div>';
+  }
+
   async function loadNotices() {
     const items = await fetchStudentData('rpc_get_announcements', studentCode);
 
@@ -1034,7 +1049,7 @@
           <div class="notice-item" data-idx="${idx}" style="cursor:pointer;">
             <div class="t">${gradePrefixLabel(item.target_grade)} ${item.title || '(제목 없음)'} <i class="fa-solid fa-chevron-down notice-caret" style="font-size:10px; color:var(--faint); margin-left:4px;"></i></div>
             <div class="d">${item.posted_date || ''}</div>
-            <div class="notice-content" style="display:none; font-size:13px; color:var(--ink); line-height:1.6; white-space:pre-line; margin-top:8px;">${item.content || '(내용 없음)'}</div>
+            <div class="notice-content" style="display:none; font-size:13px; color:var(--ink); line-height:1.6; white-space:pre-line; margin-top:8px;">${item.content || '(내용 없음)'}${noticeAttachmentsHtml(item.attachments)}</div>
           </div>
         `
         )
