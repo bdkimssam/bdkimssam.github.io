@@ -245,6 +245,7 @@
         <span class="g">${esc(s.grade || '')}</span>
         ${['출석', '지각', '결석'].map((v) => `<button type="button" class="st ${st === v ? 'on-' + v : ''}" data-v="${v}">${v}</button>`).join('')}
         ${cur && cur.source === 'kiosk' ? '<span class="tag">키오스크</span>' : ''}
+        ${st === '지각' || st === '결석' ? `<input type="text" class="memo" maxlength="200" placeholder="${st} 사유 (입력 후 엔터)" value="${esc(cur.memo || '')}" style="flex:1 1 100%;${cur.memo ? '' : 'border-color:#FCD34D;'}">` : ''}
       </div>`;
     }).join('') : '<div class="empty">수강 확정된 학생이 없어요.</div>';
     const matrix = roster.length && dates.length ? `
@@ -254,7 +255,7 @@
         ${roster.map((s) => {
           const m = byApp[s.application_id] || {};
           const cnt = { 출석: 0, 지각: 0, 결석: 0 };
-          const cells = dates.map((d) => { const r = m[d]; if (!r) return '<td>-</td>'; cnt[r.status]++; return `<td class="c-${r.status}">${r.status === '출석' ? '○' : r.status === '지각' ? '△' : '×'}</td>`; }).join('');
+          const cells = dates.map((d) => { const r = m[d]; if (!r) return '<td>-</td>'; cnt[r.status]++; return `<td class="c-${r.status}" ${r.memo ? `title="${esc(r.memo)}"` : ''}>${r.status === '출석' ? '○' : r.status === '지각' ? '△' : '×'}</td>`; }).join('');
           return `<tr><td class="l">${esc(s.student_name)}</td>${cells}<td>${cnt.출석}</td><td>${cnt.지각}</td><td>${cnt.결석}</td></tr>`;
         }).join('')}
         </tbody></table>
@@ -264,6 +265,27 @@
         <div class="row" style="margin-bottom:8px;"><h2 style="margin:0;">날짜</h2><input type="date" id="att-date" value="${esc(attDate)}"><span style="font-size:12.5px;color:var(--muted);">버튼을 다시 누르면 그날 기록이 지워져요.</span></div>
         ${dayRows}
       </div>${matrix}`;
+    const reasons = attRows.filter((r) => r.memo).map((r) => {
+      const st = roster.find((x) => x.application_id === r.application_id);
+      return { d: String(r.attend_date).slice(0, 10), n: st ? st.student_name : '', s: r.status, m: r.memo };
+    }).sort((a, b) => a.d.localeCompare(b.d) || a.n.localeCompare(b.n, 'ko'));
+    if (reasons.length) {
+      $('view').insertAdjacentHTML('beforeend', `<div class="panel"><h2>지각·결석 사유</h2>${reasons.map((x) => `<div class="att"><span class="g" style="min-width:48px;">${esc(md(x.d))}</span><span class="n">${esc(x.n)}</span><span class="c-${x.s}" style="font-weight:800;">${x.s}</span><span style="font-size:13.5px;">${esc(x.m)}</span></div>`).join('')}</div>`);
+    }
+    $('view').querySelectorAll('.att .memo').forEach((inp) => {
+      const row = inp.closest('.att');
+      const save = async () => {
+        const appId = row.dataset.app, cur = (byApp[appId] || {})[attDate];
+        if ((cur && cur.memo || '') === inp.value.trim()) return;
+        const { error } = await sb.rpc('rpc_admin_set_special_attendance_memo', { p_password: pw(), p_application_id: appId, p_date: attDate, p_memo: inp.value });
+        if (error) { setMsg(missingFn(error) ? '사유 메모 SQL(78번)이 DB에 아직 없어요. 안내드린 SQL을 먼저 실행해 주세요.' : '저장 실패: ' + error.message, 'err'); return; }
+        const a = await sb.rpc('rpc_admin_list_special_attendance', { p_password: pw(), p_lecture_id: lecId });
+        if (!a.error) attRows = a.data || [];
+        renderAtt(); setMsg('사유를 저장했어요.', 'ok');
+      };
+      inp.addEventListener('change', save);
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+    });
     $('att-date').onchange = (e) => { if (e.target.value) { attDate = e.target.value; renderAtt(); } };
     $('view').querySelectorAll('.att').forEach((row) => {
       row.querySelectorAll('.st').forEach((btn) => {

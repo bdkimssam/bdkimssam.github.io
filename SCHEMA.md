@@ -441,3 +441,6 @@ order by table_name;
 - RPC: rpc_admin_list/add(여러개)/rename/delete/move/set_done `_special_unit(s)`, `rpc_admin_list_special_roster`(확정자만), `rpc_admin_list_special_attendance`, `rpc_admin_set_special_attendance`(status null=삭제)
 - 화면: admin/special-progress.html (진도 탭·출결 탭)
 - 다음 단계: 키오스크 연동(특강/일반 선택, 외부생 포함) → 특강 대시보드(재원생 코드·외부생 이름+학부모 연락처)
+
+## 78. 특강 출결 사유 메모
+- `special_lecture_attendance.memo` (지각·결석 사유). `rpc_admin_set_special_attendance(..., p_memo default null)`(출석으로 바꾸면 메모 삭제, 지각↔결석은 유지), `rpc_admin_set_special_attendance_memo`, `rpc_admin_list_special_attendance`(memo 추가)
