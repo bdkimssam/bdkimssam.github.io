@@ -96,7 +96,7 @@
   const pw = () => getAdminPassword();
 
   let lectures = [], tab = 'progress', lecId = null;
-  let progress = [], roster = [], attRows = [], attDate = todayKST();
+  let progressMissing = false, progress = [], roster = [], attRows = [], attDate = todayKST();
 
   async function loadLectures() {
     const { data, error } = await sb.rpc('rpc_admin_list_special_lectures', { p_password: pw(), p_include_archived: false });
@@ -115,12 +115,15 @@
       sb.rpc('rpc_admin_list_special_roster', { p_password: pw(), p_lecture_id: lecId }),
       sb.rpc('rpc_admin_list_special_attendance', { p_password: pw(), p_lecture_id: lecId }),
     ]);
-    const err = u.error || r.error || a.error;
+    // 진도(79번)가 아직 없어도 출결(77·78번)은 쓸 수 있게 따로 처리
+    progressMissing = !!(u.error && missingFn(u.error));
+    const err = (u.error && !progressMissing ? u.error : null) || r.error || a.error;
     if (err) {
       if (missingFn(err)) { $('sql-banner').style.display = 'block'; $('view').innerHTML = ''; return; }
       $('view').innerHTML = ''; setMsg('불러오지 못했어요: ' + err.message, 'err'); return;
     }
-    progress = u.data || []; roster = r.data || []; attRows = a.data || [];
+    $('sql-banner').style.display = 'none';
+    progress = progressMissing ? [] : (u.data || []); roster = r.data || []; attRows = a.data || [];
     render();
   }
 
@@ -131,6 +134,7 @@
   const progressBar = (p) => (p == null ? '' : `<div class="progress"><i style="width:${Math.max(0, Math.min(100, p))}%"></i></div><div style="font-size:12px;color:var(--muted);">진도율 ${Math.round(p)}%</div>`);
 
   function renderProgress() {
+    if (progressMissing) { $('view').innerHTML = '<div class="empty">진도 기능은 아직 준비 중이에요. (진도 입력 방식을 정하는 중입니다)</div>'; return; }
     const hist = progress.length ? progress.map((r, i) => `
       <div class="hist-item" data-id="${esc(r.id)}">
         <div class="row" style="justify-content:space-between;">
