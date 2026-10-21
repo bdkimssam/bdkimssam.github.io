@@ -444,3 +444,8 @@ order by table_name;
 
 ## 78. 특강 출결 사유 메모
 - `special_lecture_attendance.memo` (지각·결석 사유). `rpc_admin_set_special_attendance(..., p_memo default null)`(출석으로 바꾸면 메모 삭제, 지각↔결석은 유지), `rpc_admin_set_special_attendance_memo`, `rpc_admin_list_special_attendance`(memo 추가)
+
+## 79. 특강 진도(주간진도표 형식)
+- `special_lecture_progress` (lecture_id, recorded_date, textbook_progress/_percent, homework_progress/_percent, unique(lecture_id, recorded_date)) — 변경 이력 트리거, RLS on. 특강 단위(반 전체) 기록, 같은 날짜 재저장 시 수정
+- RPC: `rpc_admin_list_special_progress`, `rpc_admin_save_special_progress`, `rpc_admin_delete_special_progress`
+- 77번의 `special_lecture_units`와 단원 RPC 6개는 삭제됨
