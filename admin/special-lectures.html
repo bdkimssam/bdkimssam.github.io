@@ -120,7 +120,12 @@
         <div class="field"><label for="f-start">시작일</label><input type="date" id="f-start"></div>
         <div class="field"><label for="f-end">종료일</label><input type="date" id="f-end"></div>
       </div>
-      <div class="field"><label for="f-schedule">요일 · 시간</label><input type="text" id="f-schedule" maxlength="120" placeholder="예) 월·수·금 16:00~18:00"></div>
+      <div class="field"><label>요일</label><div id="f-days" style="display:flex;gap:10px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="월">월</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="화">화</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="수">수</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="목">목</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="금">금</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="토">토</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="일">일</label></div></div>
+      <div class="row2">
+        <div class="field"><label for="f-stime">시작 시간</label><input type="time" id="f-stime"></div>
+        <div class="field"><label for="f-etime">종료 시간</label><input type="time" id="f-etime"></div>
+      </div>
+      <div id="f-sched-note" style="font-size:12px;color:var(--muted);margin:-6px 0 10px;line-height:1.5;"></div>
       <div class="row2">
         <div class="field"><label for="f-classroom">강의실</label><select id="f-classroom"></select></div>
         <div class="field"><label for="f-teacher">담당 선생님</label><input type="text" id="f-teacher" maxlength="40" value="원장님"></div>
@@ -362,6 +367,7 @@
     if (v && !outsiderTouched) $('f-outsider-open').value = addDays(v, 14);
   });
 
+  let editingOldText = '';
   function openForm(l) {
     editingId = l ? String(l.id) : null;
     $('form-title').textContent = l ? '특강 수정' : '특강 등록';
@@ -371,7 +377,12 @@
     $('f-grades').querySelectorAll('input').forEach((c) => { c.checked = sel.has(c.value); });
     $('f-start').value = l ? d10(l.start_date) : '';
     $('f-end').value = l ? d10(l.end_date) : '';
-    $('f-schedule').value = l ? l.schedule_text || '' : '';
+    const dayStr = l && l.schedule_text ? l.schedule_text : '';
+    $('f-days').querySelectorAll('input').forEach((c) => { c.checked = !!(l && l.start_time !== undefined && dayStr.includes(c.value)); });
+    $('f-stime').value = l && l.start_time ? String(l.start_time).slice(0, 5) : '';
+    $('f-etime').value = l && l.end_time ? String(l.end_time).slice(0, 5) : '';
+    editingOldText = l ? l.schedule_text || '' : '';
+    $('f-sched-note').textContent = l && l.schedule_text && !l.start_time ? `기존 문구: "${l.schedule_text}" — 시간을 입력하면 이 문구가 자동으로 바뀌어요.` : '입력하면 "토 09:00~11:30"처럼 일정 문구가 자동으로 만들어져요.';
     $('f-classroom').value = l ? l.classroom || '' : '';
     $('f-teacher').value = l ? l.teacher || '원장님' : '원장님';
     $('f-capacity').value = l ? l.capacity : 10;
@@ -390,6 +401,14 @@
   $('form-close').addEventListener('click', closeForm);
   $('f-cancel').addEventListener('click', closeForm);
 
+  // 요일·시작/종료 시간으로 일정 문구를 자동 생성 (아무것도 안 넣었으면 기존 문구 유지)
+  function scheduleText() {
+    const days = Array.from($('f-days').querySelectorAll('input:checked')).map((c) => c.value);
+    const st = $('f-stime').value, et = $('f-etime').value;
+    if (!days.length && !st && !et) return editingOldText;
+    const t = st && et ? `${st}~${et}` : st ? `${st}~` : et ? `~${et}` : '';
+    return [days.join('·'), t].filter(Boolean).join(' ');
+  }
   $('f-save').addEventListener('click', async () => {
     const err = $('f-err');
     err.textContent = '';
@@ -399,6 +418,7 @@
     if (!capacity || capacity < 1) { err.textContent = '정원은 1명 이상이어야 해요.'; return; }
     const start = $('f-start').value, end = $('f-end').value;
     if (start && end && end < start) { err.textContent = '종료일이 시작일보다 빠를 수 없어요.'; return; }
+    if ($('f-stime').value && $('f-etime').value && $('f-etime').value <= $('f-stime').value) { err.textContent = '종료 시간이 시작 시간보다 늦어야 해요.'; return; }
     const mo = $('f-member-open').value, oo = $('f-outsider-open').value;
     if (mo && oo && oo < mo) { err.textContent = '외부생 신청 시작일이 재원생 신청 시작일보다 빠를 수 없어요.'; return; }
 
@@ -412,7 +432,9 @@
       p_target_grades: Array.from($('f-grades').querySelectorAll('input:checked')).map((c) => c.value),
       p_start_date: start || null,
       p_end_date: end || null,
-      p_schedule_text: $('f-schedule').value.trim() || null,
+      p_schedule_text: scheduleText() || null,
+      p_start_time: $('f-stime').value || null,
+      p_end_time: $('f-etime').value || null,
       p_classroom: $('f-classroom').value || null,
       p_teacher: $('f-teacher').value.trim() || null,
       p_capacity: capacity,
@@ -425,14 +447,14 @@
       p_early_bird_deadline: $('f-eb-date').value || null,
     });
     btn.disabled = false;
-    if (error) { err.textContent = isMissingFn(error) ? '특강 기능 SQL(56)이 아직 실행되지 않았어요.' : '저장 실패: ' + error.message; return; }
+    if (error) { err.textContent = isMissingFn(error) ? '특강 시간 SQL(82번)이 아직 실행되지 않았어요. 안내드린 SQL을 먼저 실행해 주세요.' : '저장 실패: ' + error.message; return; }
     closeForm();
     load();
   });
 
   // ---- 변경 이력 ----
   const LABELS = {
-    title: '특강 이름', target_grades: '대상 학년', start_date: '시작일', end_date: '종료일', schedule_text: '요일·시간',
+    title: '특강 이름', target_grades: '대상 학년', start_date: '시작일', end_date: '종료일', schedule_text: '요일·시간', start_time: '시작 시간', end_time: '종료 시간',
     classroom: '강의실', teacher: '담당', capacity: '정원', fee: '수강료', early_bird_fee: '얼리버드 수강료', early_bird_deadline: '얼리버드 납부 마감일', member_open_date: '재원생 신청 시작일',
     outsider_open_date: '외부생 신청 시작일', apply_deadline: '신청 마감일', is_closed: '마감', archived: '보관', memo: '메모',
   };

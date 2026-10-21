@@ -449,7 +449,10 @@ order by table_name;
 - 80번으로 `special_lecture_textbook`, `special_lecture_progress`가 만들어졌지만 현재 화면은 77번의 `special_lecture_units`(체크리스트)를 사용. 80번 테이블은 비어 있고 쓰지 않음
 - 특강 진도 화면: 교재 단원을 `[대단원] 중단원` 형식으로 한 번에 불러와 목록 생성 → 수업하면서 체크(done_date), 직접 항목 추가, ▲▼ 순서, 이름수정, 삭제. 진도율 = 체크 수 ÷ 전체 수
 
-## 81. 특강 수업 시작 시간
-- `special_lecture_times` (id, lecture_id unique, start_time, late_after_minutes default 5) — 키오스크 지각 자동 판정용(시작 후 N분까지 출석, 이후 지각). 변경 이력 트리거, RLS on
-- RPC: `rpc_admin_get_special_time`, `rpc_admin_set_special_time`(start_time null이면 삭제)
-- 화면: 특강 진도·출결 > 출결 탭 위쪽 "수업 시작 시간"
+## 81. (미사용) 특강 수업 시작 시간 테이블
+- `special_lecture_times`는 만들어졌지만 82번으로 대체되어 사용하지 않음(비어 있음)
+
+## 82. 특강 시작·종료 시간
+- `special_lectures.start_time`, `end_time` (time, null 가능, end > start). 키오스크 지각 판정(시작 후 5분까지 출석)에 사용 예정
+- `rpc_admin_save_special_lecture(..., p_start_time default null, p_end_time default null)` — 기존 17개 인자 호출도 그대로 동작
+- 특강 등록 화면: 요일 체크 + 시작/종료 시간 → `schedule_text`("토 09:00~11:30")를 자동 생성. 아무것도 안 넣고 저장하면 기존 문구 유지

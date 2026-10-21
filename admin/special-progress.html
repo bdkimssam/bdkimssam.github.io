@@ -96,7 +96,7 @@
   const pw = () => getAdminPassword();
 
   let lectures = [], tab = 'progress', lecId = null;
-  let startTime = null, timeMissing = false, units = [], roster = [], attRows = [], attDate = todayKST();
+  let units = [], roster = [], attRows = [], attDate = todayKST();
 
   async function loadLectures() {
     const { data, error } = await sb.rpc('rpc_admin_list_special_lectures', { p_password: pw(), p_include_archived: false });
@@ -110,15 +110,12 @@
   async function loadCurrent() {
     setMsg('');
     $('view').innerHTML = '<div class="loading">불러오는 중...</div>';
-    const [u, r, a, tm] = await Promise.all([
+    const [u, r, a] = await Promise.all([
       sb.rpc('rpc_admin_list_special_units', { p_password: pw(), p_lecture_id: lecId }),
       sb.rpc('rpc_admin_list_special_roster', { p_password: pw(), p_lecture_id: lecId }),
       sb.rpc('rpc_admin_list_special_attendance', { p_password: pw(), p_lecture_id: lecId }),
-      sb.rpc('rpc_admin_get_special_time', { p_password: pw(), p_lecture_id: lecId }),
     ]);
-    timeMissing = !!(tm.error && missingFn(tm.error));
-    startTime = !tm.error && tm.data && tm.data.length ? tm.data[0] : null;
-    const err = u.error || r.error || a.error || (tm.error && !timeMissing ? tm.error : null);
+    const err = u.error || r.error || a.error;
     if (err) {
       if (missingFn(err)) { $('sql-banner').style.display = 'block'; $('view').innerHTML = ''; return; }
       $('view').innerHTML = ''; setMsg('불러오지 못했어요: ' + err.message, 'err'); return;
@@ -261,13 +258,7 @@
         }).join('')}
         </tbody></table>
       </div>` : '';
-    const hhmm = startTime ? String(startTime.start_time).slice(0, 5) : '';
-    const timePanel = timeMissing ? '' : `
-      <div class="panel">
-        <div class="row"><h2 style="margin:0;">수업 시작 시간</h2><input type="time" id="st-time" value="${esc(hhmm)}"><button type="button" class="btn" id="st-save" style="padding:8px 14px;">저장</button>${startTime ? '<button type="button" class="btn ghost" id="st-clear" style="padding:8px 14px;">지우기</button>' : ''}</div>
-        <p class="sub" style="margin:8px 0 0;">${startTime ? `키오스크에서 시작 후 ${startTime.late_after_minutes}분까지는 출석, 그 뒤에 찍으면 지각으로 자동 기록돼요.` : '시작 시간을 넣으면 키오스크에서 늦게 찍은 학생이 지각으로 자동 기록돼요. 비워 두면 항상 출석으로 기록돼요.'} (키오스크 연동 후 적용)</p>
-      </div>`;
-    $('view').innerHTML = `${timePanel}
+    $('view').innerHTML = `
       <div class="panel">
         <div class="row" style="margin-bottom:8px;"><h2 style="margin:0;">날짜</h2><input type="date" id="att-date" value="${esc(attDate)}"><span style="font-size:12.5px;color:var(--muted);">버튼을 다시 누르면 그날 기록이 지워져요.</span></div>
         ${dayRows}
@@ -293,17 +284,6 @@
       inp.addEventListener('change', save);
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
     });
-    if ($('st-save')) {
-      const saveTime = async (val) => {
-        const { error } = await sb.rpc('rpc_admin_set_special_time', { p_password: pw(), p_lecture_id: lecId, p_start_time: val || null, p_late_after: 5 });
-        if (error) { setMsg('저장 실패: ' + error.message, 'err'); return; }
-        const t = await sb.rpc('rpc_admin_get_special_time', { p_password: pw(), p_lecture_id: lecId });
-        startTime = !t.error && t.data && t.data.length ? t.data[0] : null;
-        renderAtt(); setMsg(val ? '시작 시간을 저장했어요.' : '시작 시간을 지웠어요.', 'ok');
-      };
-      $('st-save').onclick = () => { if (!$('st-time').value) { setMsg('시간을 선택해 주세요.', 'err'); return; } saveTime($('st-time').value); };
-      if ($('st-clear')) $('st-clear').onclick = () => { if (confirm('시작 시간을 지울까요? 지우면 키오스크는 항상 출석으로 기록해요.')) saveTime(null); };
-    }
     $('att-date').onchange = (e) => { if (e.target.value) { attDate = e.target.value; renderAtt(); } };
     $('view').querySelectorAll('.att').forEach((row) => {
       row.querySelectorAll('.st').forEach((btn) => {
