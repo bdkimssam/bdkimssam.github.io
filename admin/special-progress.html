@@ -191,7 +191,7 @@
   // ---- 커리큘럼에서 가져오기 ----
   let books = null;       // textbook_curriculum 목록
   let cuGrade = '', cuBook = '';
-  const unitTitle = (u) => (u.minor_unit ? `${u.major_unit} · ${u.minor_unit}` : u.major_unit);
+  const unitTitle = (u) => (u.minor_unit ? `[${u.major_unit}] ${u.minor_unit}` : `[${u.major_unit}]`);
   async function setupCurriculum(addTitles) {
     const gSel = $('cu-grade'), bSel = $('cu-book'), box = $('cu-list');
     if (books === null) {
