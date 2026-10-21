@@ -445,7 +445,9 @@ order by table_name;
 ## 78. 특강 출결 사유 메모
 - `special_lecture_attendance.memo` (지각·결석 사유). `rpc_admin_set_special_attendance(..., p_memo default null)`(출석으로 바꾸면 메모 삭제, 지각↔결석은 유지), `rpc_admin_set_special_attendance_memo`, `rpc_admin_list_special_attendance`(memo 추가)
 
-## 79. 특강 진도(주간진도표 형식)
-- `special_lecture_progress` (lecture_id, recorded_date, textbook_progress/_percent, homework_progress/_percent, unique(lecture_id, recorded_date)) — 변경 이력 트리거, RLS on. 특강 단위(반 전체) 기록, 같은 날짜 재저장 시 수정
-- RPC: `rpc_admin_list_special_progress`, `rpc_admin_save_special_progress`, `rpc_admin_delete_special_progress`
-- 77번의 `special_lecture_units`와 단원 RPC 6개는 삭제됨
+## 80. 특강 진도 (79번은 실행하지 않고 취소됨)
+- `special_lecture_textbook` (lecture_id pk, textbook_code, label) — 특강마다 교재 1개 지정
+- `special_lecture_progress` (lecture_id, recorded_date, units jsonb [{order,title,part}], note 직접입력, percent, unique(lecture_id, recorded_date)) — 변경 이력 트리거, RLS on
+- RPC: `rpc_admin_get/set_special_textbook`, `rpc_admin_list/save/delete_special_progress`
+- 진도율 = 체크한 중단원 중 가장 뒤 순서 ÷ 교재 전체 단원 수. 나눠서 하면 part 번호(선택)
+- 77번의 `special_lecture_units`는 80번에서 사용하지 않음(다음 단계에서 정리 가능)
