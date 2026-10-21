@@ -70,7 +70,7 @@
 </header>
 <main>
   <h1>특강 진도 · 출결</h1>
-  <p class="sub">특강을 고른 뒤, <b>진도</b>에서는 수업한 날 나간 중단원을 기록해요. <b>출결</b>에서는 수강 확정된 학생의 출석·지각·결석을 입력해요.</p>
+  <p class="sub">특강을 고른 뒤, <b>진도</b>에서는 교재 단원을 한 번에 불러와 목록으로 만들고, 수업하면서 체크해요. <b>출결</b>에서는 수강 확정된 학생의 출석·지각·결석을 입력해요.</p>
   <div class="banner" id="sql-banner">특강 진도·출결 기능이 DB에 아직 없습니다. 안내드린 SQL(77, 78번)을 Supabase에서 먼저 실행해 주세요.</div>
 
   <div class="panel">
@@ -96,7 +96,7 @@
   const pw = () => getAdminPassword();
 
   let lectures = [], tab = 'progress', lecId = null;
-  let progressMissing = false, progress = [], roster = [], attRows = [], attDate = todayKST();
+  let progressMissing = false, units = [], roster = [], attRows = [], attDate = todayKST();
 
   async function loadLectures() {
     const { data, error } = await sb.rpc('rpc_admin_list_special_lectures', { p_password: pw(), p_include_archived: false });
@@ -110,34 +110,27 @@
   async function loadCurrent() {
     setMsg('');
     $('view').innerHTML = '<div class="loading">불러오는 중...</div>';
-    bookUnits = []; changingBook = false;
-    const [u, r, a, tb] = await Promise.all([
-      sb.rpc('rpc_admin_list_special_progress', { p_password: pw(), p_lecture_id: lecId }),
+    const [u, r, a] = await Promise.all([
+      sb.rpc('rpc_admin_list_special_units', { p_password: pw(), p_lecture_id: lecId }),
       sb.rpc('rpc_admin_list_special_roster', { p_password: pw(), p_lecture_id: lecId }),
       sb.rpc('rpc_admin_list_special_attendance', { p_password: pw(), p_lecture_id: lecId }),
-      sb.rpc('rpc_admin_get_special_textbook', { p_password: pw(), p_lecture_id: lecId }),
     ]);
-    // 진도(80번)가 아직 없어도 출결(77·78번)은 쓸 수 있게 따로 처리
-    progressMissing = !!((u.error && missingFn(u.error)) || (tb.error && missingFn(tb.error)));
-    const err = (u.error && !progressMissing ? u.error : null) || (tb.error && !progressMissing ? tb.error : null) || r.error || a.error;
+    progressMissing = false;
+    const err = u.error || r.error || a.error;
     if (err) {
       if (missingFn(err)) { $('sql-banner').style.display = 'block'; $('view').innerHTML = ''; return; }
       $('view').innerHTML = ''; setMsg('불러오지 못했어요: ' + err.message, 'err'); return;
     }
     $('sql-banner').style.display = 'none';
-    progress = progressMissing ? [] : (u.data || []); lectBook = !progressMissing && tb.data && tb.data.length ? tb.data[0] : null; roster = r.data || []; attRows = a.data || [];
+    units = u.data || []; roster = r.data || []; attRows = a.data || [];
     render();
   }
 
   function render() { tab === 'progress' ? renderProgress() : renderAtt(); }
 
-  // ---- 진도 (특강 교재 1개 지정 → 회차별로 나간 중단원 체크, 나눠서 하면 번호, 직접 입력) ----
-  let lectBook = null;      // {textbook_code, label}
-  let bookUnits = [];       // 특강 교재의 커리큘럼 단원
-  let changingBook = false;
+  // ---- 진도 (교재 단원을 한 번에 불러와 목록으로 만들고, 수업하면서 체크) ----
   let books = null, groups = {};
   const unitTitle = (u) => (u.minor_unit ? `[${u.major_unit}] ${u.minor_unit}` : `[${u.major_unit}]`);
-  const progressBar = (p) => (p == null ? '' : `<div class="progress"><i style="width:${Math.max(0, Math.min(100, p))}%"></i></div><div style="font-size:12px;color:var(--muted);">진도율 ${Math.round(p)}%</div>`);
 
   async function ensureBooks() {
     if (books !== null) return true;
@@ -147,120 +140,95 @@
     books.forEach((t) => { const k = t.grade + (t.semester ? '-' + t.semester : ''); (groups[k] = groups[k] || []).push(t); });
     return true;
   }
-  async function loadBookUnits() {
-    bookUnits = [];
-    if (!lectBook) return;
-    const { data, error } = await sb.rpc('rpc_admin_list_curriculum_units', { p_password: pw(), p_textbook_code: lectBook.textbook_code });
-    if (error) { setMsg('단원을 불러오지 못했어요: ' + error.message, 'err'); return; }
-    bookUnits = (data || []).slice().sort((a, b) => a.unit_order - b.unit_order);
-  }
 
-  async function renderProgress() {
-    if (progressMissing) { $('view').innerHTML = '<div class="empty">진도 기능 SQL(80번)이 아직 DB에 없어요. 안내드린 SQL을 먼저 실행해 주세요.</div>'; return; }
-    if (!lectBook || changingBook) { renderBookPicker(); return; }
-    if (!bookUnits.length) await loadBookUnits();
-    const used = {};   // order -> [날짜 md]
-    progress.slice().reverse().forEach((r) => (r.units || []).forEach((u) => { (used[u.order] = used[u.order] || []).push(md(r.recorded_date)); }));
-    const hist = progress.length ? progress.map((r, i) => `
-      <div class="hist-item" data-id="${esc(r.id)}">
-        <div class="row" style="justify-content:space-between;">
-          <b>${esc(String(r.recorded_date).slice(0, 10))}${i === 0 ? ' <span class="tag">최근</span>' : ''}</b>
-          <button type="button" class="mini p-del">삭제</button>
-        </div>
-        ${(r.units || []).map((u) => `<div class="pl">${esc(u.title)}${u.part ? ' ' + esc(u.part) : ''}</div>`).join('')}
-        ${r.note ? `<div class="pl">📝 ${esc(r.note)}</div>` : ''}
-        ${progressBar(r.percent)}
-      </div>`).join('') : '<div class="empty">아직 진도 기록이 없어요.</div>';
-    const rows = bookUnits.length ? bookUnits.map((u) => `
-      <div class="unit" data-order="${u.unit_order}">
-        <input type="checkbox" class="u-chk">
-        <span class="t">${esc(unitTitle(u))}</span>
-        ${used[u.unit_order] ? `<span class="d">${esc(used[u.unit_order].join(', '))} 나감</span>` : ''}
-        <select class="u-part" disabled title="나눠서 할 때만 번호를 골라요"><option value="">번호 없음</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-      </div>`).join('') : '<div class="empty">이 교재에는 입력된 단원이 없어요.</div>';
+  function renderProgress() {
+    const done = units.filter((x) => x.done_date).length;
+    const pct = units.length ? Math.round(done / units.length * 100) : 0;
+    const list = units.length ? units.map((x, i) => `
+      <div class="unit ${x.done_date ? 'done' : ''}" data-id="${esc(x.id)}">
+        <input type="checkbox" class="u-chk" ${x.done_date ? 'checked' : ''}>
+        <span class="t">${esc(x.title)}</span>
+        ${x.done_date ? `<span class="d">${esc(md(x.done_date))} 완료</span>` : ''}
+        <button type="button" class="mini u-up" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button type="button" class="mini u-down" ${i === units.length - 1 ? 'disabled' : ''}>▼</button>
+        <button type="button" class="mini u-ren">이름수정</button>
+        <button type="button" class="mini u-del">삭제</button>
+      </div>`).join('') : '<div class="empty">아직 진도 목록이 없어요. 아래에서 교재 단원을 불러오세요.</div>';
     $('view').innerHTML = `
       <div class="panel">
-        <div class="row" style="justify-content:space-between;"><div><span style="font-size:12.5px;color:var(--muted);font-weight:700;">특강 교재</span><div style="font-weight:800;">${esc(lectBook.label)}</div></div><button type="button" class="mini" id="b-change">교재 변경</button></div>
+        <h2>진행 상황 <span style="font-weight:700;color:var(--muted);font-size:13px;">${done} / ${units.length} · ${pct}%</span></h2>
+        <div class="progress"><i style="width:${pct}%"></i></div>
+        <div style="margin-top:8px;">${list}</div>
       </div>
       <div class="panel">
-        <h2>진도 기록</h2>
-        <p class="sub" style="margin-bottom:10px;">수업한 날짜를 고르고, 그날 나간 중단원을 체크해요. 하루에 여러 개도 가능해요. 한 중단원을 나눠서 하면 번호(1, 2…)를 골라요. 같은 날짜로 다시 저장하면 그날 기록이 수정돼요.</p>
-        <div class="row" style="margin-bottom:6px;"><label style="font-weight:800;font-size:13px;">수업 날짜</label><input type="date" id="p-date" value="${todayKST()}"><span id="p-exists" class="tag" style="display:none;">이 날짜 기록이 있어요 · 저장하면 수정돼요</span></div>
-        <div id="u-box">${rows}</div>
-        <div style="margin-top:10px;"><label style="font-weight:800;font-size:13px;">직접 입력 (선택)</label>
-          <input type="text" id="p-note" maxlength="300" placeholder="예) 테스트, 생기부 특강, 복습" style="width:100%;margin-top:6px;"></div>
-        <div style="margin-top:12px;"><button type="button" class="btn" id="p-save">진도 기록 저장</button></div>
+        <h2>교재 단원 불러오기</h2>
+        <p class="sub" style="margin-bottom:8px;">교재를 고르면 그 교재의 중단원 전체가 한 번에 목록으로 들어와요. 이미 들어와 있는 단원은 다시 들어오지 않아요.</p>
+        <div class="row"><select id="bk-gs"><option value="">학년학기 선택</option></select><select id="bk-name" disabled><option value="">학년학기 먼저 선택</option></select></div>
+        <div id="bk-preview" style="margin-top:10px;"></div>
       </div>
-      <div class="panel">${hist}</div>`;
-    const box = $('u-box');
-    box.querySelectorAll('.unit').forEach((row) => {
-      const chk = row.querySelector('.u-chk'), part = row.querySelector('.u-part');
-      chk.onchange = () => { part.disabled = !chk.checked; if (!chk.checked) part.value = ''; };
-    });
-    const fill = () => {
-      const rec = progress.find((r) => String(r.recorded_date).slice(0, 10) === $('p-date').value);
-      $('p-exists').style.display = rec ? '' : 'none';
-      box.querySelectorAll('.unit').forEach((row) => {
-        const u = rec && (rec.units || []).find((x) => String(x.order) === row.dataset.order);
-        const chk = row.querySelector('.u-chk'), part = row.querySelector('.u-part');
-        chk.checked = !!u; part.disabled = !u; part.value = u && u.part ? String(u.part) : '';
-      });
-      $('p-note').value = rec && rec.note ? rec.note : '';
+      <div class="panel">
+        <h2>직접 항목 추가</h2>
+        <p class="sub" style="margin-bottom:8px;">테스트, 생기부 특강처럼 교재에 없는 항목, 또는 나눠서 하는 단원(예: 직선의 방정식 2)을 목록 맨 뒤에 한 개씩 추가해요.</p>
+        <div class="row"><input type="text" id="add-one" maxlength="100" placeholder="항목 이름" style="flex:1;min-width:180px;"><button type="button" class="btn" id="add-btn">추가</button></div>
+      </div>`;
+    const addTitles = async (titles, btn, okMsg) => {
+      if (btn) btn.disabled = true;
+      const { error } = await sb.rpc('rpc_admin_add_special_units', { p_password: pw(), p_lecture_id: lecId, p_titles: titles });
+      if (error) { if (btn) btn.disabled = false; setMsg('추가 실패: ' + error.message, 'err'); return; }
+      await loadCurrent(); setMsg(okMsg || `${titles.length}개 항목을 추가했어요.`, 'ok');
     };
-    $('p-date').onchange = fill; fill();
-    $('b-change').onclick = () => { changingBook = true; renderProgress(); };
-    $('p-save').onclick = saveProgress;
-    $('view').querySelectorAll('.hist-item').forEach((row) => {
-      row.querySelector('.p-del').onclick = async () => {
-        if (!confirm('이 진도 기록을 삭제할까요?')) return;
-        const { error } = await sb.rpc('rpc_admin_delete_special_progress', { p_password: pw(), p_id: row.dataset.id });
-        if (error) { setMsg('삭제 실패: ' + error.message, 'err'); return; }
-        await loadCurrent(); setMsg('삭제했어요.', 'ok');
+    const addOne = () => { const t = $('add-one').value.trim(); if (!t) { setMsg('항목 이름을 입력해 주세요.', 'err'); return; } addTitles([t], $('add-btn')); };
+    $('add-btn').onclick = addOne;
+    $('add-one').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addOne(); } };
+    setupBookPicker(addTitles);
+    $('view').querySelectorAll('.unit').forEach((row) => {
+      const id = row.dataset.id;
+      const call = async (fn, args, okMsg) => {
+        const { error } = await sb.rpc(fn, { p_password: pw(), ...args });
+        if (error) { setMsg('저장 실패: ' + error.message, 'err'); await loadCurrent(); return; }
+        await loadCurrent(); if (okMsg) setMsg(okMsg, 'ok');
+      };
+      row.querySelector('.u-chk').onchange = (e) => call('rpc_admin_set_special_unit_done', { p_id: id, p_done_date: e.target.checked ? todayKST() : null });
+      row.querySelector('.u-up').onclick = () => call('rpc_admin_move_special_unit', { p_id: id, p_dir: -1 });
+      row.querySelector('.u-down').onclick = () => call('rpc_admin_move_special_unit', { p_id: id, p_dir: 1 });
+      row.querySelector('.u-ren').onclick = () => {
+        const cur = units.find((x) => x.id === id);
+        const t = prompt('이름', cur ? cur.title : '');
+        if (t === null) return;
+        if (!t.trim()) { setMsg('이름을 입력해 주세요.', 'err'); return; }
+        call('rpc_admin_rename_special_unit', { p_id: id, p_title: t.trim() });
+      };
+      row.querySelector('.u-del').onclick = () => {
+        const cur = units.find((x) => x.id === id);
+        if (confirm(`"${cur ? cur.title : ''}" 항목을 삭제할까요?`)) call('rpc_admin_delete_special_unit', { p_id: id });
       };
     });
   }
 
-  async function renderBookPicker() {
-    $('view').innerHTML = `
-      <div class="panel">
-        <h2>특강 교재 정하기</h2>
-        <p class="sub" style="margin-bottom:10px;">이 특강에서 쓰는 교재를 한 번만 정해 주세요. 이후 진도 기록에는 이 교재의 단원만 나와요.${lectBook && progress.length ? ' <b>교재를 바꾸면 이미 저장된 기록은 그대로 남지만, 단원 표시가 이전 교재 기준이라 헷갈릴 수 있어요.</b>' : ''}</p>
-        <div class="row"><select id="bk-gs"><option value="">학년학기 선택</option></select><select id="bk-name" disabled><option value="">학년학기 먼저 선택</option></select></div>
-        <div style="margin-top:12px;" class="row"><button type="button" class="btn" id="bk-save">교재 저장</button>${lectBook ? '<button type="button" class="btn ghost" id="bk-cancel">취소</button>' : ''}</div>
-      </div>`;
+  async function setupBookPicker(addTitles) {
+    const gs = $('bk-gs'), nm = $('bk-name'), box = $('bk-preview');
     if (!(await ensureBooks())) return;
-    const gs = $('bk-gs'), nm = $('bk-name');
     gs.innerHTML = '<option value="">학년학기 선택</option>' + sortGradeSemesterKeys(Object.keys(groups)).map((k) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
     gs.onchange = () => {
+      box.innerHTML = '';
       if (!gs.value) { nm.innerHTML = '<option value="">학년학기 먼저 선택</option>'; nm.disabled = true; return; }
-      nm.innerHTML = '<option value="">교재명 선택</option>' + (groups[gs.value] || []).map((t) => `<option value="${esc(t.textbook_code)}" data-name="${esc(t.textbook_name)}">[${esc(t.category || '-')}] ${esc(t.textbook_name)}</option>`).join('');
+      nm.innerHTML = '<option value="">교재명 선택</option>' + (groups[gs.value] || []).map((t) => `<option value="${esc(t.textbook_code)}">[${esc(t.category || '-')}] ${esc(t.textbook_name)}</option>`).join('');
       nm.disabled = false;
     };
-    if ($('bk-cancel')) $('bk-cancel').onclick = () => { changingBook = false; renderProgress(); };
-    $('bk-save').onclick = async () => {
-      if (!gs.value || !nm.value) { setMsg('학년학기와 교재를 골라 주세요.', 'err'); return; }
-      const label = `[${gs.value}] ${nm.selectedOptions[0].dataset.name}`;
-      $('bk-save').disabled = true;
-      const { error } = await sb.rpc('rpc_admin_set_special_textbook', { p_password: pw(), p_lecture_id: lecId, p_code: nm.value, p_label: label });
-      if (error) { $('bk-save').disabled = false; setMsg('저장 실패: ' + error.message, 'err'); return; }
-      changingBook = false; await loadCurrent(); setMsg('특강 교재를 저장했어요.', 'ok');
+    nm.onchange = async () => {
+      box.innerHTML = '';
+      if (!nm.value) return;
+      box.innerHTML = '<div class="loading">불러오는 중...</div>';
+      const { data, error } = await sb.rpc('rpc_admin_list_curriculum_units', { p_password: pw(), p_textbook_code: nm.value });
+      if (error) { box.innerHTML = `<div class="empty">단원을 불러오지 못했어요: ${esc(error.message)}</div>`; return; }
+      const us = (data || []).slice().sort((a, b) => a.unit_order - b.unit_order);
+      if (!us.length) { box.innerHTML = '<div class="empty">이 교재에는 입력된 단원이 없어요.</div>'; return; }
+      const have = new Set(units.map((u) => u.title));
+      const fresh = us.map(unitTitle).filter((t) => !have.has(t));
+      box.innerHTML = `<div style="font-size:13px;line-height:1.7;margin-bottom:8px;">${us.map((u) => { const t = unitTitle(u); return `<div style="${have.has(t) ? 'color:var(--muted);' : ''}">${esc(t)}${have.has(t) ? ' <span class="d">추가됨</span>' : ''}</div>`; }).join('')}</div>
+        <button type="button" class="btn" id="bk-add" ${fresh.length ? '' : 'disabled'}>${fresh.length ? `${fresh.length}개 단원 목록에 추가` : '모두 추가되어 있어요'}</button>`;
+      if (fresh.length) $('bk-add').onclick = () => addTitles(fresh, $('bk-add'), `${fresh.length}개 단원을 추가했어요.`);
     };
-  }
-
-  async function saveProgress() {
-    const date = $('p-date').value;
-    if (!date) { setMsg('수업 날짜를 선택해 주세요.', 'err'); return; }
-    const picked = [...$('u-box').querySelectorAll('.unit')].filter((r) => r.querySelector('.u-chk').checked).map((r) => {
-      const order = parseInt(r.dataset.order, 10), u = bookUnits.find((x) => x.unit_order === order), part = r.querySelector('.u-part').value;
-      return { order, title: unitTitle(u), part: part ? parseInt(part, 10) : null };
-    });
-    const note = $('p-note').value.trim();
-    if (!picked.length && !note) { setMsg('나간 중단원을 체크하거나 직접 입력해 주세요.', 'err'); return; }
-    const percent = picked.length && bookUnits.length ? Math.round(Math.max(...picked.map((x) => x.order)) / bookUnits.length * 100) : null;
-    $('p-save').disabled = true;
-    const { error } = await sb.rpc('rpc_admin_save_special_progress', { p_password: pw(), p_lecture_id: lecId, p_date: date, p_units: picked, p_note: note, p_percent: percent });
-    if (error) { $('p-save').disabled = false; setMsg('저장 실패: ' + error.message, 'err'); return; }
-    await loadCurrent(); setMsg('진도를 저장했어요.', 'ok');
   }
 
   // ---- 출결 ----
