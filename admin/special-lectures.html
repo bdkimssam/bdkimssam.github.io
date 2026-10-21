@@ -122,8 +122,8 @@
       </div>
       <div class="field"><label>요일</label><div id="f-days" style="display:flex;gap:10px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="월">월</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="화">화</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="수">수</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="목">목</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="금">금</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="토">토</label><label style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:700;cursor:pointer;"><input type="checkbox" value="일">일</label></div></div>
       <div class="row2">
-        <div class="field"><label for="f-stime">시작 시간</label><input type="time" id="f-stime"></div>
-        <div class="field"><label for="f-etime">종료 시간</label><input type="time" id="f-etime"></div>
+        <div class="field"><label>시작 시간</label><div style="display:flex;gap:6px;align-items:center;"><input type="hidden" id="f-stime"><select id="f-stime-h" class="tsel"></select><span>시</span><select id="f-stime-m" class="tsel"></select><span>분</span></div></div>
+        <div class="field"><label>종료 시간</label><div style="display:flex;gap:6px;align-items:center;"><input type="hidden" id="f-etime"><select id="f-etime-h" class="tsel"></select><span>시</span><select id="f-etime-m" class="tsel"></select><span>분</span></div></div>
       </div>
       <div id="f-sched-note" style="font-size:12px;color:var(--muted);margin:-6px 0 10px;line-height:1.5;"></div>
       <div class="row2">
@@ -368,6 +368,25 @@
   });
 
   let editingOldText = '';
+  // 시·분 선택 (시: 7~22시, 분: 10분 단위). 숨은 칸(f-stime/f-etime)에 "HH:MM"을 담아요.
+  const pad2 = (n) => String(n).padStart(2, '0');
+  function setupTimeSelects(id) {
+    const h = $(id + '-h'), m = $(id + '-m'), hid = $(id);
+    h.innerHTML = '<option value="">시</option>' + Array.from({ length: 16 }, (_, i) => `<option value="${pad2(i + 7)}">${i + 7}</option>`).join('');
+    m.innerHTML = '<option value="">분</option>' + [0, 10, 20, 30, 40, 50].map((x) => `<option value="${pad2(x)}">${pad2(x)}</option>`).join('');
+    const upd = () => { hid.value = h.value ? `${h.value}:${m.value || '00'}` : ''; if (h.value && !m.value) m.value = '00'; };
+    h.addEventListener('change', () => { if (!h.value) m.value = ''; upd(); });
+    m.addEventListener('change', upd);
+  }
+  function setTimeVal(id, val) {
+    const h = $(id + '-h'), m = $(id + '-m'), v = val ? String(val).slice(0, 5) : '';
+    const [hh, mm] = v ? v.split(':') : ['', ''];
+    // 범위 밖 값(예: 새벽, 5분 단위)이 이미 DB에 있으면 보이도록 선택지에 추가
+    if (hh && ![...h.options].some((o) => o.value === hh)) h.insertAdjacentHTML('beforeend', `<option value="${hh}">${+hh}</option>`);
+    if (mm && ![...m.options].some((o) => o.value === mm)) m.insertAdjacentHTML('beforeend', `<option value="${mm}">${mm}</option>`);
+    h.value = hh || ''; m.value = mm || ''; $(id).value = v;
+  }
+  setupTimeSelects('f-stime'); setupTimeSelects('f-etime');
   function openForm(l) {
     editingId = l ? String(l.id) : null;
     $('form-title').textContent = l ? '특강 수정' : '특강 등록';
@@ -379,8 +398,8 @@
     $('f-end').value = l ? d10(l.end_date) : '';
     const dayStr = l && l.schedule_text ? l.schedule_text : '';
     $('f-days').querySelectorAll('input').forEach((c) => { c.checked = !!(l && l.start_time !== undefined && dayStr.includes(c.value)); });
-    $('f-stime').value = l && l.start_time ? String(l.start_time).slice(0, 5) : '';
-    $('f-etime').value = l && l.end_time ? String(l.end_time).slice(0, 5) : '';
+    setTimeVal('f-stime', l && l.start_time ? l.start_time : '');
+    setTimeVal('f-etime', l && l.end_time ? l.end_time : '');
     editingOldText = l ? l.schedule_text || '' : '';
     $('f-sched-note').textContent = l && l.schedule_text && !l.start_time ? `기존 문구: "${l.schedule_text}" — 시간을 입력하면 이 문구가 자동으로 바뀌어요.` : '입력하면 "토 09:00~11:30"처럼 일정 문구가 자동으로 만들어져요.';
     $('f-classroom').value = l ? l.classroom || '' : '';
