@@ -435,3 +435,9 @@ order by table_name;
 - `math_exam_rounds.fee` (회차별 응시료, null 가능, 0 이상), `math_exam_applications.paid_amount` (납부 확인 시점 금액 스냅샷, 해제하면 null)
 - `rpc_admin_set_exam_round_fee(p_password, p_id, p_fee)`, `rpc_admin_add_exam_round(..., p_fee default null)`, `rpc_admin_get_exam_rounds`(fee 추가), `rpc_admin_list_exam_applications`(paid_amount, fee 추가), `rpc_admin_set_exam_paid`(paid_amount 저장)
 - `math_exam_rounds` 변경 이력 트리거 추가
+
+## 77. 방학특강 진도(단원)·출결
+- `special_lecture_units` (lecture_id, seq, title, done_date null=미진행) / `special_lecture_attendance` (lecture_id, application_id, attend_date, status 출석·지각·결석, checked_at, left_at, source admin|kiosk, unique(application_id, attend_date)) — 둘 다 변경 이력 트리거, RLS on
+- RPC: rpc_admin_list/add(여러개)/rename/delete/move/set_done `_special_unit(s)`, `rpc_admin_list_special_roster`(확정자만), `rpc_admin_list_special_attendance`, `rpc_admin_set_special_attendance`(status null=삭제)
+- 화면: admin/special-progress.html (진도 탭·출결 탭)
+- 다음 단계: 키오스크 연동(특강/일반 선택, 외부생 포함) → 특강 대시보드(재원생 코드·외부생 이름+학부모 연락처)

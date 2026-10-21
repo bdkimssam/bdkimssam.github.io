@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>특강 진도·출결 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --green:#16A34A; --red:#C0392B; --teal:#0F766E; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 860px; margin: 0 auto; padding: 28px 20px 80px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  h2 { font-size: 15px; font-weight: 900; margin: 0 0 10px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0 0 18px; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:16px 20px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); margin-bottom:18px; }
+  select, input[type=date], input[type=text], textarea { font-family:inherit; font-size:14px; padding:9px 11px; border-radius:10px; border:1px solid var(--gray-200); background:#fff; }
+  textarea { width:100%; min-height:90px; line-height:1.6; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  button.btn { padding:10px 16px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; }
+  button.btn:disabled { opacity:.45; cursor:not-allowed; }
+  button.btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--gray-200); }
+  button.mini { padding:5px 9px; font-size:12px; border-radius:8px; border:1px solid var(--gray-200); background:#fff; cursor:pointer; font-family:inherit; font-weight:700; }
+  .tabs { display:flex; gap:8px; margin-bottom:14px; }
+  .tab { padding:9px 16px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; font-weight:800; font-size:13.5px; cursor:pointer; font-family:inherit; color:var(--muted); }
+  .tab.on { background:var(--navy-900); color:#fff; border-color:var(--navy-900); }
+  .loading, .empty { color: var(--muted); font-size: 13px; padding: 24px 6px; text-align:center; }
+  .msg { font-size:13px; min-height:18px; margin-bottom:8px; }
+  .msg.err { color: var(--red); } .msg.ok { color: var(--green); }
+  .banner { background:#FFF7ED; border:1px solid #FED7AA; color:#9A3412; border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.6; margin-bottom:18px; display:none; }
+  .progress { height:12px; background:var(--gray-200); border-radius:999px; overflow:hidden; margin:6px 0 4px; }
+  .progress > i { display:block; height:100%; background:var(--teal); border-radius:999px; }
+  .unit { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--gray-200); }
+  .unit:first-of-type { border-top:none; }
+  .unit input[type=checkbox] { width:22px; height:22px; accent-color:var(--teal); cursor:pointer; flex:none; }
+  .unit .t { flex:1; font-size:14.5px; font-weight:700; min-width:0; word-break:break-all; }
+  .unit.done .t { color:var(--muted); text-decoration:line-through; }
+  .unit .d { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .att { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--gray-200); flex-wrap:wrap; }
+  .att:first-of-type { border-top:none; }
+  .att .n { font-weight:800; min-width:90px; }
+  .att .g { font-size:12.5px; color:var(--muted); min-width:56px; }
+  .st { padding:6px 12px; border-radius:999px; border:1px solid var(--gray-200); background:#fff; font-weight:800; font-size:13px; cursor:pointer; font-family:inherit; color:var(--muted); }
+  .st.on-출석 { background:#DCFCE7; border-color:#86EFAC; color:#15803D; }
+  .st.on-지각 { background:#FEF3C7; border-color:#FCD34D; color:#B45309; }
+  .st.on-결석 { background:#FEE2E2; border-color:#FCA5A5; color:#B91C1C; }
+  .tag { font-size:11px; font-weight:800; padding:2px 7px; border-radius:999px; background:#E0F2FE; color:#0369A1; }
+  .scroll { overflow-x:auto; }
+  table { border-collapse: collapse; min-width:100%; }
+  th, td { text-align:center; padding:7px 8px; font-size:13px; border-top:1px solid var(--gray-200); white-space:nowrap; }
+  th { color:var(--muted); font-weight:700; font-size:12px; border-top:none; }
+  th.l, td.l { text-align:left; font-weight:700; }
+  .c-출석 { color:#15803D; font-weight:800; } .c-지각 { color:#B45309; font-weight:800; } .c-결석 { color:#B91C1C; font-weight:800; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">특강 진도·출결</span>
+</header>
+<main>
+  <h1>특강 진도 · 출결</h1>
+  <p class="sub">특강을 고른 뒤, <b>진도</b>에서는 단원 목록을 만들고 수업한 단원을 체크해요. <b>출결</b>에서는 수강 확정된 학생의 출석·지각·결석을 입력해요.</p>
+  <div class="banner" id="sql-banner">특강 진도·출결 기능이 DB에 아직 없습니다. 안내드린 SQL(77번)을 Supabase에서 먼저 실행해 주세요.</div>
+
+  <div class="panel">
+    <div class="row"><select id="f-lec"></select></div>
+  </div>
+  <div class="tabs">
+    <button type="button" class="tab on" data-tab="progress">진도</button>
+    <button type="button" class="tab" data-tab="att">출결</button>
+  </div>
+  <div class="msg" id="msg"></div>
+  <div id="view"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  requireDirector();
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const todayKST = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+  const md = (d) => { if (!d) return ''; const [, m, dd] = String(d).slice(0, 10).split('-'); return `${+m}/${+dd}`; };
+  function missingFn(e) { return e && (e.code === 'PGRST202' || /Could not find the function|does not exist/i.test(e.message || '')); }
+  function setMsg(t, cls) { $('msg').className = 'msg ' + (cls || ''); $('msg').textContent = t || ''; }
+  const pw = () => getAdminPassword();
+
+  let lectures = [], tab = 'progress', lecId = null;
+  let units = [], roster = [], attRows = [], attDate = todayKST();
+
+  async function loadLectures() {
+    const { data, error } = await sb.rpc('rpc_admin_list_special_lectures', { p_password: pw(), p_include_archived: false });
+    if (error) { $('view').innerHTML = ''; setMsg('특강을 불러오지 못했어요: ' + error.message, 'err'); return; }
+    lectures = data || [];
+    if (!lectures.length) { $('f-lec').innerHTML = ''; $('view').innerHTML = '<div class="empty">등록된 특강이 없어요. 방학특강 관리에서 먼저 특강을 등록해 주세요.</div>'; return; }
+    $('f-lec').innerHTML = lectures.map((l) => `<option value="${esc(l.id)}">${esc(l.title)}${l.start_date ? ` (${md(l.start_date)}~${md(l.end_date)})` : ''}</option>`).join('');
+    lecId = lectures[0].id;
+    await loadCurrent();
+  }
+  async function loadCurrent() {
+    setMsg('');
+    $('view').innerHTML = '<div class="loading">불러오는 중...</div>';
+    const [u, r, a] = await Promise.all([
+      sb.rpc('rpc_admin_list_special_units', { p_password: pw(), p_lecture_id: lecId }),
+      sb.rpc('rpc_admin_list_special_roster', { p_password: pw(), p_lecture_id: lecId }),
+      sb.rpc('rpc_admin_list_special_attendance', { p_password: pw(), p_lecture_id: lecId }),
+    ]);
+    const err = u.error || r.error || a.error;
+    if (err) {
+      if (missingFn(err)) { $('sql-banner').style.display = 'block'; $('view').innerHTML = ''; return; }
+      $('view').innerHTML = ''; setMsg('불러오지 못했어요: ' + err.message, 'err'); return;
+    }
+    units = u.data || []; roster = r.data || []; attRows = a.data || [];
+    render();
+  }
+
+  function render() { tab === 'progress' ? renderProgress() : renderAtt(); }
+
+  // ---- 진도 ----
+  function renderProgress() {
+    const done = units.filter((x) => x.done_date).length;
+    const pct = units.length ? Math.round(done / units.length * 100) : 0;
+    const list = units.length ? units.map((x, i) => `
+      <div class="unit ${x.done_date ? 'done' : ''}" data-id="${esc(x.id)}">
+        <input type="checkbox" class="u-chk" ${x.done_date ? 'checked' : ''}>
+        <span class="t">${esc(x.title)}</span>
+        ${x.done_date ? `<span class="d">${esc(md(x.done_date))} 수업</span>` : ''}
+        <button type="button" class="mini u-up" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button type="button" class="mini u-down" ${i === units.length - 1 ? 'disabled' : ''}>▼</button>
+        <button type="button" class="mini u-ren">이름수정</button>
+        <button type="button" class="mini u-del">삭제</button>
+      </div>`).join('') : '<div class="empty">아직 단원이 없어요. 아래에 단원을 입력해 주세요.</div>';
+    $('view').innerHTML = `
+      <div class="panel">
+        <h2>진행 상황 <span style="font-weight:700;color:var(--muted);font-size:13px;">${done} / ${units.length}단원 · ${pct}%</span></h2>
+        <div class="progress"><i style="width:${pct}%"></i></div>
+        <div style="margin-top:8px;">${list}</div>
+      </div>
+      <div class="panel">
+        <h2>단원 추가</h2>
+        <p class="sub" style="margin-bottom:8px;">한 줄에 단원 하나씩 적으면 여러 개가 한 번에 추가돼요. 맨 뒤에 이어서 붙어요.</p>
+        <textarea id="add-text" placeholder="예)&#10;1. 집합의 뜻과 표현&#10;2. 집합의 연산&#10;3. 명제"></textarea>
+        <div style="margin-top:10px;"><button type="button" class="btn" id="add-btn">추가</button></div>
+      </div>`;
+    $('add-btn').onclick = async () => {
+      const titles = $('add-text').value.split('\n').map((s) => s.trim()).filter(Boolean);
+      if (!titles.length) { setMsg('추가할 단원을 한 줄 이상 입력해 주세요.', 'err'); return; }
+      $('add-btn').disabled = true;
+      const { error } = await sb.rpc('rpc_admin_add_special_units', { p_password: pw(), p_lecture_id: lecId, p_titles: titles });
+      if (error) { $('add-btn').disabled = false; setMsg('추가 실패: ' + error.message, 'err'); return; }
+      await loadCurrent(); setMsg(`${titles.length}개 단원을 추가했어요.`, 'ok');
+    };
+    $('view').querySelectorAll('.unit').forEach((row) => {
+      const id = row.dataset.id;
+      const call = async (fn, args, okMsg) => {
+        const { error } = await sb.rpc(fn, { p_password: pw(), ...args });
+        if (error) { setMsg('저장 실패: ' + error.message, 'err'); await loadCurrent(); return; }
+        await loadCurrent(); if (okMsg) setMsg(okMsg, 'ok');
+      };
+      row.querySelector('.u-chk').onchange = (e) => call('rpc_admin_set_special_unit_done', { p_id: id, p_done_date: e.target.checked ? todayKST() : null });
+      row.querySelector('.u-up').onclick = () => call('rpc_admin_move_special_unit', { p_id: id, p_dir: -1 });
+      row.querySelector('.u-down').onclick = () => call('rpc_admin_move_special_unit', { p_id: id, p_dir: 1 });
+      row.querySelector('.u-ren').onclick = () => {
+        const cur = units.find((x) => x.id === id);
+        const t = prompt('단원 이름', cur ? cur.title : '');
+        if (t === null) return;
+        if (!t.trim()) { setMsg('단원 이름을 입력해 주세요.', 'err'); return; }
+        call('rpc_admin_rename_special_unit', { p_id: id, p_title: t.trim() });
+      };
+      row.querySelector('.u-del').onclick = () => {
+        const cur = units.find((x) => x.id === id);
+        if (confirm(`"${cur ? cur.title : ''}" 단원을 삭제할까요?`)) call('rpc_admin_delete_special_unit', { p_id: id });
+      };
+    });
+  }
+
+  // ---- 출결 ----
+  function renderAtt() {
+    const byApp = {};
+    attRows.forEach((r) => { (byApp[r.application_id] = byApp[r.application_id] || {})[String(r.attend_date).slice(0, 10)] = r; });
+    const dates = [...new Set(attRows.map((r) => String(r.attend_date).slice(0, 10)))].sort();
+    const dayRows = roster.length ? roster.map((s) => {
+      const cur = (byApp[s.application_id] || {})[attDate];
+      const st = cur ? cur.status : null;
+      return `<div class="att" data-app="${esc(s.application_id)}">
+        <span class="n">${esc(s.student_name)}${s.applicant_type === 'outsider' ? ' <span class="tag">외부</span>' : ''}</span>
+        <span class="g">${esc(s.grade || '')}</span>
+        ${['출석', '지각', '결석'].map((v) => `<button type="button" class="st ${st === v ? 'on-' + v : ''}" data-v="${v}">${v}</button>`).join('')}
+        ${cur && cur.source === 'kiosk' ? '<span class="tag">키오스크</span>' : ''}
+      </div>`;
+    }).join('') : '<div class="empty">수강 확정된 학생이 없어요.</div>';
+    const matrix = roster.length && dates.length ? `
+      <div class="panel scroll">
+        <h2>출결 한눈에 보기</h2>
+        <table><thead><tr><th class="l">이름</th>${dates.map((d) => `<th>${esc(md(d))}</th>`).join('')}<th>출석</th><th>지각</th><th>결석</th></tr></thead><tbody>
+        ${roster.map((s) => {
+          const m = byApp[s.application_id] || {};
+          const cnt = { 출석: 0, 지각: 0, 결석: 0 };
+          const cells = dates.map((d) => { const r = m[d]; if (!r) return '<td>-</td>'; cnt[r.status]++; return `<td class="c-${r.status}">${r.status === '출석' ? '○' : r.status === '지각' ? '△' : '×'}</td>`; }).join('');
+          return `<tr><td class="l">${esc(s.student_name)}</td>${cells}<td>${cnt.출석}</td><td>${cnt.지각}</td><td>${cnt.결석}</td></tr>`;
+        }).join('')}
+        </tbody></table>
+      </div>` : '';
+    $('view').innerHTML = `
+      <div class="panel">
+        <div class="row" style="margin-bottom:8px;"><h2 style="margin:0;">날짜</h2><input type="date" id="att-date" value="${esc(attDate)}"><span style="font-size:12.5px;color:var(--muted);">버튼을 다시 누르면 그날 기록이 지워져요.</span></div>
+        ${dayRows}
+      </div>${matrix}`;
+    $('att-date').onchange = (e) => { if (e.target.value) { attDate = e.target.value; renderAtt(); } };
+    $('view').querySelectorAll('.att').forEach((row) => {
+      row.querySelectorAll('.st').forEach((btn) => {
+        btn.onclick = async () => {
+          const appId = row.dataset.app, cur = (byApp[appId] || {})[attDate];
+          const next = cur && cur.status === btn.dataset.v ? null : btn.dataset.v;
+          row.querySelectorAll('.st').forEach((b) => { b.disabled = true; });
+          const { error } = await sb.rpc('rpc_admin_set_special_attendance', { p_password: pw(), p_application_id: appId, p_date: attDate, p_status: next });
+          if (error) { setMsg('저장 실패: ' + error.message, 'err'); }
+          const a = await sb.rpc('rpc_admin_list_special_attendance', { p_password: pw(), p_lecture_id: lecId });
+          if (!a.error) attRows = a.data || [];
+          renderAtt();
+        };
+      });
+    });
+  }
+
+  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
+    tab = b.dataset.tab;
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === b));
+    setMsg(''); if (lecId) render();
+  }));
+  $('f-lec').addEventListener('change', () => { lecId = $('f-lec').value; loadCurrent(); });
+
+  loadLectures();
+</script>
+</body>
+</html>
