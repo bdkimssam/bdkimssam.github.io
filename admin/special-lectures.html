@@ -396,8 +396,8 @@
     $('f-grades').querySelectorAll('input').forEach((c) => { c.checked = sel.has(c.value); });
     $('f-start').value = l ? d10(l.start_date) : '';
     $('f-end').value = l ? d10(l.end_date) : '';
-    const dayStr = l && l.schedule_text ? l.schedule_text : '';
-    $('f-days').querySelectorAll('input').forEach((c) => { c.checked = !!(l && l.start_time !== undefined && dayStr.includes(c.value)); });
+    const dayStr = l ? (l.days != null ? l.days : (l.start_time !== undefined && l.days === undefined && l.schedule_text ? (l.schedule_text.match(/^\s*[월화수목금토일·,\/ ]+/) || [''])[0] : '')) : '';
+    $('f-days').querySelectorAll('input').forEach((c) => { c.checked = dayStr.includes(c.value); });
     setTimeVal('f-stime', l && l.start_time ? l.start_time : '');
     setTimeVal('f-etime', l && l.end_time ? l.end_time : '');
     editingOldText = l ? l.schedule_text || '' : '';
@@ -444,7 +444,8 @@
     const btn = $('f-save');
     btn.disabled = true;
     const feeRaw = $('f-fee').value.trim();
-    const { error } = await sb.rpc('rpc_admin_save_special_lecture', {
+    const daysVal = Array.from($('f-days').querySelectorAll('input:checked')).map((c) => c.value).join('') || null;
+    const payload = {
       p_password: getAdminPassword(),
       p_id: editingId,
       p_title: title,
@@ -464,7 +465,10 @@
       p_memo: $('f-memo').value.trim() || null,
       p_early_bird_fee: $('f-eb-fee').value.trim() === '' ? null : parseInt($('f-eb-fee').value, 10),
       p_early_bird_deadline: $('f-eb-date').value || null,
-    });
+    };
+    let { error } = await sb.rpc('rpc_admin_save_special_lecture', { ...payload, p_days: daysVal });
+    // 83번 SQL 전에도 저장되도록 (요일 칸 없이 재시도)
+    if (error && isMissingFn(error)) ({ error } = await sb.rpc('rpc_admin_save_special_lecture', payload));
     btn.disabled = false;
     if (error) { err.textContent = isMissingFn(error) ? '특강 시간 SQL(82번)이 아직 실행되지 않았어요. 안내드린 SQL을 먼저 실행해 주세요.' : '저장 실패: ' + error.message; return; }
     closeForm();
@@ -473,7 +477,7 @@
 
   // ---- 변경 이력 ----
   const LABELS = {
-    title: '특강 이름', target_grades: '대상 학년', start_date: '시작일', end_date: '종료일', schedule_text: '요일·시간', start_time: '시작 시간', end_time: '종료 시간',
+    title: '특강 이름', target_grades: '대상 학년', start_date: '시작일', end_date: '종료일', schedule_text: '요일·시간', days: '요일', start_time: '시작 시간', end_time: '종료 시간',
     classroom: '강의실', teacher: '담당', capacity: '정원', fee: '수강료', early_bird_fee: '얼리버드 수강료', early_bird_deadline: '얼리버드 납부 마감일', member_open_date: '재원생 신청 시작일',
     outsider_open_date: '외부생 신청 시작일', apply_deadline: '신청 마감일', is_closed: '마감', archived: '보관', memo: '메모',
   };

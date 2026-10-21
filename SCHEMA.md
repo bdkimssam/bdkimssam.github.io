@@ -436,23 +436,25 @@ order by table_name;
 - `rpc_admin_set_exam_round_fee(p_password, p_id, p_fee)`, `rpc_admin_add_exam_round(..., p_fee default null)`, `rpc_admin_get_exam_rounds`(fee 추가), `rpc_admin_list_exam_applications`(paid_amount, fee 추가), `rpc_admin_set_exam_paid`(paid_amount 저장)
 - `math_exam_rounds` 변경 이력 트리거 추가
 
-## 77. 방학특강 진도(단원)·출결
-- `special_lecture_units` (lecture_id, seq, title, done_date null=미진행) / `special_lecture_attendance` (lecture_id, application_id, attend_date, status 출석·지각·결석, checked_at, left_at, source admin|kiosk, unique(application_id, attend_date)) — 둘 다 변경 이력 트리거, RLS on
-- RPC: rpc_admin_list/add(여러개)/rename/delete/move/set_done `_special_unit(s)`, `rpc_admin_list_special_roster`(확정자만), `rpc_admin_list_special_attendance`, `rpc_admin_set_special_attendance`(status null=삭제)
-- 화면: admin/special-progress.html (진도 탭·출결 탭)
-- 다음 단계: 키오스크 연동(특강/일반 선택, 외부생 포함) → 특강 대시보드(재원생 코드·외부생 이름+학부모 연락처)
+## 방학특강 DB 정리본 (77·78·82·83 통합, 2026-10-22)
+> 80·81번(진도/교재/시간 테이블)은 만들어졌다가 **83번에서 삭제**됨. 79번은 실행한 적 없음. 아래가 현재 구조의 전부.
 
-## 78. 특강 출결 사유 메모
-- `special_lecture_attendance.memo` (지각·결석 사유). `rpc_admin_set_special_attendance(..., p_memo default null)`(출석으로 바꾸면 메모 삭제, 지각↔결석은 유지), `rpc_admin_set_special_attendance_memo`, `rpc_admin_list_special_attendance`(memo 추가)
+### 표
+- `special_lectures` — 특강 1건. 기본 정보(title, target_grades, start_date/end_date, classroom, teacher, capacity, fee, 얼리버드, 신청 오픈·마감일, is_closed, archived, memo) + **요일 `days`**(예: '토', '월수금', 월화수목금토일 순서로 저장·체크 제약) + **`start_time`/`end_time`**(time, end > start) + `schedule_text`(화면 표시용 문구, 요일·시간으로 자동 생성)
+- `special_lecture_applications` — 신청(재원생/외부생, status pending·confirmed·waitlist·cancelled, 결제 정보)
+- `special_lecture_feedback` — 신청자별 선생님 피드백(feedback_date, content)
+- `special_lecture_units` — 진도 단원 목록. lecture_id, seq(순서), title(`[대단원] 중단원`), done_date(null=미진행). **unique(lecture_id, title)**: 같은 특강에 같은 단원 2번 불가. 진도율 = done_date 있는 수 ÷ 전체
+- `special_lecture_attendance` — 출결. lecture_id, application_id, attend_date, status(출석·지각·결석), memo(지각·결석 사유), checked_at, left_at, source(admin|kiosk). unique(application_id, attend_date)
+- 위 표 전부 변경 이력 트리거(`log_row_change`) 적용, RLS on
 
-## 80. (미사용) 특강 진도 테이블
-- 80번으로 `special_lecture_textbook`, `special_lecture_progress`가 만들어졌지만 현재 화면은 77번의 `special_lecture_units`(체크리스트)를 사용. 80번 테이블은 비어 있고 쓰지 않음
-- 특강 진도 화면: 교재 단원을 `[대단원] 중단원` 형식으로 한 번에 불러와 목록 생성 → 수업하면서 체크(done_date), 직접 항목 추가, ▲▼ 순서, 이름수정, 삭제. 진도율 = 체크 수 ÷ 전체 수
+### 함수 (모두 security definer, 비밀번호 확인)
+- 특강/신청/피드백: `rpc_admin_save_special_lecture(..., p_start_time, p_end_time, p_days 모두 default null)` 외 기존 함수들
+- 진도: `rpc_admin_list/add(여러개)/rename/delete/move/set_done` `_special_unit(s)`
+- 출결: `rpc_admin_list_special_roster`(확정자만), `rpc_admin_list_special_attendance`, `rpc_admin_set_special_attendance(..., p_memo default null)`(출석으로 바꾸면 메모 삭제), `rpc_admin_set_special_attendance_memo`
 
-## 81. (미사용) 특강 수업 시작 시간 테이블
-- `special_lecture_times`는 만들어졌지만 82번으로 대체되어 사용하지 않음(비어 있음)
+### 화면
+- admin/special-lectures.html: 특강 등록·수정(요일 체크 + 시/분 선택 → schedule_text 자동 생성; 83번 전에는 요일 칸 없이 저장)
+- admin/special-progress.html: 진도 탭(교재 단원 불러오기·직접 추가·체크·순서·수정·삭제), 출결 탭(출석/지각/결석 + 사유)
 
-## 82. 특강 시작·종료 시간
-- `special_lectures.start_time`, `end_time` (time, null 가능, end > start). 키오스크 지각 판정(시작 후 5분까지 출석)에 사용 예정
-- `rpc_admin_save_special_lecture(..., p_start_time default null, p_end_time default null)` — 기존 17개 인자 호출도 그대로 동작
-- 특강 등록 화면: 요일 체크 + 시작/종료 시간 → `schedule_text`("토 09:00~11:30")를 자동 생성. 아무것도 안 넣고 저장하면 기존 문구 유지
+### 다음 단계
+키오스크 연동(재원생 특강/일반 선택, 외부생 연락처 뒤 4자리, 시작 후 5분까지 출석 → 이후 지각) → 특강 대시보드(재원생 학생코드 / 외부생 이름+학부모 연락처, 확정된 특강 기간에만 버튼 노출)
