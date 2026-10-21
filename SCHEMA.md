@@ -448,3 +448,8 @@ order by table_name;
 ## 80. (미사용) 특강 진도 테이블
 - 80번으로 `special_lecture_textbook`, `special_lecture_progress`가 만들어졌지만 현재 화면은 77번의 `special_lecture_units`(체크리스트)를 사용. 80번 테이블은 비어 있고 쓰지 않음
 - 특강 진도 화면: 교재 단원을 `[대단원] 중단원` 형식으로 한 번에 불러와 목록 생성 → 수업하면서 체크(done_date), 직접 항목 추가, ▲▼ 순서, 이름수정, 삭제. 진도율 = 체크 수 ÷ 전체 수
+
+## 81. 특강 수업 시작 시간
+- `special_lecture_times` (id, lecture_id unique, start_time, late_after_minutes default 5) — 키오스크 지각 자동 판정용(시작 후 N분까지 출석, 이후 지각). 변경 이력 트리거, RLS on
+- RPC: `rpc_admin_get_special_time`, `rpc_admin_set_special_time`(start_time null이면 삭제)
+- 화면: 특강 진도·출결 > 출결 탭 위쪽 "수업 시작 시간"
