@@ -1271,7 +1271,9 @@
     const result = (!error && data && data.length) ? data[0] : null;
 
     if (!result) {
-      renderEmptyState('card-tlp', '검사 결과가 등록되면 이곳에 표시됩니다.');
+      // 검사 결과가 입력된 학생에게만 카드를 보여줌
+      const tlpCard = document.getElementById('card-tlp');
+      if (tlpCard) tlpCard.style.display = 'none';
       return;
     }
 
