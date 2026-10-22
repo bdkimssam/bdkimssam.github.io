@@ -537,6 +537,7 @@
     <h1 class="welcome-title"><span class="name" id="welcome-name">학생</span>님의 대시보드입니다</h1>
     <p class="welcome-sub">공지사항, 성적, 진도, 선생님 피드백을 이곳에서 한눈에 확인하세요.</p>
     <span class="welcome-code"><i class="fa-solid fa-id-badge"></i> 학생코드 <span id="welcome-code-value">-</span></span>
+    <a class="welcome-code" id="welcome-special" href="special-dashboard.html" style="display:none; text-decoration:none; background:#7C3AED; color:#fff; font-weight:800;"><i class="fa-solid fa-graduation-cap"></i> 특강 대시보드</a>
     <span class="welcome-code" id="welcome-days" style="display:none;"><i class="fa-solid fa-heart"></i> 우리 학원과 함께한 지 <span id="welcome-days-value">-</span></span>
   </div>
 </section>
@@ -720,6 +721,16 @@
 
   document.getElementById('welcome-name').textContent = studentName || '학생';
   document.getElementById('welcome-code-value').textContent = studentCode || '-';
+  // 확정된 특강이 진행 중일 때만 '특강 대시보드' 버튼 표시 (SQL 85 전이거나 실패하면 조용히 숨김)
+  if (studentCode) {
+    sb.rpc('rpc_special_dashboard_visible', { p_student_code: studentCode }).then((res) => {
+      if (!res.error && res.data === true) {
+        const a = document.getElementById('welcome-special');
+        a.style.display = '';
+        a.addEventListener('click', () => { try { sessionStorage.removeItem('sd_name'); sessionStorage.removeItem('sd_phone'); } catch (e) {} });
+      }
+    }).catch(() => {});
+  }
 
   loadDaysTogether();
   async function loadDaysTogether() {

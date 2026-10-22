@@ -269,6 +269,10 @@ $('lk').addEventListener('submit', async e => {
     return rows.length ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--gray-200)"><b style="font-size:12.5px">선생님 피드백</b>${rows.map(f =>
       `<div style="margin-top:6px; font-size:13px; line-height:1.6"><span style="color:var(--muted); font-size:11.5px">${esc(String(f.feedback_date).slice(5).replace('-', '/'))}</span><br><span style="white-space:pre-line">${esc(f.content)}</span></div>`).join('')}</div>` : '';
   };
+  window.__lk = { name, phone };
+  const todayKST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+  const addDays = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+  const canSD = r => r.status === 'confirmed' && (!r.start_date || String(r.start_date).slice(0, 10) <= todayKST) && (!r.end_date || addDays(String(r.end_date).slice(0, 10), 7) >= todayKST);
   $('lk-result').innerHTML = shown.map(r => {
     const [label, desc] = STATUS[r.status] || [r.status, ''];
     return `<div class="card res ${esc(r.status)}">
@@ -279,8 +283,12 @@ $('lk').addEventListener('submit', async e => {
         ${r.schedule_text ? `<div><b>시간</b>${esc(r.schedule_text)}</div>` : ''}
         ${r.classroom ? `<div><b>강의실</b>${esc(r.classroom)}</div>` : ''}
         <div class="note" style="margin-top:6px">${esc(desc)}</div>
-      </div>${r.status === 'confirmed' ? fbHtml(r.lecture_title) : ''}</div>`;
+      </div>${canSD(r) ? '<button type="button" class="btn primary block sd-open" style="margin-top:12px">특강 대시보드 보기 (진도·출결·피드백)</button>' : ''}${r.status === 'confirmed' ? fbHtml(r.lecture_title) : ''}</div>`;
   }).join('');
+  document.querySelectorAll('.sd-open').forEach(b => b.addEventListener('click', () => {
+    try { sessionStorage.setItem('sd_name', window.__lk.name); sessionStorage.setItem('sd_phone', window.__lk.phone); } catch (e) {}
+    location.href = 'special-dashboard.html';
+  }));
 });
 
 loadLectures();

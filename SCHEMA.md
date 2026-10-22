@@ -462,3 +462,7 @@ order by table_name;
 ## 84. 키오스크 특강 출석 (2026-10-22)
 - 새 함수 2개만 추가(기존 키오스크 함수는 그대로): `rpc_kiosk_find_special(p_kiosk_code, p_last4)` — 오늘 진행 중(시작일~종료일, `days`가 있으면 오늘 요일 포함)인 특강의 **확정자**를 학부모/학생 연락처 또는 재원생 출석 연락처 뒤 4자리로 찾음. `rpc_kiosk_special_check(p_kiosk_code, p_application_id, p_check_type 등원|하원)` — 등원: 시작 시간 +5분까지 출석, 이후 지각(시작 시간 없으면 출석), `special_lecture_attendance`에 source='kiosk'. 이미 출석/지각이면 유지, 관리자가 결석/빈 기록으로 둔 날 오면 정정. 하원: left_at 기록(등원 없으면 거부)
 - attendance-kiosk.html: 재원생은 오늘 특강이 있으면 "특강 출석 / 일반 등원" 선택, 외부생은 목록에 "특강 · 학년"(보라색)으로 표시. 84번이 없어도 일반 출석은 그대로 동작
+
+## 85. 특강 대시보드 조회 (2026-10-22)
+- 읽기 전용 함수 2개 추가(표 변경 없음): `rpc_special_dashboard_visible(p_student_code)` → 재원생에게 "특강 대시보드" 버튼을 보일지(확정된 특강이 시작일~종료일+7일 사이일 때 true). `rpc_special_dashboard(p_student_code | p_student_name + p_parent_phone)` → 확정된 본인 특강들의 jsonb 배열(정보·units·attendance·feedback). 보관된 특강·기간 밖(시작 전/종료 후 7일 초과)·취소/대기·퇴원생은 제외. 외부생은 이름+학부모 연락처(`sl_norm_phone`)가 모두 일치해야 함
+- 화면: `special-dashboard.html`(진도 막대=체크÷전체, 출결 ○△×와 사유, 피드백 글). 재원생은 `dashboard.html` 학생코드 옆 보라색 버튼(localStorage 학생코드 사용), 외부생은 `special-apply.html` "내 신청 조회"의 확정된 특강에 뜨는 버튼(이름·연락처를 sessionStorage로 넘김). 85번 전에는 버튼이 숨겨짐
