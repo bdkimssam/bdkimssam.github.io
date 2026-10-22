@@ -232,6 +232,13 @@
 
   // ---- 출결 ----
   function renderAtt() {
+    // 출결 날짜는 특강 기간 안으로만 (오늘이 기간 밖이면 가장 가까운 날)
+    const lec = lectures.find((l) => l.id === lecId) || {};
+    const lo = lec.start_date ? String(lec.start_date).slice(0, 10) : '', hi = lec.end_date ? String(lec.end_date).slice(0, 10) : '';
+    if (lo && attDate < lo) attDate = lo;
+    if (hi && attDate > hi) attDate = hi;
+    const WD = '일월화수목금토', dow = WD[new Date(attDate + 'T00:00:00').getDay()];
+    const offDay = lec.days && !lec.days.includes(dow);
     const byApp = {};
     attRows.forEach((r) => { (byApp[r.application_id] = byApp[r.application_id] || {})[String(r.attend_date).slice(0, 10)] = r; });
     const dates = [...new Set(attRows.map((r) => String(r.attend_date).slice(0, 10)))].sort();
@@ -260,7 +267,8 @@
       </div>` : '';
     $('view').innerHTML = `
       <div class="panel">
-        <div class="row" style="margin-bottom:8px;"><h2 style="margin:0;">날짜</h2><input type="date" id="att-date" value="${esc(attDate)}"><span style="font-size:12.5px;color:var(--muted);">버튼을 다시 누르면 그날 기록이 지워져요.</span></div>
+        <div class="row" style="margin-bottom:8px;"><h2 style="margin:0;">날짜</h2><input type="date" id="att-date" value="${esc(attDate)}" ${lo ? `min="${esc(lo)}"` : ''} ${hi ? `max="${esc(hi)}"` : ''}><span style="font-size:12.5px;color:var(--muted);">${lo ? `특강 기간 ${esc(md(lo))}~${esc(md(hi))} · ` : ''}버튼을 다시 누르면 그날 기록이 지워져요.</span></div>
+        ${offDay ? `<div style="font-size:12.5px;color:#B45309;margin-bottom:8px;">※ 이 특강은 ${esc(lec.days.split('').join('·'))}요일 수업이에요. 선택한 ${dow}요일은 수업일이 아니에요.</div>` : ''}
         ${dayRows}
       </div>${matrix}`;
     const reasons = attRows.filter((r) => r.memo).map((r) => {
