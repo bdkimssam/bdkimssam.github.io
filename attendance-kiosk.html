@@ -42,11 +42,13 @@
   button.student small { font-size:15px; font-weight:700; color:var(--muted); }
   button.student.staff { border-color:#1D4ED8; background:#EFF6FF; }
   button.student.staff small { color:#1D4ED8; }
+  button.student.special { border-color:#7C3AED; background:#F5F3FF; }
+  button.student.special small { color:#7C3AED; }
   button.student:active { background:var(--gray-50); }
 
   /* 등원/하원 */
   .who { text-align:center; font-size:34px; font-weight:900; margin-bottom:6px; }
-  .state { text-align:center; font-size:16px; color:var(--muted); margin-bottom:22px; min-height:24px; }
+  .state { white-space:pre-line; text-align:center; font-size:16px; color:var(--muted); margin-bottom:22px; min-height:24px; }
   .actions { display:grid; gap:12px; }
   button.act { width:100%; height:104px; border-radius:22px; border:2px solid; font-family:inherit; font-size:34px; font-weight:900; cursor:pointer; }
   button.act.in  { border-color:var(--green); color:var(--green); background:#fff; }
@@ -239,9 +241,10 @@
     busy = true;
     $('keypad-msg').style.color = '#6B7280';
     $('keypad-msg').textContent = '찾는 중...';
-    const [sr, tr] = await Promise.all([
+    const [sr, tr, pr] = await Promise.all([
       sb.rpc('rpc_kiosk_find_students', { p_kiosk_code: kioskCode, p_last4: digits }),
       sb.rpc('rpc_kiosk_find_staff', { p_kiosk_code: kioskCode, p_last4: digits }),
+      sb.rpc('rpc_kiosk_find_special', { p_kiosk_code: kioskCode, p_last4: digits }),
     ]);
     busy = false;
     $('keypad-msg').style.color = '';
@@ -257,7 +260,16 @@
       kind: 'staff', staff_code: t.staff_code, student_name: t.staff_name, grade: t.role || '선생님',
       last_check_type: t.last_check_type, last_checked_at: t.last_checked_at,
     }));
-    const list = staff.concat(sr.data || []);
+    // 오늘 진행 중인 특강(SQL 84가 아직 없거나 실패해도 일반 출석은 그대로 동작)
+    const specials = pr.error ? [] : (pr.data || []);
+    const students = (sr.data || []).map((x) => {
+      const sp = specials.find((q) => q.student_code && q.student_code === x.student_code);
+      return sp ? Object.assign({}, x, { special: sp }) : x;
+    });
+    // 일반 재원생 목록에 없는 특강 수강생(외부생 등)은 '특강'으로 따로 표시
+    const only = specials.filter((q) => !students.some((x) => x.special && x.special.application_id === q.application_id))
+      .map((q) => ({ kind: 'special', student_name: q.student_name, grade: q.grade, special: q }));
+    const list = staff.concat(students, only);
     if (list.length === 0) {
       $('keypad-msg').textContent = '일치하는 분이 없어요. 번호를 다시 확인해 주세요.';
       digits = ''; renderDots();
@@ -273,11 +285,11 @@
     list.forEach((s) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'student' + (s.kind === 'staff' ? ' staff' : '');
+      b.className = 'student' + (s.kind === 'staff' ? ' staff' : s.kind === 'special' ? ' special' : '');
       const name = document.createElement('span');
       name.textContent = s.student_name || '';
       const grade = document.createElement('small');
-      grade.textContent = s.kind === 'staff' ? ('선생님 · ' + (s.grade || '')) : (s.grade || '');
+      grade.textContent = s.kind === 'staff' ? ('선생님 · ' + (s.grade || '')) : s.kind === 'special' ? ('특강 · ' + (s.grade || '')) : (s.grade || '') + (s.special ? ' · 특강 있음' : '');
       b.appendChild(name); b.appendChild(grade);
       b.addEventListener('click', () => pickStudent(s));
       box.appendChild(b);
@@ -292,15 +304,23 @@
     currentStudent = s;
     $('who').textContent = s.student_name || '';
     $('action-msg').textContent = '';
+    if (s.kind === 'special') s.mode = 'special';
+    // 재원생 + 오늘 특강이 있으면 먼저 '특강 출석 / 일반 등원' 선택
+    if (s.special && !s.mode) { renderModeChoice(s); return; }
+    const isSpecial = s.mode === 'special';
+    const sp = s.special;
     const isStaff = s.kind === 'staff';
     const T_IN = isStaff ? '출근' : '등원', T_OUT = isStaff ? '퇴근' : '하원';
-    if (s.last_check_type && s.last_checked_at) {
-      $('state').textContent = `오늘 ${fmtTime(s.last_checked_at)} ${s.last_check_type} 완료`;
+    const lastType = isSpecial ? (sp.left_at ? '하원' : sp.checked_at ? '등원' : '') : s.last_check_type;
+    const lastAt = isSpecial ? (sp.left_at || sp.checked_at) : s.last_checked_at;
+    const head = isSpecial ? `특강 · ${sp.lecture_title}\n` : '';
+    if (lastType && lastAt) {
+      $('state').textContent = head + `오늘 ${fmtTime(lastAt)} ${lastType} 완료`;
     } else {
-      $('state').textContent = '오늘은 아직 기록이 없어요';
+      $('state').textContent = head + '오늘은 아직 기록이 없어요';
     }
     // 마지막 기록이 '등원'이면 하원을, 그 외에는 등원을 크게 보여줌
-    const suggested = s.last_check_type === T_IN ? T_OUT : T_IN;
+    const suggested = lastType === T_IN ? T_OUT : T_IN;
     const order = suggested === T_IN ? [T_IN, T_OUT] : [T_OUT, T_IN];
     const box = $('actions');
     box.innerHTML = '';
@@ -315,26 +335,49 @@
     show('action');
   }
 
+  function renderModeChoice(s) {
+    $('state').textContent = `오늘 특강이 있어요 · ${s.special.lecture_title}`;
+    const box = $('actions');
+    box.innerHTML = '';
+    [['special', '특강 출석', 'in suggested'], ['normal', '일반 등원', 'in']].forEach(([mode, label, cls]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'act ' + cls;
+      b.textContent = label;
+      b.addEventListener('click', () => { s.mode = mode; pickStudent(s); });
+      box.appendChild(b);
+    });
+    show('action');
+  }
+
   async function doCheck(type) {
     if (busy || !currentStudent) return;
     busy = true;
     document.querySelectorAll('#actions button').forEach((b) => { b.disabled = true; });
     $('action-msg').textContent = '';
     const isStaff = currentStudent.kind === 'staff';
-    const { data, error } = isStaff
+    const isSpecial = currentStudent.mode === 'special';
+    const { data, error } = isSpecial
+      ? await sb.rpc('rpc_kiosk_special_check', { p_kiosk_code: kioskCode, p_application_id: currentStudent.special.application_id, p_check_type: type })
+      : isStaff
       ? await sb.rpc('rpc_kiosk_staff_check', { p_kiosk_code: kioskCode, p_staff_code: currentStudent.staff_code, p_check_type: type })
       : await sb.rpc('rpc_kiosk_check', { p_kiosk_code: kioskCode, p_student_code: currentStudent.student_code, p_check_type: type });
     busy = false;
     if (error) {
       if (handleAuthError(error)) return;
-      $('action-msg').textContent = '기록하지 못했어요. 다시 눌러주세요.';
+      $('action-msg').textContent = (error.message || '').includes('먼저 등원') ? '먼저 등원을 눌러 주세요.' : '기록하지 못했어요. 다시 눌러주세요.';
       document.querySelectorAll('#actions button').forEach((b) => { b.disabled = false; });
       return;
     }
     const row = Array.isArray(data) ? data[0] : data;
     $('done-mark').className = 'done-mark' + ((type === '하원' || type === '퇴근') ? ' out' : '');
-    $('done-text').textContent = `${currentStudent.student_name} ${type} 완료!`;
-    $('done-time').textContent = row && row.r_checked_at ? fmtTime(row.r_checked_at) : '';
+    $('done-text').textContent = `${currentStudent.student_name} ${isSpecial ? '특강 ' : ''}${type} 완료!`;
+    if (isSpecial) {
+      const at = type === '하원' ? (row && row.r_left_at) : (row && row.r_checked_at);
+      $('done-time').textContent = (at ? fmtTime(at) : '') + (type === '등원' && row && row.r_status ? ` · ${row.r_status}` : '');
+    } else {
+      $('done-time').textContent = row && row.r_checked_at ? fmtTime(row.r_checked_at) : '';
+    }
     show('done');
     timers.done = setTimeout(resetToKeypad, DONE_MS);
   }
