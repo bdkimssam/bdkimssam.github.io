@@ -466,3 +466,7 @@ order by table_name;
 ## 85. 특강 대시보드 조회 (2026-10-22)
 - 읽기 전용 함수 2개 추가(표 변경 없음): `rpc_special_dashboard_visible(p_student_code)` → 재원생에게 "특강 대시보드" 버튼을 보일지(확정된 특강이 시작일~종료일+7일 사이일 때 true). `rpc_special_dashboard(p_student_code | p_student_name + p_parent_phone)` → 확정된 본인 특강들의 jsonb 배열(정보·units·attendance·feedback). 보관된 특강·기간 밖(시작 전/종료 후 7일 초과)·취소/대기·퇴원생은 제외. 외부생은 이름+학부모 연락처(`sl_norm_phone`)가 모두 일치해야 함
 - 화면: `special-dashboard.html`(진도 막대=체크÷전체, 출결 ○△×와 사유, 피드백 글). 재원생은 `dashboard.html` 학생코드 옆 보라색 버튼(localStorage 학생코드 사용), 외부생은 `special-apply.html` "내 신청 조회"의 확정된 특강에 뜨는 버튼(이름·연락처를 sessionStorage로 넘김). 85번 전에는 버튼이 숨겨짐
+
+## 86. 특강 결제 완료 표시 (2026-10-24)
+- 읽기 전용 함수 2개 추가: `rpc_get_special_paid(p_student_code)`(재원생의 확정+결제일 있는 특강 id), `rpc_public_lookup_paid(p_student_name, p_parent_phone)`(외부생의 결제 완료 특강 이름). 완납 기준 = `special_lecture_applications.paid_at` 입력됨(관리자 "결제 입력")
+- 학부모 대시보드 방학특강 카드·내 신청 조회: 결제 완료면 "💰 결제 완료", 아니면(확인 대기/확정) "수강료 결제는 결제선생 링크를 보내드립니다." 86번 전에는 안내 문구만 표시

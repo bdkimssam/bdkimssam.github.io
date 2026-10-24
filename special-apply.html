@@ -271,6 +271,9 @@ $('lk').addEventListener('submit', async e => {
       `<div style="margin-top:6px; font-size:13px; line-height:1.6"><span style="color:var(--muted); font-size:11.5px">${esc(String(f.feedback_date).slice(5).replace('-', '/'))}</span><br><span style="white-space:pre-line">${esc(f.content)}</span></div>`).join('')}</div>` : '';
   };
   window.__lk = { name, phone };
+  // 결제 완료 표시 (SQL 86 전이거나 실패하면 '결제선생 링크' 안내만 보여요)
+  const pd = await sb.rpc('rpc_public_lookup_paid', { p_student_name: name, p_parent_phone: phone });
+  const paidTitles = new Set(pd.error || !pd.data ? [] : pd.data.map(x => x.lecture_title));
   const todayKST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
   const addDays = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
   const canSD = r => r.status === 'confirmed' && (!r.start_date || String(r.start_date).slice(0, 10) <= todayKST) && (!r.end_date || addDays(String(r.end_date).slice(0, 10), 7) >= todayKST);
@@ -284,7 +287,7 @@ $('lk').addEventListener('submit', async e => {
         ${r.schedule_text ? `<div><b>시간</b>${esc(r.schedule_text)}</div>` : ''}
         ${r.classroom ? `<div><b>강의실</b>${esc(r.classroom)}</div>` : ''}
         <div class="note" style="margin-top:6px">${esc(desc)}</div>
-        ${r.status === 'confirmed' || r.status === 'pending' ? '<div class="note" style="margin-top:4px"><b>수강료 결제는 결제선생 링크를 보내드립니다.</b></div>' : ''}
+        ${r.status === 'confirmed' && paidTitles.has(r.lecture_title) ? '<div style="margin-top:6px; font-size:13px; font-weight:800; color:#15803D">💰 결제 완료</div>' : (r.status === 'confirmed' || r.status === 'pending') ? '<div class="note" style="margin-top:4px"><b>수강료 결제는 결제선생 링크를 보내드립니다.</b></div>' : ''}
       </div>${canSD(r) ? '<button type="button" class="btn primary block sd-open" style="margin-top:12px">특강 대시보드 보기 (진도·출결·피드백)</button>' : ''}${r.status === 'confirmed' ? fbHtml(r.lecture_title) : ''}</div>`;
   }).join('');
   document.querySelectorAll('.sd-open').forEach(b => b.addEventListener('click', () => {
