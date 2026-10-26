@@ -128,7 +128,7 @@
   // ------------------------------------------------------------
   const STORE_KEY = 'kiosk_code';
   const IDLE_MS = 30000;      // 선택/등원하원 화면에서 30초 가만히 있으면 처음으로
-  const DONE_MS = 4000;       // 완료 화면 보여주는 시간
+  const DONE_MS = 1500;       // 완료 화면 보여주는 시간 (화면을 터치하면 바로 입력 화면으로)
 
   function readCode() { try { return localStorage.getItem(STORE_KEY) || ''; } catch (e) { return ''; } }
   function saveCode(v) { try { localStorage.setItem(STORE_KEY, v); } catch (e) {} }
@@ -296,6 +296,8 @@
     });
     show('pick');
   }
+  // 완료 화면에서 아무 데나 터치하면 기다리지 않고 바로 다음 학생 입력 화면으로
+  $('screen-done').addEventListener('pointerdown', resetToKeypad);
   $('pick-back').addEventListener('click', resetToKeypad);
   $('action-back').addEventListener('click', resetToKeypad);
 
