@@ -472,7 +472,7 @@ order by table_name;
 - 학부모 대시보드 방학특강 카드·내 신청 조회: 결제 완료면 "💰 결제 완료", 아니면(확인 대기/확정) "수강료 결제는 결제선생 링크를 보내드립니다." 86번 전에는 안내 문구만 표시
 
 ## 87. 솔라피 알림톡 (2026-10-26)
-- 표: `alimtalk_switch(kind staff|student, enabled)`(staff=true, student=false로 시작), `alimtalk_log`(발송 기록, 번호는 뒤 4자리만). 함수: `kr_clock(ts)`("오후 6:30"), `solapi_send_alimtalk(kind, to, template_id, vars jsonb)`(Vault의 `solapi_api_key`/`solapi_api_secret`으로 HMAC 서명, `net.http_post`로 `api.solapi.com/messages/v4/send-many/detail`, disableSms=true, 키 없으면 기록만 하고 건너뜀)
+- 표: `alimtalk_switch(kind staff|student, enabled)`(staff=true, student=false로 시작), `alimtalk_log`(발송 기록, 번호는 뒤 4자리만). 함수: `kr_clock(ts)`("오후 6:30"), `solapi_send_alimtalk(kind, to, template_id, vars jsonb)`(Vault의 `solapi_api_key`/`solapi_api_secret`으로 HMAC 서명, `net.http_post`로 `api.solapi.com/messages/v4/send-many/detail`, staff는 disableSms=true, student는 문자 대체발송 허용(p_sms_fallback), 키 없으면 기록만 하고 건너뜀)
 - `rpc_kiosk_staff_check`: 새 기록일 때 텔레그램(기존) + 선생님 본인 폰(`staff_members.phone`) 알림톡(템플릿 `#{이름}` `#{시각}` `#{구분}`). `rpc_kiosk_check`: 새 기록일 때 학부모 출석체크 번호(`attendance_phone`, `attendance_phone2`, 둘 다 비면 `students.parent_phone`)로 등원/하원 알림톡(`#{학생이름}` `#{시각}`). 원장님 텔레그램 없음. 2분 내 중복 터치는 발송 안 함. 모든 알림 실패는 출퇴근 기록에 영향 없음
 - 켜기/끄기: `update alimtalk_switch set enabled = true|false where kind = 'student'|'staff'`. 결과 확인: `alimtalk_log`와 `net._http_response`(request_id)
 - 채널 PFID `KA01PF241209152412086amCMk5ooEKI`, 발신번호 01035978586, 템플릿: 등원 `KA01TP261008012532845CCk7hhrZPm6`, 하원 `KA01TP261009181032379O4yHlLOComP`, 선생님 `KA01TP261019120812249hvho3BVNSCF`
