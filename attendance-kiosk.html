@@ -303,6 +303,17 @@
     });
     show('pick');
   }
+  // 화면을 터치하면 전체 화면으로 (주소창 숨김). 브라우저 정책상 터치가 있어야만 가능해서, 전체 화면이 풀리면 다음 터치에 다시 시도해요.
+  function goFullscreen() {
+    try {
+      const el = document.documentElement;
+      if (document.fullscreenElement || !el.requestFullscreen) return;
+      const r = el.requestFullscreen({ navigationUI: 'hide' });
+      if (r && r.catch) r.catch(() => {});
+    } catch (e) {}
+  }
+  document.addEventListener('pointerdown', goFullscreen);
+
   // 완료 화면에서 아무 데나 터치하면 기다리지 않고 바로 다음 학생 입력 화면으로
   $('screen-done').addEventListener('pointerdown', resetToKeypad);
   $('pick-back').addEventListener('click', resetToKeypad);
