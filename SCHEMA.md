@@ -476,3 +476,13 @@ order by table_name;
 - `rpc_kiosk_staff_check`: 새 기록일 때 텔레그램(기존) + 선생님 본인 폰(`staff_members.phone`) 알림톡(템플릿 `#{이름}` `#{시각}` `#{구분}`). `rpc_kiosk_check`: 새 기록일 때 학부모 출석체크 번호(`attendance_phone`, `attendance_phone2`, 둘 다 비면 `students.parent_phone`)로 등원/하원 알림톡(`#{학생이름}` `#{시각}`). 원장님 텔레그램 없음. 2분 내 중복 터치는 발송 안 함. 모든 알림 실패는 출퇴근 기록에 영향 없음
 - 켜기/끄기: `update alimtalk_switch set enabled = true|false where kind = 'student'|'staff'`. 결과 확인: `alimtalk_log`와 `net._http_response`(request_id)
 - 채널 PFID `KA01PF241209152412086amCMk5ooEKI`, 발신번호 01035978586, 템플릿: 등원 `KA01TP261008012532845CCk7hhrZPm6`, 하원 `KA01TP261009181032379O4yHlLOComP`, 선생님 `KA01TP261019120812249hvho3BVNSCF`
+
+## 88 — 신청 접수 알림톡 (상담·수학학력평가·특강)
+- 템플릿 `KA01TP261026160759070VGMbcVRmMLt` (변수 `#{이름}` `#{구분}` `#{내용}`, 문자 대체발송 ON). 스위치 `alimtalk_switch.kind='apply'`.
+- `solapi_send_apply(to, name, kind, content)` → 스위치 꺼짐이면 false. `notify_sms_consultation_confirm`: 알림톡, 꺼짐/실패 시 예전 문자. 트리거 `trg_alimtalk_math_exam`(math_exam_applications), `trg_alimtalk_special_apply`(special_lecture_applications; `app.no_alimtalk='1'`이면 건너뜀 — `rpc_admin_add_application`이 설정, 관리자 직접 등록은 미발송).
+- `solapi_send_sms`는 Vault 키(`solapi_api_key/secret`) 사용(옛 키 하드코딩 제거).
+- 알림톡 수신 번호: 출석체크 번호(attendance_phone/2) → 없으면 등록서 parent_phone. 번호 바뀌면 출석체크 번호를 우선 수정.
+
+## 89 — 교재 제작 요청 수정/삭제/완료 취소
+- `rpc_admin_update_textbook_request`, `rpc_admin_delete_textbook_request`, `rpc_admin_reopen_textbook_request` (모두 `p_user_classroom` 추가). 원장님 비밀번호=전체, 강사쌤 비밀번호=`classroom = p_user_classroom`인 요청만(강의실 변경 불가).
+- `trg_log_textbook_requests` → change_history.

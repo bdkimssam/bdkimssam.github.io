@@ -28,6 +28,11 @@
   .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   button.submit { width:100%; padding:12px; border-radius:10px; border:none; background:var(--navy-900); color:#fff; font-weight:800; font-size:14.5px; cursor:pointer; }
   button.submit:hover { background:#000; }
+  .req-actions { display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .req-sub { display:flex; gap:6px; }
+  .mini-btn { border:1px solid var(--gray-200); background:#fff; color:var(--muted); border-radius:8px; padding:4px 9px; font-size:11.5px; font-weight:700; cursor:pointer; }
+  .mini-btn:hover { background:var(--gray-50); color:var(--ink); }
+  .mini-btn.danger { color:#B91C1C; border-color:#FCA5A5; }
   .filter-tabs { display:flex; gap:8px; margin-bottom:16px; }
   .filter-tabs button {
     border:1px solid var(--gray-200); background:#fff; border-radius:999px; padding:7px 14px; font-size:12.5px; font-weight:700; color:var(--muted); cursor:pointer;
@@ -53,6 +58,10 @@
 <main>
   <div class="panel">
     <h1>교재 제작 요청</h1>
+    <div id="edit-banner" style="display:none; background:#FEF3C7; border:1px solid #FCD34D; color:#92400E; border-radius:10px; padding:10px 13px; margin-bottom:16px; font-size:13px; font-weight:700; justify-content:space-between; align-items:center; gap:10px;">
+      <span id="edit-banner-text"></span>
+      <button type="button" id="edit-cancel" style="border:1px solid #D97706; background:#fff; color:#92400E; border-radius:8px; padding:5px 10px; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap;">수정 취소</button>
+    </div>
     <form id="request-form">
       <label for="student-select">학생 선택</label>
       <select id="grade-filter" style="margin-bottom:8px;"><option value="">전체 학년</option></select>
@@ -273,11 +282,45 @@
           <div class="meta">${r.student_name || ''} · ${r.grade || ''} ${r.semester ? '(' + r.semester + ')' : ''} · ${r.classroom || ''} · ${r.copies || 1}부${r.deadline ? ' · 기한 ' + r.deadline : ''}</div>
           ${r.notes ? `<div class="note">${r.notes}</div>` : ''}
         </div>
-        <button class="done-btn ${r.completed ? 'completed' : ''}" data-id="${r.id}" ${r.completed ? 'disabled' : ''}>
-          ${r.completed ? '완료됨' : '완료 처리'}
-        </button>
+        <div class="req-actions">
+          <button class="done-btn ${r.completed ? 'completed' : ''}" data-id="${r.id}" ${r.completed ? 'disabled' : ''}>
+            ${r.completed ? '완료됨' : '완료 처리'}
+          </button>
+          <div class="req-sub">
+            ${r.completed ? `<button type="button" class="mini-btn" data-act="reopen" data-id="${r.id}">완료 취소</button>` : ''}
+            <button type="button" class="mini-btn" data-act="edit" data-id="${r.id}">수정</button>
+            <button type="button" class="mini-btn danger" data-act="del" data-id="${r.id}">삭제</button>
+          </div>
+        </div>
       </div>
     `).join('');
+
+    listEl.querySelectorAll('.mini-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const r = allReqs.find((x) => x.id === btn.dataset.id);
+        if (!r) return;
+        const act = btn.dataset.act;
+        if (act === 'edit') { startEdit(r); return; }
+        if (act === 'del') {
+          if (!confirm(`"${r.requested_textbook || '교재'}" (${r.student_name || ''}) 요청을 삭제할까요?`)) return;
+          const { error } = await sb.rpc('rpc_admin_delete_textbook_request', {
+            p_password: getAdminPassword(), p_id: r.id, p_user_classroom: getAdminClassroom() || '',
+          });
+          if (error) { alert('삭제 실패: ' + friendlyErr(error)); return; }
+          if (editingId === r.id) cancelEdit();
+          loadList();
+          return;
+        }
+        if (act === 'reopen') {
+          if (!confirm('완료를 취소하고 미완료로 되돌릴까요?')) return;
+          const { error } = await sb.rpc('rpc_admin_reopen_textbook_request', {
+            p_password: getAdminPassword(), p_id: r.id, p_user_classroom: getAdminClassroom() || '',
+          });
+          if (error) { alert('처리 실패: ' + friendlyErr(error)); return; }
+          loadList();
+        }
+      });
+    });
 
     listEl.querySelectorAll('.done-btn:not(.completed)').forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -307,8 +350,96 @@
     });
   });
 
+  function friendlyErr(error) {
+    const missing = error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || ''));
+    return missing ? '수정/삭제 SQL(89)이 아직 실행되지 않았어요.' : (error.message || '');
+  }
+
+  // ---- 수정 모드 (위 입력 폼을 그대로 사용) ----
+  let editingId = null;
+  let editingRow = null;
+  const submitBtnEl = document.querySelector('#request-form button[type="submit"]');
+
+  function resetForm() {
+    document.getElementById('request-form').reset();
+    updateDeadlineUI();
+    document.getElementById('copies').value = 1;
+    classroomSelect.value = getAdminClassroom() || CLASSROOMS[0];
+    classroomSelect.disabled = false;
+    studentSelect.value = '';
+    gradeSemesterSelect.value = '';
+    textbookNameSelect.innerHTML = '<option value="">학년학기 먼저 선택</option>';
+    textbookNameSelect.disabled = true;
+  }
+
+  function cancelEdit() {
+    editingId = null; editingRow = null;
+    document.getElementById('edit-banner').style.display = 'none';
+    submitBtnEl.textContent = '요청 등록';
+    resetForm();
+  }
+  document.getElementById('edit-cancel').addEventListener('click', cancelEdit);
+
+  function startEdit(r) {
+    resetForm();
+    editingId = r.id; editingRow = r;
+    document.getElementById('grade-filter').value = '';
+    renderStudentOptions();
+    const opt = Array.from(studentSelect.options).find((o) => o.dataset.name === r.student_name);
+    studentSelect.value = opt ? opt.value : '';
+    classroomSelect.value = r.classroom || classroomSelect.value;
+    classroomSelect.disabled = !isAdminDirector(); // 강사쌤은 강의실 변경 불가
+    if (r.semester && gradeSemesterGroups[r.semester]) {
+      gradeSemesterSelect.value = r.semester;
+      gradeSemesterSelect.dispatchEvent(new Event('change'));
+      textbookNameSelect.value = (r.requested_textbook || '').replace(/^\[[^\]]*\]\s*/, '');
+    }
+    document.getElementById('copies').value = r.copies || 1;
+    document.getElementById('notes').value = r.notes || '';
+    document.getElementById('for-teacher').checked = !!r.for_teacher;
+    document.getElementById('edit-banner-text').textContent =
+      `수정 중: ${r.requested_textbook || '(교재명 미입력)'} · ${r.student_name || ''}` +
+      (r.deadline ? ` · 기존 기한 ${r.deadline} (바꾸지 않으면 그대로)` : '');
+    document.getElementById('edit-banner').style.display = 'flex';
+    submitBtnEl.textContent = '수정 저장';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function saveEdit() {
+    const r = editingRow;
+    const studentName = studentSelect.value ? studentSelect.selectedOptions[0].dataset.name : (r.student_name || '');
+    const gradeSemester = gradeSemesterSelect.value;
+    const textbookName = textbookNameSelect.value;
+    if (gradeSemester && !textbookName) { alert('교재명을 선택해주세요.'); return; }
+    let reqText = r.requested_textbook, grade = r.grade, semester = r.semester;
+    if (gradeSemester && textbookName) {
+      const category = textbookNameSelect.selectedOptions[0].dataset.category;
+      reqText = `[${category}] ${textbookName}`;
+      grade = gradeSemester.replace(/-\d+$/, '');
+      semester = gradeSemester;
+    }
+    const deadline = deadlineSel.value ? deadlineText() : (r.deadline || '');
+
+    submitBtnEl.disabled = true;
+    submitBtnEl.textContent = '저장 중...';
+    const { error } = await sb.rpc('rpc_admin_update_textbook_request', {
+      p_password: getAdminPassword(), p_id: editingId, p_user_classroom: getAdminClassroom() || '',
+      p_student_name: studentName, p_grade: grade, p_semester: semester,
+      p_classroom: classroomSelect.value, p_requested_textbook: reqText, p_deadline: deadline,
+      p_copies: parseInt(document.getElementById('copies').value || '1', 10),
+      p_notes: document.getElementById('notes').value.trim(),
+      p_for_teacher: document.getElementById('for-teacher').checked,
+    });
+    submitBtnEl.disabled = false;
+    submitBtnEl.textContent = '수정 저장';
+    if (error) { alert('수정 실패: ' + friendlyErr(error)); return; }
+    cancelEdit();
+    loadList();
+  }
+
   document.getElementById('request-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (editingId) { await saveEdit(); return; }
 
     const studentCode = studentSelect.value;
     if (!studentCode) { alert('학생을 선택해주세요.'); return; }
@@ -349,14 +480,7 @@
       return;
     }
 
-    e.target.reset();
-    updateDeadlineUI();
-    document.getElementById('copies').value = 1;
-    classroomSelect.value = getAdminClassroom() || CLASSROOMS[0];
-    studentSelect.value = '';
-    gradeSemesterSelect.value = '';
-    textbookNameSelect.innerHTML = '<option value="">학년학기 먼저 선택</option>';
-    textbookNameSelect.disabled = true;
+    resetForm();
     loadList();
   });
 
