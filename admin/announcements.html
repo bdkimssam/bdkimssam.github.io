@@ -53,6 +53,18 @@
   .c .atts img { max-width:140px; max-height:140px; border-radius:8px; border:1px solid var(--gray-200); }
   .c .atts a.file { font-size:12.5px; font-weight:700; color:#3D4FA0; background:#EEF2FF; padding:6px 10px; border-radius:8px; text-decoration:none; }
   .clip { color:#98A1B3; font-size:11.5px; margin-left:6px; }
+  .bell-btn { flex-shrink:0; background:none; border:none; color:#B45309; font-size:13px; cursor:pointer; padding: 4px 6px; }
+  .sent-tag { display:inline-block; margin-left:6px; font-size:11px; font-weight:800; color:#047857; background:#D1FAE5; padding:1px 7px; border-radius:999px; }
+  .modal-bg { position:fixed; inset:0; background:rgba(7,12,22,0.55); display:none; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .modal-bg.show { display:flex; }
+  .modal { background:#fff; border-radius:16px; width:100%; max-width:440px; max-height:90vh; overflow:auto; padding:22px; }
+  .modal h2 { font-size:17px; font-weight:900; margin:0 0 14px; }
+  .modal .box { background:var(--gray-50); border-radius:10px; padding:11px 13px; font-size:13px; line-height:1.7; margin-bottom:14px; }
+  .modal .warn { color:#B45309; }
+  .modal .btns { display:flex; gap:8px; }
+  .modal .btns button { flex:1; padding:12px; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
+  .modal .btns button.go { background:var(--navy-900); color:#fff; border-color:var(--navy-900); }
+  .modal .btns button:disabled { opacity:.5; cursor:not-allowed; }
 </style>
 </head>
 <body>
@@ -104,6 +116,23 @@
     <div id="notice-list"><div class="loading">불러오는 중...</div></div>
   </div>
 </main>
+
+<div class="modal-bg" id="bell-modal">
+  <div class="modal">
+    <h2>알림톡 발송</h2>
+    <div class="box" id="bell-notice"></div>
+    <label for="bell-kind">템플릿</label>
+    <select id="bell-kind"></select>
+    <label for="bell-title">알림톡에 들어갈 제목 <span id="bell-count" style="font-weight:400;"></span></label>
+    <input type="text" id="bell-title" maxlength="40" placeholder="예: 11/3(월) 중3 수업 보강">
+    <div class="hint" style="margin-top:-10px;">핵심(날짜, 대상)을 한 줄로 적어 주세요. 최대 40자예요.</div>
+    <div class="box" id="bell-preview">불러오는 중...</div>
+    <div class="btns">
+      <button type="button" id="bell-cancel">닫기</button>
+      <button type="button" class="go" id="bell-send" disabled>발송하기</button>
+    </div>
+  </div>
+</div>
 
 <script src="../assets/js/supabase-client.js?v=20261009b"></script>
 <script>
@@ -206,6 +235,78 @@
     return out;
   }
 
+  // ---- 알림톡 발송 ----
+  let sentMap = {};
+  let bellId = null;
+  let bellTemplates = null;
+  const fmtSent = (ts) => { const d = new Date(ts); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  function sentTag(id) {
+    const s = sentMap[id];
+    return s ? `<span class="sent-tag">알림톡 ${s.recipients}명 · ${fmtSent(s.created_at)}</span>` : '';
+  }
+  const bellErr = (error) => {
+    const missing = error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || ''));
+    return missing ? '알림톡 SQL(90)이 아직 실행되지 않았어요.' : (error.message || '');
+  };
+  function closeBell() { document.getElementById('bell-modal').classList.remove('show'); bellId = null; }
+  document.getElementById('bell-cancel').addEventListener('click', closeBell);
+  document.getElementById('bell-modal').addEventListener('click', (e) => { if (e.target.id === 'bell-modal') closeBell(); });
+  document.getElementById('bell-title').addEventListener('input', (e) => {
+    document.getElementById('bell-count').textContent = `(${e.target.value.length}/40)`;
+  });
+
+  async function openBell(id) {
+    const it = items.find((x) => x.id === id); if (!it) return;
+    bellId = id;
+    const previewEl = document.getElementById('bell-preview');
+    const sendBtn = document.getElementById('bell-send');
+    sendBtn.disabled = true;
+    previewEl.textContent = '불러오는 중...';
+    document.getElementById('bell-notice').innerHTML = `<b>[${esc(gradeLabel(it.target_grade))}]</b> ${esc(it.title)}`;
+    const t = document.getElementById('bell-title');
+    t.value = (it.title || '').slice(0, 40);
+    document.getElementById('bell-count').textContent = `(${t.value.length}/40)`;
+    document.getElementById('bell-modal').classList.add('show');
+
+    if (!bellTemplates) {
+      const tr = await sb.rpc('rpc_admin_notice_templates', { p_password: getAdminPassword() });
+      if (tr.error) { previewEl.innerHTML = `<span class="warn">${esc(bellErr(tr.error))}</span>`; return; }
+      bellTemplates = tr.data || [];
+    }
+    const kindSel = document.getElementById('bell-kind');
+    kindSel.innerHTML = bellTemplates.map((x) => `<option value="${esc(x.kind)}" ${x.enabled ? '' : 'disabled'}>${esc(x.label)}${x.enabled ? '' : ' (승인 대기)'}</option>`).join('');
+    const firstOk = bellTemplates.find((x) => x.enabled && x.kind !== 'special');
+    if (firstOk) kindSel.value = firstOk.kind;
+
+    const pr = await sb.rpc('rpc_admin_notice_preview', { p_password: getAdminPassword(), p_announcement_id: id });
+    if (pr.error) { previewEl.innerHTML = `<span class="warn">${esc(bellErr(pr.error))}</span>`; return; }
+    const p = pr.data || {};
+    let html = `받는 사람: <b>[${esc(gradeLabel(p.target))}] 학부모 ${p.phones || 0}명</b> (학생 ${p.students || 0}명, 같은 번호는 한 번만 보내요)`;
+    if ((p.no_phone || []).length) html += `<br><span class="warn">번호가 없어 못 받는 학생 ${p.no_phone.length}명: ${esc(p.no_phone.join(', '))}</span>`;
+    if (p.last) html += `<br><span class="warn">이미 ${fmtSent(p.last.created_at)}에 ${p.last.recipients}명에게 발송했어요.</span>`;
+    previewEl.innerHTML = html;
+    sendBtn.disabled = !(p.phones > 0) || !firstOk;
+  }
+
+  document.getElementById('bell-send').addEventListener('click', async () => {
+    if (!bellId) return;
+    const kind = document.getElementById('bell-kind').value;
+    const title = document.getElementById('bell-title').value.trim();
+    if (!title) { alert('알림톡에 들어갈 제목을 입력해 주세요.'); return; }
+    const phones = (document.getElementById('bell-preview').textContent.match(/학부모 (\d+)명/) || [])[1] || '?';
+    if (!confirm(`학부모 ${phones}명에게 알림톡을 보냅니다.\n\n제목: ${title}\n\n보낼까요? (보내면 취소할 수 없어요)`)) return;
+    const btn = document.getElementById('bell-send');
+    btn.disabled = true; btn.textContent = '발송 중...';
+    const { data, error } = await sb.rpc('rpc_admin_send_notice_alimtalk', {
+      p_password: getAdminPassword(), p_announcement_id: bellId, p_kind: kind, p_title: title,
+    });
+    btn.textContent = '발송하기';
+    if (error) { alert('발송 실패: ' + bellErr(error)); btn.disabled = false; return; }
+    alert(`알림톡 ${data.sent}명에게 발송을 요청했어요.` + (data.no_phone ? `\n번호가 없는 학생 ${data.no_phone}명은 제외됐어요.` : ''));
+    closeBell();
+    loadList();
+  });
+
   async function loadList() {
     const listEl = document.getElementById('notice-list');
     listEl.innerHTML = '<div class="loading">불러오는 중...</div>';
@@ -222,6 +323,11 @@
       return;
     }
 
+    // 알림톡 발송 기록 (SQL 90 전에는 조용히 건너뜀)
+    sentMap = {};
+    const st = await sb.rpc('rpc_admin_notice_status', { p_password: getAdminPassword() });
+    if (!st.error) (st.data || []).forEach((r) => { sentMap[r.announcement_id] = r; });
+
     listEl.innerHTML = items.map((item) => {
       const atts = item.attachments || [];
       const attHtml = atts.length ? `<div class="atts">${atts.map((a) => isImg(a)
@@ -233,16 +339,18 @@
           <summary>
             <span class="tag">[${esc(gradeLabel(item.target_grade))}]</span>
             <div class="t">${esc(item.title)}${atts.length ? `<span class="clip"><i class="fa-solid fa-paperclip"></i> ${atts.length}</span>` : ''}</div>
-            <div class="d">${esc(item.posted_date || '')}</div>
+            <div class="d">${esc(item.posted_date || '')}${sentTag(item.id)}</div>
           </summary>
           <div class="c">${esc(item.content || '(내용 없음)')}${attHtml}</div>
         </details>
+        <button class="bell-btn" data-bell="${esc(item.id)}" title="알림톡 발송"><i class="fa-solid fa-bell"></i></button>
         <button class="edit-btn" data-edit="${esc(item.id)}" title="수정"><i class="fa-solid fa-pen"></i></button>
         <button class="del-btn" data-id="${esc(item.id)}"><i class="fa-solid fa-trash"></i></button>
       </div>`;
     }).join('');
 
     listEl.querySelectorAll('.edit-btn').forEach((btn) => btn.addEventListener('click', () => startEdit(btn.dataset.edit)));
+    listEl.querySelectorAll('.bell-btn').forEach((btn) => btn.addEventListener('click', () => openBell(btn.dataset.bell)));
     listEl.querySelectorAll('.del-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('이 공지를 삭제할까요?')) return;

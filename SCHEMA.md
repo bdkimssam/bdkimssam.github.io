@@ -486,3 +486,10 @@ order by table_name;
 ## 89 — 교재 제작 요청 수정/삭제/완료 취소
 - `rpc_admin_update_textbook_request`, `rpc_admin_delete_textbook_request`, `rpc_admin_reopen_textbook_request` (모두 `p_user_classroom` 추가). 원장님 비밀번호=전체, 강사쌤 비밀번호=`classroom = p_user_classroom`인 요청만(강의실 변경 불가).
 - `trg_log_textbook_requests` → change_history.
+
+## 90 — 공지 알림톡 발송 (공지 목록의 🔔 버튼)
+- 템플릿 `alimtalk_notice_templates(kind, label, template_id, enabled)`: schedule(수업 일정 변경 안내, `KA01TP261026161452894V0qsLLIi42D`, 사용), exam·special(승인 대기). 승인되면 `update alimtalk_notice_templates set template_id='…', enabled=true where kind='exam';`. special(특강 수강 안내)은 특강 선택·확정 신청자 대상 기능이 필요해 발송 함수에서 아직 막아 둠.
+- 스위치 `alimtalk_switch.kind='notice'`. 발송 기록 `alimtalk_notice_log`(공지별 마지막 발송 표시, 같은 공지·유형 10분 내 재발송 차단). 오늘 발송량+이번 건수가 490건 넘으면 거부(일일 한도 500).
+- 받는 사람: `sl_notice_recipients(공지id)` — 재원생(퇴원·테스트% 제외), 학년=`sl_student_grade`(반 배정 → 등록서), 대상 매칭=`sl_notice_matches`(학부모 공지 조회와 동일 규칙), 번호=`sl_student_phones`(출석체크 번호 1·2 → 없으면 등록서 번호), 같은 번호는 1회.
+- RPC(원장님 전용): `rpc_admin_notice_preview`, `rpc_admin_send_notice_alimtalk(p_password, p_announcement_id, p_kind, p_title)`, `rpc_admin_notice_status`, `rpc_admin_notice_templates`. 변수 `#{제목}`(40자), 문자 대체발송 없음.
+- `rpc_get_announcements`: 학부모 대시보드 공지 3건 → 5건.
