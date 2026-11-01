@@ -132,13 +132,13 @@
       </div>
       <div class="row2">
         <div class="field"><label for="f-capacity">정원 (명) *</label><input type="number" id="f-capacity" min="1" value="10"></div>
-        <div class="field"><label for="f-fee">수강료 (원)</label><input type="number" id="f-fee" min="0" step="1000" placeholder="예) 300000"></div>
+        <div class="field"><label for="f-fee">특강비 (원)</label><input type="number" id="f-fee" min="0" step="1000" placeholder="예) 300000"></div>
       </div>
       <div class="row2">
-        <div class="field"><label for="f-eb-fee">얼리버드 수강료 (원)</label><input type="number" id="f-eb-fee" min="0" step="1000" placeholder="없으면 비우기"></div>
+        <div class="field"><label for="f-eb-fee">얼리버드 특강비 (원)</label><input type="number" id="f-eb-fee" min="0" step="1000" placeholder="없으면 비우기"></div>
         <div class="field"><label for="f-eb-date">얼리버드 납부 마감일</label><input type="date" id="f-eb-date"></div>
       </div>
-      <div class="hint" style="margin:-4px 0 12px;">이 날짜까지 <b>납부</b>하면 얼리버드 수강료가 적용돼요. 두 칸을 같이 입력하거나 같이 비워 주세요.</div>
+      <div class="hint" style="margin:-4px 0 12px;">이 날짜까지 <b>납부</b>하면 얼리버드 특강비가 적용돼요. 두 칸을 같이 입력하거나 같이 비워 주세요.</div>
       <div class="row3">
         <div class="field"><label for="f-member-open">재원생 신청 시작일</label><input type="date" id="f-member-open"></div>
         <div class="field"><label for="f-outsider-open">외부생 신청 시작일</label><input type="date" id="f-outsider-open"></div>
@@ -203,7 +203,7 @@
         <div class="field"><label for="p-method">결제 방법</label>
           <select id="p-method"><option value="">선택</option><option value="card">카드</option><option value="cash">현금</option></select></div>
       </div>
-      <div class="field"><label for="p-override">실제 수강료 직접 입력 <small style="font-weight:500">(예외 할인일 때만 · 비우면 자동)</small></label>
+      <div class="field"><label for="p-override">실제 특강비 직접 입력 <small style="font-weight:500">(예외 할인일 때만 · 비우면 자동)</small></label>
         <input type="number" id="p-override" min="0" step="1000" inputmode="numeric" placeholder="예) 200000"></div>
       <div class="field"><label for="p-note">메모</label><input type="text" id="p-note" maxlength="100" placeholder="예) 셋째 할인"></div>
       <div class="pay" id="p-preview"></div>
@@ -323,7 +323,7 @@
         <div class="info">
           ${period ? `<div><b>기간</b>${esc(period)}${l.schedule_text ? ' · ' + esc(l.schedule_text) : ''}</div>` : (l.schedule_text ? `<div><b>일정</b>${esc(l.schedule_text)}</div>` : '')}
           <div><b>강의실</b>${esc(l.classroom || '-')} <b style="margin-left:8px;">담당</b>${esc(l.teacher || '원장님')}</div>
-          <div><b>정원</b>${esc(l.capacity)}명${l.fee != null ? ` <b style="margin-left:8px;">수강료</b>${Number(l.fee).toLocaleString('ko-KR')}원` : ''}${l.early_bird_fee != null ? ` <b style="margin-left:8px;">얼리버드</b>${Number(l.early_bird_fee).toLocaleString('ko-KR')}원 (${esc(fmtDate(l.early_bird_deadline))}까지 납부)` : ''}</div>
+          <div><b>정원</b>${esc(l.capacity)}명${l.fee != null ? ` <b style="margin-left:8px;">특강비</b>${Number(l.fee).toLocaleString('ko-KR')}원` : ''}${l.early_bird_fee != null ? ` <b style="margin-left:8px;">얼리버드</b>${Number(l.early_bird_fee).toLocaleString('ko-KR')}원 (${esc(fmtDate(l.early_bird_deadline))}까지 납부)` : ''}</div>
           <div><b>신청</b>재원생 ${esc(fmtDate(l.member_open_date) || '-')}부터 · 외부생 ${esc(fmtDate(l.outsider_open_date) || '-')}부터 · 마감 ${esc(fmtDate(l.apply_deadline) || '-')}</div>
         </div>
         ${countsHtml(l)}
@@ -478,13 +478,13 @@
   // ---- 변경 이력 ----
   const LABELS = {
     title: '특강 이름', target_grades: '대상 학년', start_date: '시작일', end_date: '종료일', schedule_text: '요일·시간', days: '요일', start_time: '시작 시간', end_time: '종료 시간',
-    classroom: '강의실', teacher: '담당', capacity: '정원', fee: '수강료', early_bird_fee: '얼리버드 수강료', early_bird_deadline: '얼리버드 납부 마감일', member_open_date: '재원생 신청 시작일',
+    classroom: '강의실', teacher: '담당', capacity: '정원', fee: '특강비', early_bird_fee: '얼리버드 특강비', early_bird_deadline: '얼리버드 납부 마감일', member_open_date: '재원생 신청 시작일',
     outsider_open_date: '외부생 신청 시작일', apply_deadline: '신청 마감일', is_closed: '마감', archived: '보관', memo: '메모',
   };
   const APP_LABELS = {
     applicant_type: '구분', student_code: '학생 코드', student_name: '이름', grade: '학년', school: '학교',
     student_phone: '학생 연락처', parent_phone: '학부모 연락처', note: '메모', status: '상태', cancel_reason: '취소 사유',
-    paid_at: '결제일', pay_method: '결제 방법', paid_amount: '납부 금액', fee_override: '실제 수강료(직접)', fee_note: '수강료 메모',
+    paid_at: '결제일', pay_method: '결제 방법', paid_amount: '납부 금액', fee_override: '실제 특강비(직접)', fee_note: '특강비 메모',
   };
   const FB_LABELS = { feedback_date: '날짜', content: '내용' };
   const STATUS_LABEL = { pending: '확인 대기', confirmed: '확정', waitlist: '대기', cancelled: '취소' };
@@ -565,7 +565,7 @@
     renderApps();
   }
   const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
-  // 결제일(없으면 오늘 기준)로 계산한 수강료: 직접 입력한 금액 > 얼리버드(결제일이 마감일 이내) > 정가
+  // 결제일(없으면 오늘 기준)로 계산한 특강비: 직접 입력한 금액 > 얼리버드(결제일이 마감일 이내) > 정가
   function priceFor(l, dateStr, override) {
     if (override != null && override !== '') return { amount: Number(override), kind: '직접 지정' };
     if (!l || l.fee == null) return { amount: null, kind: '' };
@@ -586,7 +586,7 @@
       if (a.fee_override == null && l && l.early_bird_fee != null && l.early_bird_deadline) {
         t += due.kind === '얼리버드' ? ` · ${esc(l.early_bird_deadline.slice(5).replace('-', '/'))}까지 이 금액` : ` · 얼리버드 마감(${esc(l.early_bird_deadline.slice(5).replace('-', '/'))})이 지났어요`;
       }
-    } else t += ' · 수강료가 등록되지 않았어요';
+    } else t += ' · 특강비가 등록되지 않았어요';
     return `<div class="pay">🕓 ${t}${a.fee_note ? `<br>메모: ${esc(a.fee_note)}` : ''}</div>`;
   }
   function appRowHtml(a, order) {
@@ -770,7 +770,7 @@
     const l = lectures.find((x) => String(x.id) === String(appLectureId));
     const d = $('p-date').value, ov = $('p-override').value.trim();
     const r = priceFor(l, d, ov === '' ? null : ov);
-    $('p-preview').innerHTML = r.amount == null ? '수강료가 등록되지 않았어요. 실제 수강료를 직접 입력해 주세요.'
+    $('p-preview').innerHTML = r.amount == null ? '특강비가 등록되지 않았어요. 실제 특강비를 직접 입력해 주세요.'
       : `받을 금액 <b>${won(r.amount)}</b> <small>(${r.kind}${r.kind === '얼리버드' ? ' — 결제일이 마감일 이내' : r.kind === '정가' && l && l.early_bird_fee != null ? ' — 얼리버드 마감 후' : ''})</small>`;
   }
   function openPay(a) {
