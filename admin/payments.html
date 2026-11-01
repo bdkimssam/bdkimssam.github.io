@@ -98,6 +98,14 @@
   .pay-form .del-btn { border:1px solid #FCA5A5; background:#fff; color:#DC2626; }
   .pay-form .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
   .pay-row .memo-line { margin-top:6px; font-size:12px; color:var(--muted); }
+  .level-row { display:flex; gap:8px; margin-bottom:10px; }
+  .level-row .level-btn { flex:1; padding:11px 6px; border-radius:11px; border:2px solid var(--gray-200); background:#fff; font-weight:800; font-size:14px; cursor:pointer; color:var(--ink); }
+  .level-row .level-btn.active { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .level-row .level-btn .lv-n { display:block; margin-top:2px; font-size:11px; font-weight:700; opacity:.75; }
+  .level-row .level-btn .lv-n.has-unpaid { color:#B91C1C; opacity:1; }
+  .level-row .level-btn.active .lv-n.has-unpaid { color:#FCA5A5; }
+  .level-row.searching .level-btn { opacity:.45; }
+  .level-note { font-size:11.5px; color:var(--muted); margin:-4px 0 8px; }
   .grp { border-top:1px solid var(--gray-200); }
   .grp:first-child { border-top:none; }
   .grp-head { display:flex; align-items:center; justify-content:space-between; padding:12px 2px; cursor:pointer; font-weight:800; font-size:14px; user-select:none; }
@@ -175,6 +183,7 @@
       <i class="fa-solid fa-magnifying-glass"></i>
       <input type="text" id="search-input" placeholder="학생 이름 검색">
     </div>
+    <div class="level-row" id="level-row"></div>
     <div class="filter-row">
       <button type="button" class="filter-btn active" data-filter="all">전체</button>
       <button type="button" class="filter-btn" data-filter="unpaid">미납</button>
@@ -216,6 +225,14 @@
   let bulkDate = '';
   let bulkMethod = '현금';
   let openGroups = new Set(); // 펼쳐 둔 학년 묶음
+  let currentLevel = '초등';  // 초등/중등/고등 탭 (학년 글자 기준)
+  function levelOf(r) {
+    const g = r.grade || '';
+    if (g.startsWith('초')) return '초등';
+    if (g.startsWith('중')) return '중등';
+    if (g.startsWith('고')) return '고등';
+    return '기타';
+  }
 
   function monthStr(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
@@ -339,8 +356,30 @@
     return currentRows.filter((r) => {
       if (currentFilter === 'paid' && !r.paid) return false;
       if (currentFilter === 'unpaid' && r.paid) return false;
-      if (searchQuery && !(r.student_name || '').toLowerCase().includes(searchQuery)) return false;
+      if (searchQuery) return (r.student_name || '').toLowerCase().includes(searchQuery); // 검색할 땐 모든 학년에서 찾아요
+      if (levelOf(r) !== currentLevel) return false;
       return true;
+    });
+  }
+
+  function renderLevelTabs() {
+    const levelRowEl = document.getElementById('level-row');
+    const levels = ['초등', '중등', '고등'];
+    if (currentRows.some((r) => levelOf(r) === '기타')) levels.push('기타');
+    if (!levels.includes(currentLevel)) currentLevel = levels[0];
+    levelRowEl.classList.toggle('searching', !!searchQuery);
+    levelRowEl.innerHTML = levels.map((lv) => {
+      const rows = currentRows.filter((r) => levelOf(r) === lv);
+      const unpaid = rows.filter((r) => !r.paid).length;
+      return `<button type="button" class="level-btn ${lv === currentLevel ? 'active' : ''}" data-level="${lv}">${lv}<span class="lv-n ${unpaid ? 'has-unpaid' : ''}">${rows.length}명 · ${unpaid ? '미납 ' + unpaid : '모두 납부'}</span></button>`;
+    }).join('');
+    levelRowEl.querySelectorAll('.level-btn').forEach((b) => {
+      b.addEventListener('click', () => {
+        currentLevel = b.dataset.level;
+        editingCode = null;
+        selectedCodes = new Set(); // 다른 탭의 학생이 같이 저장되는 일을 막아요
+        renderList();
+      });
     });
   }
 
@@ -432,6 +471,7 @@
   }
 
   function renderList() {
+    renderLevelTabs();
     renderBulkBar();
     const filtered = getFilteredRows();
 
