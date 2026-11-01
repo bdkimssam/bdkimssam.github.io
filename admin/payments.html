@@ -106,6 +106,10 @@
   .level-row .level-btn.active .lv-n.has-unpaid { color:#FCA5A5; }
   .level-row.searching .level-btn { opacity:.45; }
   .level-note { font-size:11.5px; color:var(--muted); margin:-4px 0 8px; }
+  label.wd-toggle { display:flex; align-items:center; gap:6px; margin:0 0 10px; font-size:13px; font-weight:700; color:var(--ink); cursor:pointer; }
+  label.wd-toggle input { width:auto; margin:0; accent-color: var(--navy-900); }
+  label.wd-toggle span { font-weight:500; font-size:11.5px; color:var(--muted); }
+  .tag.wd { background:#E5E7EB; color:#374151; }
   .grp { border-top:1px solid var(--gray-200); }
   .grp:first-child { border-top:none; }
   .grp-head { display:flex; align-items:center; justify-content:space-between; padding:12px 2px; cursor:pointer; font-weight:800; font-size:14px; user-select:none; }
@@ -184,6 +188,7 @@
       <input type="text" id="search-input" placeholder="학생 이름 검색">
     </div>
     <div class="level-row" id="level-row"></div>
+    <label class="wd-toggle"><input type="checkbox" id="wd-toggle"> 퇴원생도 보기 <span>(지난달 납부를 입력할 때 켜세요)</span></label>
     <div class="filter-row">
       <button type="button" class="filter-btn active" data-filter="all">전체</button>
       <button type="button" class="filter-btn" data-filter="unpaid">미납</button>
@@ -225,6 +230,8 @@
   let bulkDate = '';
   let bulkMethod = '현금';
   let openGroups = new Set(); // 펼쳐 둔 학년 묶음
+  let includeWithdrawn = false; // 퇴원생도 보기
+  const countsAsUnpaid = (r) => !r.paid && !r.withdrawn; // 퇴원생의 미납은 통계에 넣지 않아요
   let currentLevel = '초등';  // 초등/중등/고등 탭 (학년 글자 기준)
   function levelOf(r) {
     const g = r.grade || '';
@@ -276,8 +283,14 @@
     renderList();
   });
 
+  document.getElementById('wd-toggle').addEventListener('change', (e) => {
+    includeWithdrawn = e.target.checked;
+    editingCode = null;
+    loadPayments();
+  });
+
   document.getElementById('select-all-btn').addEventListener('click', () => {
-    const filtered = getFilteredRows();
+    const filtered = getFilteredRows().filter((r) => !r.withdrawn); // 전체 선택에는 퇴원생을 넣지 않아요
     const allSelected = filtered.length > 0 && filtered.every((r) => selectedCodes.has(r.student_code));
     if (allSelected) {
       filtered.forEach((r) => selectedCodes.delete(r.student_code));
@@ -339,6 +352,7 @@
     const { data, error } = await sb.rpc('rpc_admin_list_payment_status', {
       p_password: getAdminPassword(),
       p_billing_month: monthStr(currentMonth),
+      p_include_withdrawn: includeWithdrawn,
     });
     if (error) {
       payListEl.innerHTML = '<div class="empty">불러오지 못했습니다: ' + error.message + '</div>';
@@ -369,8 +383,8 @@
     if (!levels.includes(currentLevel)) currentLevel = levels[0];
     levelRowEl.classList.toggle('searching', !!searchQuery);
     levelRowEl.innerHTML = levels.map((lv) => {
-      const rows = currentRows.filter((r) => levelOf(r) === lv);
-      const unpaid = rows.filter((r) => !r.paid).length;
+      const rows = currentRows.filter((r) => levelOf(r) === lv && (r.paid || !r.withdrawn));
+      const unpaid = rows.filter(countsAsUnpaid).length;
       return `<button type="button" class="level-btn ${lv === currentLevel ? 'active' : ''}" data-level="${lv}">${lv}<span class="lv-n ${unpaid ? 'has-unpaid' : ''}">${rows.length}명 · ${unpaid ? '미납 ' + unpaid : '모두 납부'}</span></button>`;
     }).join('');
     levelRowEl.querySelectorAll('.level-btn').forEach((b) => {
@@ -395,7 +409,7 @@
     selCountEl.textContent = n > 0 ? `${n}명 선택됨` : '';
 
     const selectAllBtn = document.getElementById('select-all-btn');
-    const filtered = getFilteredRows();
+    const filtered = getFilteredRows().filter((r) => !r.withdrawn);
     const allSelected = filtered.length > 0 && filtered.every((r) => selectedCodes.has(r.student_code));
     selectAllBtn.textContent = allSelected ? '전체 선택 해제' : '전체 선택';
 
@@ -463,7 +477,7 @@
 
   function renderStats() {
     const paid = currentRows.filter((r) => r.paid);
-    const unpaid = currentRows.filter((r) => !r.paid);
+    const unpaid = currentRows.filter(countsAsUnpaid);
     const total = paid.reduce((sum, r) => sum + Number(r.amount || 0), 0);
     document.getElementById('stat-paid').textContent = paid.length;
     document.getElementById('stat-unpaid').textContent = unpaid.length;
@@ -565,7 +579,7 @@
               <button type="button" class="action-btn toggle-btn" data-code="${r.student_code}">${isEditing ? '닫기' : (r.paid ? '수정' : '납부 입력')}</button>
             </div>
           </div>
-          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.class_type_fixed ? '<span class="tag">구분 지정</span>' : ''}${r.discount_rate > 0 ? `<span class="tag disc">할인 ${r.discount_rate}%</span>` : ''}${r.deduct_weeks > 0 ? `<span class="tag ded">차감 ${r.deduct_weeks}주</span>` : ''}${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}${r.paid && r.payment_method ? ' · ' + r.payment_method : ''}</div>
+          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.withdrawn ? '<span class="tag wd">퇴원</span>' : ''}${r.class_type_fixed ? '<span class="tag">구분 지정</span>' : ''}${r.discount_rate > 0 ? `<span class="tag disc">할인 ${r.discount_rate}%</span>` : ''}${r.deduct_weeks > 0 ? `<span class="tag ded">차감 ${r.deduct_weeks}주</span>` : ''}${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}${r.paid && r.payment_method ? ' · ' + r.payment_method : ''}</div>
           ${r.paid && r.memo ? `<div class="memo-line">메모: ${r.memo}</div>` : ''}
           ${form}
         </div>
@@ -582,7 +596,7 @@
     });
     const autoOpen = !!searchQuery || currentFilter !== 'all';
     payListEl.innerHTML = groups.map((g) => {
-      const unpaidN = g.rows.filter((r) => !r.paid).length;
+      const unpaidN = g.rows.filter(countsAsUnpaid).length;
       const open = autoOpen || openGroups.has(g.name) || g.rows.some((r) => r.student_code === editingCode);
       return `<div class="grp">
         <div class="grp-head" data-grp="${g.name}"><span><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i> ${g.name} <span class="grp-count">${g.rows.length}명</span></span><span class="grp-unpaid ${unpaidN ? '' : 'done'}">${unpaidN ? '미납 ' + unpaidN : '모두 납부'}</span></div>
