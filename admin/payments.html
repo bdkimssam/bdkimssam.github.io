@@ -156,7 +156,7 @@
 <main>
   <div>
     <h1>월별 납부 현황</h1>
-    <p class="sub">재원생 전체의 이번 달 수강료 납부 여부예요. 미납 학생은 빨간색으로 표시돼요.</p>
+    <p class="sub">재원생 전체의 이번 달 교육비 납부 여부예요. 미납 학생은 빨간색으로 표시돼요.</p>
   </div>
 
   <div class="panel">
@@ -179,7 +179,7 @@
         <div class="lbl">이번 달 수납액</div>
       </div>
     </div>
-    <div class="rate-toggle"><button type="button" id="rate-toggle-btn">수강료 요금표 보기/수정</button></div>
+    <div class="rate-toggle"><button type="button" id="rate-toggle-btn">교육비 요금표 보기/수정</button></div>
     <div id="rate-panel" style="display:none;"></div>
   </div>
 
@@ -233,7 +233,7 @@
   let bulkMethod = '현금';
   let includeWithdrawn = false; // 퇴원생도 보기
   const countsAsUnpaid = (r) => !r.paid && !r.withdrawn; // 퇴원생의 미납은 통계에 넣지 않아요
-  let currentLevel = '초등';  // 초등/중등/고등 탭 (결제선생처럼 수강료 구분 기준)
+  let currentLevel = '초등';  // 초등/중등/고등 탭 (결제선생처럼 교육비 구분 기준)
   function levelOf(r) {
     if (r.class_type === '초등' || r.class_type === '중등' || r.class_type === '고등') return r.class_type;
     const g = r.grade || '';
@@ -307,7 +307,7 @@
     const show = ratePanelEl.style.display === 'none';
     if (show && currentRates.length === 0) await loadRates();
     ratePanelEl.style.display = show ? 'block' : 'none';
-    rateToggleBtn.textContent = show ? '수강료 요금표 닫기' : '수강료 요금표 보기/수정';
+    rateToggleBtn.textContent = show ? '교육비 요금표 닫기' : '교육비 요금표 보기/수정';
   });
 
   async function loadRates() {
@@ -551,7 +551,7 @@
             `}
           </div>
           <div class="tuition-set">
-            <div class="ts-title">수강료 설정 (이 학생 전용)</div>
+            <div class="ts-title">교육비 설정 (이 학생 전용)</div>
             <div>
               <label>적용 구분</label>
               <select class="f-ctype">
