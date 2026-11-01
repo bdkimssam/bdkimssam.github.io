@@ -98,6 +98,12 @@
   .pay-form .del-btn { border:1px solid #FCA5A5; background:#fff; color:#DC2626; }
   .pay-form .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
   .pay-row .memo-line { margin-top:6px; font-size:12px; color:var(--muted); }
+  .tag { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:800; background:#EEF2FF; color:#4338CA; }
+  .tag.disc { background:#FEF3C7; color:#92400E; }
+  .tuition-set { grid-column: 1 / -1; padding-top:10px; margin-top:2px; border-top:1px dashed var(--gray-200); display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; align-items:end; }
+  .tuition-set .ts-title { grid-column: 1 / -1; font-size:12px; font-weight:800; color:var(--ink); }
+  .tuition-set .ts-help { grid-column: 1 / -1; font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:-4px; }
+  .tuition-set .tuition-save-btn { padding:9px 14px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; border:1px solid var(--navy-900); background:#fff; color:var(--navy-900); white-space:nowrap; }
   .hist-btn { padding:7px 10px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; font-size:12px; font-weight:700; cursor:pointer; color:var(--muted); }
   .hist-overlay { position:fixed; inset:0; background:rgba(11,18,32,0.45); display:none; align-items:center; justify-content:center; z-index:50; padding:16px; }
   .hist-box { background:#fff; border-radius:16px; width:100%; max-width:560px; max-height:82vh; display:flex; flex-direction:column; }
@@ -450,6 +456,24 @@
             <label>메모</label>
             <input type="text" class="f-memo" placeholder="예) 6개월 선납" value="${r.memo || ''}">
           </div>
+          <div class="tuition-set">
+            <div class="ts-title">수강료 설정 (이 학생 전용)</div>
+            <div>
+              <label>적용 구분</label>
+              <select class="f-ctype">
+                <option value="" ${!r.class_type_fixed ? 'selected' : ''}>자동 (학년 기준${!r.class_type_fixed && r.class_type ? ': ' + r.class_type : ''})</option>
+                <option value="초등" ${r.class_type_fixed && r.class_type === '초등' ? 'selected' : ''}>초등 단가</option>
+                <option value="중등" ${r.class_type_fixed && r.class_type === '중등' ? 'selected' : ''}>중등 단가</option>
+                <option value="고등" ${r.class_type_fixed && r.class_type === '고등' ? 'selected' : ''}>고등 단가</option>
+              </select>
+            </div>
+            <div>
+              <label>할인율 (%)</label>
+              <input type="number" class="f-disc" min="0" max="100" step="1" value="${r.discount_rate || 0}">
+            </div>
+            <button type="button" class="tuition-save-btn" data-code="${r.student_code}">설정 저장</button>
+            <div class="ts-help">기본 금액 = 단가 × (100 − 할인율)%. 구분은 1월에 초6→중등, 중3→고등처럼 미리 옮길 때만 지정하고, 평소엔 자동으로 두세요. 저장하면 이 달 미납 금액에 바로 반영돼요.</div>
+          </div>
           <div class="form-actions">
             <button type="button" class="save-btn" data-code="${r.student_code}">저장</button>
             ${r.paid ? `<button type="button" class="del-btn" data-code="${r.student_code}" data-id="${r.payment_id}">납부취소</button>` : ''}
@@ -472,7 +496,7 @@
               <button type="button" class="action-btn toggle-btn" data-code="${r.student_code}">${isEditing ? '닫기' : (r.paid ? '수정' : '납부 입력')}</button>
             </div>
           </div>
-          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}${r.paid && r.payment_method ? ' · ' + r.payment_method : ''}</div>
+          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.class_type_fixed ? '<span class="tag">구분 지정</span>' : ''}${r.discount_rate > 0 ? `<span class="tag disc">할인 ${r.discount_rate}%</span>` : ''}${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}${r.paid && r.payment_method ? ' · ' + r.payment_method : ''}</div>
           ${r.paid && r.memo ? `<div class="memo-line">메모: ${r.memo}</div>` : ''}
           ${form}
         </div>
@@ -529,6 +553,26 @@
         if (error) { alert('저장 실패: ' + error.message); return; }
         editingCode = null;
         loadPayments();
+      });
+    });
+    payListEl.querySelectorAll('.tuition-save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const code = btn.dataset.code;
+        const row = payListEl.querySelector(`.pay-row[data-code="${code}"]`);
+        const ctype = row.querySelector('.f-ctype').value;
+        const discRaw = row.querySelector('.f-disc').value.trim();
+        const disc = discRaw === '' ? 0 : Number(discRaw);
+        if (!Number.isInteger(disc) || disc < 0 || disc > 100) { alert('할인율은 0~100 사이의 정수로 입력해주세요.'); return; }
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_save_student_tuition', {
+          p_password: getAdminPassword(),
+          p_student_code: code,
+          p_class_type: ctype === '' ? null : ctype,
+          p_discount_rate: disc,
+        });
+        btn.disabled = false;
+        if (error) { alert('설정 저장 실패: ' + error.message); return; }
+        loadPayments(); // 입력창은 열어 둔 채로 새 기본 금액 반영
       });
     });
     payListEl.querySelectorAll('.del-btn').forEach((btn) => {
