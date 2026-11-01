@@ -98,6 +98,14 @@
   .pay-form .del-btn { border:1px solid #FCA5A5; background:#fff; color:#DC2626; }
   .pay-form .cancel-btn { border:1px solid var(--gray-200); background:#fff; color:var(--ink); }
   .pay-row .memo-line { margin-top:6px; font-size:12px; color:var(--muted); }
+  .grp { border-top:1px solid var(--gray-200); }
+  .grp:first-child { border-top:none; }
+  .grp-head { display:flex; align-items:center; justify-content:space-between; padding:12px 2px; cursor:pointer; font-weight:800; font-size:14px; user-select:none; }
+  .grp-head i { width:14px; font-size:11px; color:var(--muted); }
+  .grp-count { font-weight:600; font-size:12px; color:var(--muted); margin-left:4px; }
+  .grp-unpaid { font-size:11.5px; font-weight:800; padding:2px 9px; border-radius:999px; background:#FEE2E2; color:#B91C1C; }
+  .grp-unpaid.done { background:#DCFCE7; color:#15803D; }
+  .grp-body { padding-left:4px; }
   .tag { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:800; background:#EEF2FF; color:#4338CA; }
   .tag.disc { background:#FEF3C7; color:#92400E; }
   .tuition-set { grid-column: 1 / -1; padding-top:10px; margin-top:2px; border-top:1px dashed var(--gray-200); display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; align-items:end; }
@@ -202,6 +210,7 @@
   let amountOverrides = new Map(); // student_code -> 수정된 금액 (등원 첫달 등 기본금액과 다를 때)
   let bulkDate = '';
   let bulkMethod = '현금';
+  let openGroups = new Set(); // 펼쳐 둔 학년 묶음
 
   function monthStr(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
@@ -426,7 +435,7 @@
       return;
     }
 
-    payListEl.innerHTML = filtered.map((r) => {
+    const renderRow = (r) => {
       const isEditing = editingCode === r.student_code;
       const defaultAmount = defaultAmountFor(r);
       const prefillAmount = amountOverrides.has(r.student_code) ? amountOverrides.get(r.student_code) : defaultAmount;
@@ -501,7 +510,32 @@
           ${form}
         </div>
       `;
+    };
+
+    // 학년별 묶음 (접이식). 검색·미납/납부완료 필터를 쓰면 전부 펼쳐서 보여줘요.
+    const groups = [];
+    const byGrade = new Map();
+    filtered.forEach((r) => {
+      const g = r.grade || '학년 미정';
+      if (!byGrade.has(g)) { const o = { name: g, rows: [] }; byGrade.set(g, o); groups.push(o); }
+      byGrade.get(g).rows.push(r);
+    });
+    const autoOpen = !!searchQuery || currentFilter !== 'all';
+    payListEl.innerHTML = groups.map((g) => {
+      const unpaidN = g.rows.filter((r) => !r.paid).length;
+      const open = autoOpen || openGroups.has(g.name) || g.rows.some((r) => r.student_code === editingCode);
+      return `<div class="grp">
+        <div class="grp-head" data-grp="${g.name}"><span><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i> ${g.name} <span class="grp-count">${g.rows.length}명</span></span><span class="grp-unpaid ${unpaidN ? '' : 'done'}">${unpaidN ? '미납 ' + unpaidN : '모두 납부'}</span></div>
+        <div class="grp-body" style="display:${open ? 'block' : 'none'}">${g.rows.map(renderRow).join('')}</div>
+      </div>`;
     }).join('');
+    payListEl.querySelectorAll('.grp-head').forEach((h) => {
+      h.addEventListener('click', () => {
+        const name = h.dataset.grp;
+        if (openGroups.has(name)) openGroups.delete(name); else openGroups.add(name);
+        renderList();
+      });
+    });
 
     payListEl.querySelectorAll('.pay-row .hist-btn').forEach((btn) => {
       btn.addEventListener('click', () => openHistory(btn.dataset.code, btn.dataset.name));
