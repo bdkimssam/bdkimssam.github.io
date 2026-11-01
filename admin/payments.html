@@ -109,6 +109,11 @@
   .tag { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:800; background:#EEF2FF; color:#4338CA; }
   .tag.disc { background:#FEF3C7; color:#92400E; }
   .tuition-set { grid-column: 1 / -1; padding-top:10px; margin-top:2px; border-top:1px dashed var(--gray-200); display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; align-items:end; }
+  .deduct-set { grid-column: 1 / -1; padding-top:10px; margin-top:2px; border-top:1px dashed var(--gray-200); display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:end; }
+  .deduct-set .ts-title { grid-column: 1 / -1; font-size:12px; font-weight:800; color:var(--ink); }
+  .deduct-set .ts-help { font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:-4px; }
+  .deduct-set .deduct-save-btn { padding:9px 14px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; border:1px solid var(--navy-900); background:#fff; color:var(--navy-900); white-space:nowrap; }
+  .tag.ded { background:#DBEAFE; color:#1D4ED8; }
   .tuition-set .ts-title { grid-column: 1 / -1; font-size:12px; font-weight:800; color:var(--ink); }
   .tuition-set .ts-help { grid-column: 1 / -1; font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:-4px; }
   .tuition-set .tuition-save-btn { padding:9px 14px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; border:1px solid var(--navy-900); background:#fff; color:var(--navy-900); white-space:nowrap; }
@@ -465,6 +470,21 @@
             <label>메모</label>
             <input type="text" class="f-memo" placeholder="예) 6개월 선납" value="${r.memo || ''}">
           </div>
+          <div class="deduct-set">
+            <div class="ts-title">${monthLabel(currentMonth)}분 차감</div>
+            ${r.discount_rate > 0 ? `
+              <div class="ts-help" style="grid-column:1/-1;">할인율이 설정된 학생은 차감하지 않아요.</div>
+            ` : `
+              <div>
+                <label>차감 주 수</label>
+                <select class="f-deduct">
+                  ${[0, 1, 2, 3, 4].map((w) => `<option value="${w}" ${(r.deduct_weeks || 0) === w ? 'selected' : ''}>${w === 0 ? '차감 없음' : w + '주 차감'}</option>`).join('')}
+                </select>
+              </div>
+              <button type="button" class="deduct-save-btn" data-code="${r.student_code}">차감 저장</button>
+              <div class="ts-help" style="grid-column:1/-1;">1주 차감 = 단가의 4분의 1이에요. 저장하면 이 달 기본 금액에 바로 반영돼요. 이미 납부 처리한 달은 낸 금액이 그대로 유지돼요.</div>
+            `}
+          </div>
           <div class="tuition-set">
             <div class="ts-title">수강료 설정 (이 학생 전용)</div>
             <div>
@@ -505,7 +525,7 @@
               <button type="button" class="action-btn toggle-btn" data-code="${r.student_code}">${isEditing ? '닫기' : (r.paid ? '수정' : '납부 입력')}</button>
             </div>
           </div>
-          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.class_type_fixed ? '<span class="tag">구분 지정</span>' : ''}${r.discount_rate > 0 ? `<span class="tag disc">할인 ${r.discount_rate}%</span>` : ''}${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}${r.paid && r.payment_method ? ' · ' + r.payment_method : ''}</div>
+          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.class_type_fixed ? '<span class="tag">구분 지정</span>' : ''}${r.discount_rate > 0 ? `<span class="tag disc">할인 ${r.discount_rate}%</span>` : ''}${r.deduct_weeks > 0 ? `<span class="tag ded">차감 ${r.deduct_weeks}주</span>` : ''}${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}${r.paid && r.payment_method ? ' · ' + r.payment_method : ''}</div>
           ${r.paid && r.memo ? `<div class="memo-line">메모: ${r.memo}</div>` : ''}
           ${form}
         </div>
@@ -587,6 +607,23 @@
         if (error) { alert('저장 실패: ' + error.message); return; }
         editingCode = null;
         loadPayments();
+      });
+    });
+    payListEl.querySelectorAll('.deduct-save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const code = btn.dataset.code;
+        const row = payListEl.querySelector(`.pay-row[data-code="${code}"]`);
+        const weeks = Number(row.querySelector('.f-deduct').value);
+        btn.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_save_deduction', {
+          p_password: getAdminPassword(),
+          p_student_code: code,
+          p_billing_month: monthStr(currentMonth),
+          p_weeks: weeks,
+        });
+        btn.disabled = false;
+        if (error) { alert('차감 저장 실패: ' + error.message); return; }
+        loadPayments(); // 입력창은 열어 둔 채로 새 기본 금액 반영
       });
     });
     payListEl.querySelectorAll('.tuition-save-btn').forEach((btn) => {
