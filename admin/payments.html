@@ -229,11 +229,11 @@
   let amountOverrides = new Map(); // student_code -> 수정된 금액 (등원 첫달 등 기본금액과 다를 때)
   let bulkDate = '';
   let bulkMethod = '현금';
-  let openGroups = new Set(); // 펼쳐 둔 학년 묶음
   let includeWithdrawn = false; // 퇴원생도 보기
   const countsAsUnpaid = (r) => !r.paid && !r.withdrawn; // 퇴원생의 미납은 통계에 넣지 않아요
-  let currentLevel = '초등';  // 초등/중등/고등 탭 (학년 글자 기준)
+  let currentLevel = '초등';  // 초등/중등/고등 탭 (결제선생처럼 수강료 구분 기준)
   function levelOf(r) {
+    if (r.class_type === '초등' || r.class_type === '중등' || r.class_type === '고등') return r.class_type;
     const g = r.grade || '';
     if (g.startsWith('초')) return '초등';
     if (g.startsWith('중')) return '중등';
@@ -586,30 +586,11 @@
       `;
     };
 
-    // 학년별 묶음 (접이식). 검색·미납/납부완료 필터를 쓰면 전부 펼쳐서 보여줘요.
-    const groups = [];
-    const byGrade = new Map();
-    filtered.forEach((r) => {
-      const g = r.grade || '학년 미정';
-      if (!byGrade.has(g)) { const o = { name: g, rows: [] }; byGrade.set(g, o); groups.push(o); }
-      byGrade.get(g).rows.push(r);
-    });
-    const autoOpen = !!searchQuery || currentFilter !== 'all';
-    payListEl.innerHTML = groups.map((g) => {
-      const unpaidN = g.rows.filter(countsAsUnpaid).length;
-      const open = autoOpen || openGroups.has(g.name) || g.rows.some((r) => r.student_code === editingCode);
-      return `<div class="grp">
-        <div class="grp-head" data-grp="${g.name}"><span><i class="fa-solid fa-chevron-${open ? 'down' : 'right'}"></i> ${g.name} <span class="grp-count">${g.rows.length}명</span></span><span class="grp-unpaid ${unpaidN ? '' : 'done'}">${unpaidN ? '미납 ' + unpaidN : '모두 납부'}</span></div>
-        <div class="grp-body" style="display:${open ? 'block' : 'none'}">${g.rows.map(renderRow).join('')}</div>
-      </div>`;
-    }).join('');
-    payListEl.querySelectorAll('.grp-head').forEach((h) => {
-      h.addEventListener('click', () => {
-        const name = h.dataset.grp;
-        if (openGroups.has(name)) openGroups.delete(name); else openGroups.add(name);
-        renderList();
-      });
-    });
+    // 학년 묶음 없이, 이름 가나다순으로 쭉 보여줘요. 이름이 같으면 학년 순서예요.
+    const sorted = filtered.slice().sort((a, b) =>
+      (a.student_name || '').localeCompare(b.student_name || '', 'ko') ||
+      (a.grade || '').localeCompare(b.grade || '', 'ko'));
+    payListEl.innerHTML = sorted.map(renderRow).join('');
 
     payListEl.querySelectorAll('.pay-row .hist-btn').forEach((btn) => {
       btn.addEventListener('click', () => openHistory(btn.dataset.code, btn.dataset.name));
