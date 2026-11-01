@@ -120,6 +120,8 @@
   .grp-body { padding-left:4px; }
   .tag { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:800; background:#EEF2FF; color:#4338CA; }
   .tag.disc { background:#FEF3C7; color:#92400E; }
+  .prepay-box { padding:10px 12px; border:1px dashed var(--gray-200); border-radius:10px; background:#fff; }
+  .prepay-box .ts-help { font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:6px; }
   .tuition-set { grid-column: 1 / -1; padding-top:10px; margin-top:2px; border-top:1px dashed var(--gray-200); display:grid; grid-template-columns: 1fr 1fr auto; gap:10px; align-items:end; }
   .deduct-set { grid-column: 1 / -1; padding-top:10px; margin-top:2px; border-top:1px dashed var(--gray-200); display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:end; }
   .deduct-set .ts-title { grid-column: 1 / -1; font-size:12px; font-weight:800; color:var(--ink); }
@@ -522,8 +524,17 @@
           </div>
           <div class="full">
             <label>메모</label>
-            <input type="text" class="f-memo" placeholder="예) 6개월 선납" value="${r.memo || ''}">
+            <input type="text" class="f-memo" placeholder="예) 입금자명" value="${r.memo || ''}">
           </div>
+          ${r.paid ? '' : `
+          <div class="full prepay-box">
+            <label>선납 (이번 달부터 몇 개월치를 한 번에 냈나요?)</label>
+            <select class="f-prepay">
+              <option value="1" selected>이번 달만 (선납 아님)</option>
+              ${[2, 3, 4, 5, 6].map((n) => `<option value="${n}">${n}개월치 선납</option>`).join('')}
+            </select>
+            <div class="ts-help">선납을 고르면 각 달의 기본 금액(할인·차감 반영)으로 한 번에 기록돼요. 위의 금액 칸은 쓰이지 않아요. 알림톡은 한 건만 나가요. 금액을 직접 정해야 하면 선납을 쓰지 말고 달마다 입력하세요.</div>
+          </div>`}
           <div class="deduct-set">
             <div class="ts-title">${monthLabel(currentMonth)}분 차감</div>
             ${r.discount_rate > 0 ? `
@@ -625,6 +636,33 @@
         const paidDate = row.querySelector('.f-date').value;
         const method = row.querySelector('.f-method').value;
         const memo = row.querySelector('.f-memo').value.trim();
+
+        const prepaySel = row.querySelector('.f-prepay');
+        const prepayMonths = prepaySel ? Number(prepaySel.value) : 1;
+        if (prepayMonths > 1) {
+          if (!paidDate) { alert('납부일을 입력해주세요.'); return; }
+          const last = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + prepayMonths - 1, 1);
+          const rangeLabel = `${currentMonth.getMonth() + 1}월 ~ ${last.getMonth() + 1}월`;
+          if (!confirm(`${row.querySelector('.name').textContent} 학생의 ${rangeLabel}(${prepayMonths}개월) 선납을 기록할까요?\n각 달의 기본 금액으로 들어가고, 납부 확인 알림톡은 한 번만 나가요.`)) return;
+          btn.disabled = true;
+          const { data: pre, error: preErr } = await sb.rpc('rpc_admin_save_prepaid', {
+            p_password: getAdminPassword(),
+            p_student_code: code,
+            p_start_month: monthStr(currentMonth),
+            p_months: prepayMonths,
+            p_paid_date: paidDate,
+            p_payment_method: method,
+            p_memo: memo === '' ? null : memo,
+          });
+          btn.disabled = false;
+          if (preErr) { alert('선납 저장 실패: ' + preErr.message); return; }
+          const sent = pre && pre.notice && pre.notice.sent > 0;
+          alert(`${pre.label} 선납 ${pre.months}건을 기록했어요. (합계 ${Number(pre.total).toLocaleString('ko-KR')}원)\n` +
+                (sent ? '납부 확인 알림톡을 보냈어요.' : '알림톡은 나가지 않았어요. (' + ((pre.notice && pre.notice.reason) || '확인 필요') + ')'));
+          editingCode = null;
+          loadPayments();
+          return;
+        }
 
         if (amount === '' || !paidDate) { alert('금액과 납부일은 필수예요.'); return; }
 
