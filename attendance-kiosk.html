@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://reuzxqlhncwrwswadbvn.supabase.co" crossorigin>
 <!-- 폰트: 통짜 파일 대신 실제로 쓰는 글자만 받아오는 방식 (첫 로딩이 짧아져요) -->
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css" />
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Supabase 라이브러리는 화면 아래쪽에서 defer 로 받아와요 (화면이 먼저 떠요) -->
 <style>
   :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --green:#16A34A; --orange:#EA580C; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -128,7 +128,8 @@
 
 </main>
 
-<script src="assets/js/supabase-client.js?v=20261009b"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="assets/js/supabase-client.js?v=20261009b"></script>
 <script>
   // ------------------------------------------------------------
   // 출석 키오스크
@@ -138,7 +139,10 @@
   // ------------------------------------------------------------
   const STORE_KEY = 'kiosk_code';
   const IDLE_MS = 30000;      // 선택/등원하원 화면에서 30초 가만히 있으면 처음으로
-  const DONE_MS = 1500;       // 완료 화면 보여주는 시간 (화면을 터치하면 바로 입력 화면으로)
+  const DONE_MS = 1000;       // 완료 화면 보여주는 시간 (화면을 터치하면 바로 입력 화면으로)
+
+  // Supabase 라이브러리는 화면이 뜬 뒤에 도착해요. 도착 전에 누른 경우를 막아요.
+  function sbReady() { try { return !!sb; } catch (e) { return false; } }
 
   function readCode() { try { return localStorage.getItem(STORE_KEY) || ''; } catch (e) { return ''; } }
   function saveCode(v) { try { localStorage.setItem(STORE_KEY, v); } catch (e) {} }
@@ -194,6 +198,7 @@
   $('unlock-btn').addEventListener('click', async () => {
     const code = $('unlock-code').value.trim();
     if (!code) return;
+    if (!sbReady()) { $('unlock-msg').textContent = '준비 중이에요. 잠시만요...'; return; }
     const btn = $('unlock-btn');
     btn.disabled = true;
     $('unlock-msg').textContent = '';
@@ -228,6 +233,7 @@
   }
   function onKey(k) {
     if (busy) return;
+    if (!sbReady()) { $('keypad-msg').textContent = '준비 중이에요. 잠시만요...'; return; }
     $('keypad-msg').textContent = '';
     if (k === '지움') digits = digits.slice(0, -1);
     else if (k === '처음부터') digits = '';
