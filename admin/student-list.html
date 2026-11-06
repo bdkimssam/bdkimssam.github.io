@@ -317,7 +317,7 @@
     const y = Math.floor(months / 12), m = months % 12;
     const text = months === 0 ? '이번 달' : (y > 0 ? (m > 0 ? `${y}년 ${m}개월` : `${y}년`) : `${m}개월`);
     const title = s.withdrawn && s.withdrawn_at ? `퇴원 ${fmtShort(s.withdrawn_at)}까지` : '';
-    return ` <span class="tenure${s.withdrawn ? ' out' : ''}"${title ? ` title="${title}"` : ''}>[${text}]</span>`;
+    return ` <span class="tenure${s.withdrawn ? ' out' : ''}"${title ? ` title="${title}"` : ''}>[&nbsp;${text}&nbsp;]</span>`;
   }
 
   function signupCell(code) {
