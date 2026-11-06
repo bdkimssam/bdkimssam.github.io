@@ -372,7 +372,7 @@
         <td>
           <span class="attend-wrap">
             <input type="text" class="attend-date" data-code="${s.student_code}" inputmode="numeric"
-                   placeholder="2024-03" value="${s.first_attend_date || ''}" ${s.withdrawn ? 'disabled' : ''}>
+                   value="${s.first_attend_date || ''}" ${s.withdrawn ? 'disabled' : ''}>
             <button type="button" class="attend-pick-btn" title="달력에서 고르기" ${s.withdrawn ? 'disabled' : ''}>📅</button>
             <input type="date" class="attend-pick" tabindex="-1" aria-hidden="true">
           </span>
