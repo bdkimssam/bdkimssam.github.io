@@ -40,6 +40,8 @@
     padding:6px 8px; border-radius:8px; border:1px solid var(--gray-200); background:#fff;
     font-size:12.5px; font-family:inherit; color: var(--ink); width:128px;
   }
+  input.attend-date.bad { border-color:#DC2626; background:#FEF2F2; }
+  input.attend-date.saved { border-color:#16A34A; background:#F0FDF4; }
   .loading, .empty { color: var(--muted); font-size: 13px; padding: 30px 6px; text-align:center; }
   .sg { display:inline-block; font-size:11px; font-weight:800; padding:3px 7px; border-radius:999px; }
   .sg.ok { background:#DCFCE7; color:#15803D; }
@@ -368,24 +370,39 @@
       </tr>
     `).join('');
 
+    // 첫 등원일: 타이핑이 멈춘 뒤에 저장해요. 저장 중에도 입력칸을 잠그지 않아요 (커서가 튕기지 않게)
     tbody.querySelectorAll('.attend-date').forEach((inp) => {
-      inp.addEventListener('change', async () => {
+      let timer = null;
+      const save = async () => {
+        const val = inp.value || '';
+        // 연도를 다 치기 전(0002년, 260304년 같은 값)에는 저장하지 않아요
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(val);
+        if (val && (!m || Number(m[1]) < 2000 || Number(m[1]) > 2100)) {
+          inp.classList.add('bad');
+          return;
+        }
+        inp.classList.remove('bad');
         inp.classList.add('saving');
-        inp.disabled = true;
         const { error } = await sb.rpc('rpc_admin_set_first_attend_date', {
           p_password: getAdminPassword(),
           p_student_code: inp.dataset.code,
-          p_date: inp.value || null,
+          p_date: val || null,
         });
-        inp.disabled = false;
         inp.classList.remove('saving');
         if (error) {
+          inp.classList.add('bad');
           alert('첫 등원일 저장 실패: ' + error.message);
           return;
         }
+        inp.classList.add('saved');
+        setTimeout(() => inp.classList.remove('saved'), 1200);
         const target = allStudents.find((s) => s.student_code === inp.dataset.code);
-        if (target) target.first_attend_date = inp.value || null;
-      });
+        if (target) target.first_attend_date = val || null;
+      };
+      const queue = () => { clearTimeout(timer); timer = setTimeout(save, 700); };
+      inp.addEventListener('change', queue);
+      inp.addEventListener('input', queue);
+      inp.addEventListener('blur', () => { clearTimeout(timer); save(); });
     });
 
     tbody.querySelectorAll('.withdraw-btn').forEach((btn) => {
