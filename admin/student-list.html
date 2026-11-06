@@ -42,6 +42,13 @@
   }
   input.attend-date.bad { border-color:#DC2626; background:#FEF2F2; }
   input.attend-date.saved { border-color:#16A34A; background:#F0FDF4; }
+  .attend-wrap { display:inline-flex; align-items:center; gap:4px; position:relative; }
+  .attend-pick-btn {
+    border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:5px 7px;
+    font-size:13px; line-height:1; cursor:pointer;
+  }
+  .attend-pick-btn:hover { background:var(--gray-50, #F5F6F8); }
+  input.attend-pick { position:absolute; right:0; bottom:0; width:1px; height:1px; opacity:0; pointer-events:none; }
   .loading, .empty { color: var(--muted); font-size: 13px; padding: 30px 6px; text-align:center; }
   .sg { display:inline-block; font-size:11px; font-weight:800; padding:3px 7px; border-radius:999px; }
   .sg.ok { background:#DCFCE7; color:#15803D; }
@@ -358,7 +365,12 @@
         <td class="code">${s.student_code || ''}</td>
         <td>${s.grade || '-'}</td>
         <td>
-          <input type="date" class="attend-date" data-code="${s.student_code}" value="${s.first_attend_date || ''}" ${s.withdrawn ? 'disabled' : ''}>
+          <span class="attend-wrap">
+            <input type="text" class="attend-date" data-code="${s.student_code}" inputmode="numeric"
+                   placeholder="2024-03" value="${s.first_attend_date || ''}" ${s.withdrawn ? 'disabled' : ''}>
+            <button type="button" class="attend-pick-btn" title="달력에서 고르기" ${s.withdrawn ? 'disabled' : ''}>📅</button>
+            <input type="date" class="attend-pick" tabindex="-1" aria-hidden="true">
+          </span>
         </td>
         <td style="white-space:nowrap;">${signupCell(s.student_code)}</td>
         <td style="white-space:nowrap;">
@@ -372,15 +384,40 @@
 
     // 첫 등원일: 타이핑이 멈춘 뒤에 저장해요. 저장 중에도 입력칸을 잠그지 않아요 (커서가 튕기지 않게)
     tbody.querySelectorAll('.attend-date').forEach((inp) => {
+      const wrap = inp.closest('.attend-wrap');
+      const picker = wrap.querySelector('.attend-pick');
+      const pickBtn = wrap.querySelector('.attend-pick-btn');
       let timer = null;
-      const save = async () => {
-        const val = inp.value || '';
-        // 연도를 다 치기 전(0002년, 260304년 같은 값)에는 저장하지 않아요
-        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(val);
-        if (val && (!m || Number(m[1]) < 2000 || Number(m[1]) > 2100)) {
-          inp.classList.add('bad');
-          return;
+      let lastSaved = inp.value || '';
+
+      // 친 글자를 YYYY-MM-DD 로 바꿔요. 못 알아보면 null
+      function parseDate(raw) {
+        const s = (raw || '').trim();
+        let y, mo, da;
+        const parts = s.split(/[^0-9]+/).filter(Boolean);
+        if (parts.length === 2 && parts[0].length === 4) {            // 2024-3 / 2024.03
+          y = parts[0]; mo = parts[1].padStart(2, '0'); da = '01';
+        } else if (parts.length === 3 && parts[0].length === 4) {     // 2024.3.5 / 2024-03-15
+          y = parts[0]; mo = parts[1].padStart(2, '0'); da = parts[2].padStart(2, '0');
+        } else {
+          const d = s.replace(/[^0-9]/g, '');                         // 202403 / 20240315
+          if (d.length === 6) { y = d.slice(0, 4); mo = d.slice(4, 6); da = '01'; }
+          else if (d.length === 8) { y = d.slice(0, 4); mo = d.slice(4, 6); da = d.slice(6, 8); }
+          else return null;
         }
+        if (mo.length !== 2 || da.length !== 2) return null;
+        const yn = Number(y), mn = Number(mo), dn = Number(da);
+        if (yn < 2000 || yn > 2100 || mn < 1 || mn > 12 || dn < 1 || dn > 31) return null;
+        const dt = new Date(Date.UTC(yn, mn - 1, dn));
+        if (dt.getUTCMonth() !== mn - 1 || dt.getUTCDate() !== dn) return null;  // 2월 31일 같은 날 거르기
+        return y + '-' + mo + '-' + da;
+      }
+
+      const save = async () => {
+        const raw = (inp.value || '').trim();
+        const val = raw === '' ? '' : parseDate(raw);
+        if (val === null) { inp.classList.add('bad'); return; }   // 아직 덜 쳤거나 이상한 값
+        if (val === lastSaved) { inp.classList.remove('bad'); inp.value = val; return; }
         inp.classList.remove('bad');
         inp.classList.add('saving');
         const { error } = await sb.rpc('rpc_admin_set_first_attend_date', {
@@ -394,14 +431,30 @@
           alert('첫 등원일 저장 실패: ' + error.message);
           return;
         }
+        inp.value = val;                // 2024-03-01 모양으로 정리해서 보여줘요
+        lastSaved = val;
         inp.classList.add('saved');
         setTimeout(() => inp.classList.remove('saved'), 1200);
         const target = allStudents.find((s) => s.student_code === inp.dataset.code);
         if (target) target.first_attend_date = val || null;
       };
-      const queue = () => { clearTimeout(timer); timer = setTimeout(save, 700); };
-      inp.addEventListener('change', queue);
+
+      const queue = () => { clearTimeout(timer); timer = setTimeout(save, 800); };
       inp.addEventListener('input', queue);
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); save(); inp.blur(); }
+      });
+      // 달력에서 고르기
+      pickBtn.addEventListener('click', () => {
+        picker.value = parseDate(inp.value) || '';
+        if (typeof picker.showPicker === 'function') picker.showPicker(); else picker.click();
+      });
+      picker.addEventListener('change', () => {
+        if (!picker.value) return;
+        inp.value = picker.value;
+        clearTimeout(timer);
+        save();
+      });
       inp.addEventListener('blur', () => { clearTimeout(timer); save(); });
     });
 
