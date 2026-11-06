@@ -316,8 +316,8 @@
     if (months < 0) months = 0;
     const y = Math.floor(months / 12), m = months % 12;
     const text = months === 0 ? '이번 달' : (y > 0 ? (m > 0 ? `${y}년 ${m}개월` : `${y}년`) : `${m}개월`);
-    const title = `첫 등원일 ${s.first_attend_date}` + (s.withdrawn && s.withdrawn_at ? ` · 퇴원 ${fmtShort(s.withdrawn_at)}` : '');
-    return ` <span class="sg tenure${s.withdrawn ? ' out' : ''}" title="${title}">${text}</span>`;
+    const title = s.withdrawn && s.withdrawn_at ? `퇴원 ${fmtShort(s.withdrawn_at)}까지` : '';
+    return ` <span class="sg tenure${s.withdrawn ? ' out' : ''}"${title ? ` title="${title}"` : ''}>${text}</span>`;
   }
 
   function signupCell(code) {
