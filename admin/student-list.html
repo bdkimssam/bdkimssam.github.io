@@ -58,6 +58,8 @@
   .sg { display:inline-block; font-size:11px; font-weight:800; padding:3px 7px; border-radius:999px; }
   .sg.ok { background:#DCFCE7; color:#15803D; }
   .sg.no { background:#F3F4F6; color:#9CA3AF; }
+  .sg.tenure { background:#EEF2FF; color:#4338CA; }
+  .sg.tenure.out { background:#F3F4F6; color:#9CA3AF; }
   .count-badge { font-size:12px; color: var(--muted); font-weight:700; }
   .issue-panel {
     background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding: 18px 20px;
@@ -302,6 +304,22 @@
     const d = new Date(ts);
     return `${d.getMonth() + 1}/${d.getDate()}`;
   }
+  // 재원 기간: 첫 등원일 ~ 오늘 (퇴원생은 퇴원일까지)
+  function tenureBadge(s) {
+    if (!s.first_attend_date) return '';
+    const from = new Date(s.first_attend_date + 'T00:00:00');
+    if (isNaN(from)) return '';
+    const to = s.withdrawn && s.withdrawn_at ? new Date(s.withdrawn_at) : new Date();
+    if (to < from) return '';
+    let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+    if (to.getDate() < from.getDate()) months -= 1;          // 날짜가 아직 안 지났으면 한 달 빼요
+    if (months < 0) months = 0;
+    const y = Math.floor(months / 12), m = months % 12;
+    const text = months === 0 ? '이번 달' : (y > 0 ? (m > 0 ? `${y}년 ${m}개월` : `${y}년`) : `${m}개월`);
+    const title = `첫 등원일 ${s.first_attend_date}` + (s.withdrawn && s.withdrawn_at ? ` · 퇴원 ${fmtShort(s.withdrawn_at)}` : '');
+    return ` <span class="sg tenure${s.withdrawn ? ' out' : ''}" title="${title}">${text}</span>`;
+  }
+
   function signupCell(code) {
     if (!signupReady) return '<span style="color:#B0B6C3;" title="가입 현황 SQL(47)을 실행하면 표시돼요">-</span>';
     const r = signupMap[code] || {};
@@ -377,7 +395,7 @@
             <input type="date" class="attend-pick" tabindex="-1" aria-hidden="true">
           </span>
         </td>
-        <td style="white-space:nowrap;">${signupCell(s.student_code)}</td>
+        <td style="white-space:nowrap;">${signupCell(s.student_code)}${tenureBadge(s)}</td>
         <td style="white-space:nowrap;">
           <button type="button" class="edit-btn" data-code="${s.student_code}">수정</button>
           <button type="button" class="withdraw-btn ${s.withdrawn ? 'is-restore' : ''}" data-code="${s.student_code}" data-withdrawn="${s.withdrawn ? 'true' : 'false'}">
