@@ -58,8 +58,8 @@
   .sg { display:inline-block; font-size:11px; font-weight:800; padding:3px 7px; border-radius:999px; }
   .sg.ok { background:#DCFCE7; color:#15803D; }
   .sg.no { background:#F3F4F6; color:#9CA3AF; }
-  .sg.tenure { background:#EEF2FF; color:#4338CA; }
-  .sg.tenure.out { background:#F3F4F6; color:#9CA3AF; }
+  .tenure { margin-left:8px; font-size:13.5px; font-weight:700; color: var(--ink); }
+  .tenure.out { color: var(--muted); }
   .count-badge { font-size:12px; color: var(--muted); font-weight:700; }
   .issue-panel {
     background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding: 18px 20px;
@@ -317,7 +317,7 @@
     const y = Math.floor(months / 12), m = months % 12;
     const text = months === 0 ? '이번 달' : (y > 0 ? (m > 0 ? `${y}년 ${m}개월` : `${y}년`) : `${m}개월`);
     const title = s.withdrawn && s.withdrawn_at ? `퇴원 ${fmtShort(s.withdrawn_at)}까지` : '';
-    return ` <span class="sg tenure${s.withdrawn ? ' out' : ''}"${title ? ` title="${title}"` : ''}>[${text}]</span>`;
+    return ` <span class="tenure${s.withdrawn ? ' out' : ''}"${title ? ` title="${title}"` : ''}>[${text}]</span>`;
   }
 
   function signupCell(code) {
