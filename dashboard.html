@@ -1343,10 +1343,20 @@
   const HW_FIRST = 3, HW_MORE = 10;
   let hwItems = [], hwTotal = 0, hwLegacy = false;
 
+  // 숙제 사진 미리보기(작은 사진) 주소: 2026-11 이후 올린 사진만 '_t.jpg' 작은 사진이 있다.
+  // 이전 사진은 작은 사진이 없으므로 원본을 그대로 쓴다. 작은 사진이 없거나 못 불러오면 onerror 로 원본을 대신 보여 준다.
+  const THUMB_SINCE_MS = 1794157886467;
+  function hwThumbUrl(url) {
+    const m = /\/(\d{13})_\d+\.[A-Za-z0-9]+$/.exec(url || '');
+    if (!m || Number(m[1]) < THUMB_SINCE_MS) return url;
+    return url.replace(/\.[A-Za-z0-9]+$/, '_t.jpg');
+  }
+  function hwThumbFallback(img) { img.onerror = null; img.src = img.dataset.full; }
+
   function hwItemHtml(it) {
     const status = it.review_status || 'pending';
     const photos = (it.image_urls || [])
-      .map((url) => `<img src="${url}" alt="숙제 사진" data-full="${url}">`)
+      .map((url) => `<img src="${hwThumbUrl(url)}" alt="숙제 사진" data-full="${url}" onerror="hwThumbFallback(this)">`)
       .join('');
     return `
       <div class="hw-item">

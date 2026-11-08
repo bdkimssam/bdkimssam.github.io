@@ -114,6 +114,23 @@
   const SHRINK_MAX_EDGE = 2560;
   const SHRINK_QUALITY = 0.9;
   const SHRINK_SKIP_BYTES = 1.5 * 1024 * 1024;
+  // 미리보기용 작은 사진 (긴 변 480px, JPEG 0.8). 만들지 못하면 null → 작은 사진 없이 진행(화면에서 원본을 대신 보여 줌).
+  async function makeThumb(file) {
+    try {
+      if (!file.type || !file.type.startsWith('image/') || file.type === 'image/gif') return null;
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const scale = Math.min(1, 480 / Math.max(bmp.width, bmp.height));
+      const cw = Math.max(1, Math.round(bmp.width * scale)), ch = Math.max(1, Math.round(bmp.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = cw; canvas.height = ch;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(bmp, 0, 0, cw, ch);
+      if (bmp.close) bmp.close();
+      return await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
+    } catch (e) { console.warn('미리보기 사진 만들기 실패', e); return null; }
+  }
+
   async function shrinkImage(file) {
     const orig = { file, converted: false };
     try {
@@ -335,6 +352,13 @@
         if (shrunk.converted) uploadOpts.contentType = 'image/jpeg';
         const { error: uploadError } = await sb.storage.from('homework-verification').upload(path, file, uploadOpts);
         if (uploadError) throw uploadError;
+        // 작은 사진은 실패해도 제출을 막지 않는다
+        const thumb = await makeThumb(selectedFiles[i]);
+        if (thumb) {
+          const { error: thumbError } = await sb.storage.from('homework-verification')
+            .upload(path.replace(/\.[A-Za-z0-9]+$/, '_t.jpg'), thumb, { upsert: false, contentType: 'image/jpeg' });
+          if (thumbError) console.warn('미리보기 사진 업로드 실패', thumbError);
+        }
         const { data: urlData } = sb.storage.from('homework-verification').getPublicUrl(path);
         imageUrls.push(urlData.publicUrl);
       }
