@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>통계 | 관리자</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://reuzxqlhncwrwswadbvn.supabase.co" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 20px 60px; display:flex; flex-direction:column; gap:18px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  .panel h2 { font-size:15px; font-weight:900; margin:0 0 14px; }
+  .panel h2 .hint { font-size:12px; font-weight:600; color:var(--muted); margin-left:7px; }
+
+  /* 큰 숫자 카드 */
+  .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
+  .stat { background:var(--gray-50); border-radius:12px; padding:16px; text-align:center; }
+  .stat .v { font-size:24px; font-weight:900; line-height:1.2; }
+  .stat .v small { font-size:14px; font-weight:800; margin-left:1px; }
+  .stat .k { font-size:12px; color:var(--muted); font-weight:700; margin-top:5px; }
+  .stat.accent .v { color:#1D4ED8; }
+
+  /* 가로 막대 */
+  .bars { display:flex; flex-direction:column; gap:9px; }
+  .bar-row { display:grid; grid-template-columns:92px 1fr 62px; align-items:center; gap:10px; font-size:13px; }
+  .bar-row .lbl { font-weight:700; color:var(--ink); }
+  .bar-track { display:block; background:var(--gray-200); border-radius:999px; height:18px; overflow:hidden; }
+  .bar-fill { display:block; height:100%; background:#1D4ED8; border-radius:999px; min-width:3px; }
+  .bar-fill.green { background:#15803D; }
+  .bar-row .val { text-align:right; color:var(--muted); font-weight:700; font-size:12.5px; }
+
+  /* 월별 입회·퇴원 */
+  .months { display:flex; gap:4px; align-items:flex-end; overflow-x:auto; padding-bottom:6px; }
+  .mcol { flex:0 0 38px; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .mcol .stack { display:flex; flex-direction:column; justify-content:flex-end; height:120px; width:100%; gap:2px; }
+  .mcol .up { background:#15803D; border-radius:4px 4px 0 0; min-height:0; }
+  .mcol .down { background:#DC2626; border-radius:0 0 4px 4px; min-height:0; }
+  .mcol .mlabel { font-size:10px; color:var(--muted); font-weight:700; white-space:nowrap; }
+  .mcol .mnum { font-size:10.5px; font-weight:800; }
+  .mcol .mnum .g { color:#15803D; }
+  .mcol .mnum .r { color:#DC2626; }
+  .legend { font-size:12px; color:var(--muted); margin-top:8px; }
+  .legend b.g { color:#15803D; }
+  .legend b.r { color:#DC2626; }
+
+  .note { font-size:12.5px; color:var(--muted); background:#FFFBEB; border:1px solid #FDE68A; border-radius:10px; padding:11px 13px; line-height:1.65; }
+  .loading { text-align:center; color:var(--muted); font-size:13.5px; padding:30px 0; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← 관리자 홈</a>
+  <div class="brand">통계</div>
+</header>
+
+<main>
+  <div>
+    <h1>학원 통계</h1>
+    <p class="sub">재원 기간과 학생 구성이에요. 첫 등원일을 기준으로 계산해요.</p>
+  </div>
+
+  <div id="content"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  const el = (id) => document.getElementById(id);
+
+  // 개월 수를 "2년 3개월"로
+  function monthsText(m) {
+    if (m === null || m === undefined) return '-';
+    const y = Math.floor(m / 12), mm = m % 12;
+    if (m === 0) return '0개월';
+    return y > 0 ? (mm > 0 ? `${y}년 ${mm}개월` : `${y}년`) : `${mm}개월`;
+  }
+  const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0);
+
+  function barRows(items, { labelKey, valueKey, color = '', suffix = '명' }) {
+    const max = Math.max(1, ...items.map((i) => i[valueKey]));
+    return `<div class="bars">${items.map((i) => `
+      <div class="bar-row">
+        <span class="lbl">${i[labelKey]}</span>
+        <span class="bar-track"><span class="bar-fill ${color}" style="width:${Math.round((i[valueKey] / max) * 100)}%"></span></span>
+        <span class="val">${i[valueKey]}${suffix}</span>
+      </div>`).join('')}</div>`;
+  }
+
+  function monthChart(rows) {
+    const max = Math.max(1, ...rows.map((r) => Math.max(r.joined, r.left)));
+    const h = (n) => Math.round((n / max) * 56);
+    return `
+      <div class="months">
+        ${rows.map((r) => `
+          <div class="mcol" title="${r.month} · 입회 ${r.joined}명 · 퇴원 ${r.left}명">
+            <div class="mnum"><span class="g">${r.joined || ''}</span>${r.joined && r.left ? '/' : ''}<span class="r">${r.left || ''}</span></div>
+            <div class="stack">
+              <div class="up" style="height:${h(r.joined)}px"></div>
+              <div class="down" style="height:${h(r.left)}px"></div>
+            </div>
+            <div class="mlabel">${r.month.slice(2).replace('-', '.')}</div>
+          </div>`).join('')}
+      </div>
+      <div class="legend"><b class="g">초록</b> 입회 · <b class="r">빨강</b> 퇴원</div>`;
+  }
+
+  function render(d) {
+    const c = d.counts, a = d.avg_months, l = d.loyalty;
+    const missing = (c.active_no_date || 0) + (c.withdrawn_no_date || 0);
+
+    el('content').innerHTML = `
+      <div class="panel">
+        <h2>한눈에 보기 <span class="hint">${d.as_of} 기준</span></h2>
+        <div class="cards">
+          <div class="stat"><div class="v">${c.active}<small>명</small></div><div class="k">재원생</div></div>
+          <div class="stat accent"><div class="v">${monthsText(a.active)}</div><div class="k">평균 재원 기간</div></div>
+          <div class="stat"><div class="v">${pct(l.over_1y, l.total)}<small>%</small></div><div class="k">1년 이상 (${l.over_1y}명)</div></div>
+          <div class="stat"><div class="v">${pct(l.over_2y, l.total)}<small>%</small></div><div class="k">2년 이상 (${l.over_2y}명)</div></div>
+          <div class="stat"><div class="v">${pct(l.over_3y, l.total)}<small>%</small></div><div class="k">3년 이상 (${l.over_3y}명)</div></div>
+        </div>
+        ${missing > 0 ? `<div class="note" style="margin-top:14px;">첫 등원일이 없는 ${missing}명은 기간 계산에서 빠졌어요.</div>` : ''}
+      </div>
+
+      <div class="panel">
+        <h2>구분별 평균 재원 기간 <span class="hint">재원생</span></h2>
+        ${d.avg_by_type.length
+          ? `<div class="bars">${d.avg_by_type.map((t) => {
+              const max = Math.max(1, ...d.avg_by_type.map((x) => x.avg_months));
+              return `<div class="bar-row">
+                <span class="lbl">${t.type} <span style="color:var(--muted);font-weight:600;">${t.n}명</span></span>
+                <span class="bar-track"><span class="bar-fill" style="width:${Math.round((t.avg_months / max) * 100)}%"></span></span>
+                <span class="val">${monthsText(t.avg_months)}</span>
+              </div>`;
+            }).join('')}</div>`
+          : '<p class="sub">자료가 없어요.</p>'}
+      </div>
+
+      <div class="panel">
+        <h2>재원 기간 분포 <span class="hint">재원생 ${l.total}명</span></h2>
+        ${barRows(d.buckets, { labelKey: 'label', valueKey: 'n' })}
+      </div>
+
+      <div class="panel">
+        <h2>월별 입회 · 퇴원 <span class="hint">최근 24개월</span></h2>
+        ${monthChart(d.monthly)}
+      </div>
+
+      <div class="panel">
+        <h2>학년별 인원 <span class="hint">재원생</span></h2>
+        ${barRows(d.by_grade, { labelKey: 'grade', valueKey: 'n', color: 'green' })}
+      </div>
+
+      <div class="panel">
+        <h2>강의실별 인원 <span class="hint">재원생</span></h2>
+        ${barRows(d.by_room, { labelKey: 'room', valueKey: 'n', color: 'green' })}
+      </div>
+
+      <div class="panel">
+        <h2>퇴원생 <span class="hint">참고</span></h2>
+        <div class="cards">
+          <div class="stat"><div class="v">${c.withdrawn}<small>명</small></div><div class="k">지금까지 퇴원</div></div>
+          <div class="stat"><div class="v">${a.withdrawn != null ? monthsText(a.withdrawn) : '-'}</div><div class="k">평균 재원 기간 (${a.withdrawn_n}명 기준)</div></div>
+        </div>
+      </div>
+    `;
+  }
+
+  // supabase 라이브러리는 아래쪽에서 defer 로 받아오니까, 다 준비된 뒤에 시작해요
+  document.addEventListener('DOMContentLoaded', async () => {
+    requireDirector();
+    const { data, error } = await sb.rpc('rpc_admin_stats_enrollment', { p_password: getAdminPassword() });
+    if (error) {
+      el('content').innerHTML = `<div class="panel"><p class="sub">불러오지 못했어요: ${error.message}</p></div>`;
+      return;
+    }
+    render(data);
+  });
+</script>
+</body>
+</html>
