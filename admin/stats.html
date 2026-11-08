@@ -41,13 +41,21 @@
   .bar-row.share { grid-template-columns:150px 1fr 92px; }
 
   /* 월별 입회·퇴원 */
-  .months { display:flex; gap:4px; align-items:flex-end; overflow-x:auto; padding-bottom:6px; }
-  .mcol { flex:0 0 38px; display:flex; flex-direction:column; align-items:center; gap:3px; }
-  .mcol .stack { display:flex; flex-direction:column; justify-content:flex-end; height:120px; width:100%; gap:2px; }
+  .yearblock { margin-bottom:18px; }
+  .yearblock:last-of-type { margin-bottom:4px; }
+  .yhead { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; }
+  .yhead .yname { font-size:13.5px; font-weight:900; }
+  .yhead .ysum { font-size:12px; color:var(--muted); font-weight:700; }
+  .yhead .ysum b.g { color:#15803D; }
+  .yhead .ysum b.r { color:#DC2626; }
+  .months { display:grid; grid-template-columns:repeat(12, 1fr); gap:4px; align-items:flex-end; }
+  .mcol { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0; }
+  .mcol.empty { opacity:0.35; }
+  .mcol .stack { display:flex; flex-direction:column; justify-content:flex-end; height:78px; width:100%; gap:2px; }
   .mcol .up { background:#15803D; border-radius:4px 4px 0 0; min-height:0; }
   .mcol .down { background:#DC2626; border-radius:0 0 4px 4px; min-height:0; }
   .mcol .mlabel { font-size:10px; color:var(--muted); font-weight:700; white-space:nowrap; }
-  .mcol .mnum { font-size:10.5px; font-weight:800; }
+  .mcol .mnum { font-size:10.5px; font-weight:800; text-align:center; line-height:1.3; margin-bottom:1px; }
   .mcol .mnum .g { color:#15803D; }
   .mcol .mnum .r { color:#DC2626; }
   .legend { font-size:12px; color:var(--muted); margin-top:8px; }
@@ -98,21 +106,48 @@
       </div>`).join('')}</div>`;
   }
 
+  // 연도별로 줄을 나누고, 한 줄 안에 1~12월
   function monthChart(rows) {
+    if (!rows || !rows.length) return '<p class="sub">자료가 없어요.</p>';
     const max = Math.max(1, ...rows.map((r) => Math.max(r.joined, r.left)));
-    const h = (n) => Math.round((n / max) * 56);
+    const h = (n) => (n ? Math.max(4, Math.round((n / max) * 46)) : 0);
+
+    const byYear = new Map();
+    rows.forEach((r) => {
+      const [y, m] = r.month.split('-');
+      if (!byYear.has(y)) byYear.set(y, new Map());
+      byYear.get(y).set(Number(m), r);
+    });
+
+    const years = [...byYear.keys()].sort();
     return `
-      <div class="months">
-        ${rows.map((r) => `
-          <div class="mcol" title="${r.month} · 입회 ${r.joined}명 · 퇴원 ${r.left}명">
-            <div class="mnum"><span class="g">${r.joined || ''}</span>${r.joined && r.left ? '/' : ''}<span class="r">${r.left || ''}</span></div>
-            <div class="stack">
-              <div class="up" style="height:${h(r.joined)}px"></div>
-              <div class="down" style="height:${h(r.left)}px"></div>
-            </div>
-            <div class="mlabel">${r.month.slice(2).replace('-', '.')}</div>
-          </div>`).join('')}
-      </div>
+      ${years.map((y) => {
+        const mm = byYear.get(y);
+        const sumIn = [...mm.values()].reduce((a, r) => a + r.joined, 0);
+        const sumOut = [...mm.values()].reduce((a, r) => a + r.left, 0);
+        return `
+        <div class="yearblock">
+          <div class="yhead">
+            <span class="yname">${y}년</span>
+            <span class="ysum">입회 <b class="g">${sumIn}</b> · 퇴원 <b class="r">${sumOut}</b> · 순증 <b>${sumIn - sumOut > 0 ? '+' : ''}${sumIn - sumOut}</b></span>
+          </div>
+          <div class="months">
+            ${Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+              const r = mm.get(m);
+              if (!r) return `<div class="mcol empty"><div class="stack"></div><div class="mlabel">${m}월</div></div>`;
+              return `
+                <div class="mcol" title="${r.month} · 입회 ${r.joined}명 · 퇴원 ${r.left}명">
+                  <div class="stack">
+                    <div class="mnum"><span class="g">${r.joined || ''}</span>${r.joined && r.left ? ' ' : ''}<span class="r">${r.left || ''}</span></div>
+                    <div class="up" style="height:${h(r.joined)}px"></div>
+                    <div class="down" style="height:${h(r.left)}px"></div>
+                  </div>
+                  <div class="mlabel">${m}월</div>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')}
       <div class="legend"><b class="g">초록</b> 입회 · <b class="r">빨강</b> 퇴원</div>`;
   }
 
@@ -163,8 +198,8 @@
       </div>
 
       <div class="panel">
-        <h2>월별 입회 · 퇴원 <span class="hint">최근 24개월</span></h2>
-        ${monthChart(d.monthly)}
+        <h2>월별 입회 · 퇴원 <span class="hint">연도별</span></h2>
+        ${monthChart(d.monthly_all || d.monthly)}
       </div>
 
       <div class="panel">
@@ -190,11 +225,17 @@
   // supabase 라이브러리는 아래쪽에서 defer 로 받아오니까, 다 준비된 뒤에 시작해요
   document.addEventListener('DOMContentLoaded', async () => {
     requireDirector();
-    const { data, error } = await sb.rpc('rpc_admin_stats_enrollment', { p_password: getAdminPassword() });
-    if (error) {
-      el('content').innerHTML = `<div class="panel"><p class="sub">불러오지 못했어요: ${error.message}</p></div>`;
+    const pw = getAdminPassword();
+    const [main, months] = await Promise.all([
+      sb.rpc('rpc_admin_stats_enrollment', { p_password: pw }),
+      sb.rpc('rpc_admin_stats_monthly', { p_password: pw }),
+    ]);
+    if (main.error) {
+      el('content').innerHTML = `<div class="panel"><p class="sub">불러오지 못했어요: ${main.error.message}</p></div>`;
       return;
     }
+    const data = main.data;
+    if (!months.error) data.monthly_all = months.data;
     render(data);
   });
 </script>
