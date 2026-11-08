@@ -109,6 +109,48 @@
 <script src="assets/js/supabase-client.js?v=20261009b"></script>
 <script>
   const MAX_PHOTOS = 10;
+  // 숙제 사진 줄이기: 긴 변 2560px 이하 + JPEG 화질 0.9 (글씨가 또렷하게 유지되는 수준).
+  // 이미 충분히 작은 사진, 이미지가 아닌 파일, GIF는 그대로 올린다. 어떤 단계든 실패하면 원본을 그대로 올린다.
+  const SHRINK_MAX_EDGE = 2560;
+  const SHRINK_QUALITY = 0.9;
+  const SHRINK_SKIP_BYTES = 1.5 * 1024 * 1024;
+  async function shrinkImage(file) {
+    const orig = { file, converted: false };
+    try {
+      if (!file.type || !file.type.startsWith('image/') || file.type === 'image/gif') return orig;
+      let bmp;
+      try {
+        bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });   // 휴대폰 사진의 회전 정보 반영
+      } catch (e) {
+        bmp = await new Promise((resolve, reject) => {
+          const img = new Image();
+          const u = URL.createObjectURL(file);
+          img.onload = () => { URL.revokeObjectURL(u); resolve(img); };
+          img.onerror = () => { URL.revokeObjectURL(u); reject(new Error('decode')); };
+          img.src = u;
+        });
+      }
+      const w = bmp.width, h = bmp.height;
+      if (!w || !h) return orig;
+      const scale = Math.min(1, SHRINK_MAX_EDGE / Math.max(w, h));
+      if (scale === 1 && file.size <= SHRINK_SKIP_BYTES) return orig;
+      const cw = Math.round(w * scale), ch = Math.round(h * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = cw; canvas.height = ch;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(bmp, 0, 0, cw, ch);
+      if (bmp.close) bmp.close();
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', SHRINK_QUALITY));
+      if (!blob || blob.size >= file.size) return orig;   // 더 작아지지 않으면 원본 유지
+      return { file: blob, converted: true };
+    } catch (e) {
+      console.warn('사진 줄이기 실패, 원본으로 올립니다', e);
+      return orig;
+    }
+  }
+
   let selectedFiles = [];
   let allParticipants = [];
   let participantsByGrade = {};
@@ -285,10 +327,13 @@
     try {
       const imageUrls = [];
       for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const shrunk = await shrinkImage(selectedFiles[i]);   // 실패하면 원본 그대로
+        const file = shrunk.file;
+        const ext = shrunk.converted ? 'jpg' : (file.name.split('.').pop() || 'jpg').toLowerCase();
         const path = `${studentCode}/${Date.now()}_${i}.${ext}`;
-        const { error: uploadError } = await sb.storage.from('homework-verification').upload(path, file, { upsert: false });
+        const uploadOpts = { upsert: false };
+        if (shrunk.converted) uploadOpts.contentType = 'image/jpeg';
+        const { error: uploadError } = await sb.storage.from('homework-verification').upload(path, file, uploadOpts);
         if (uploadError) throw uploadError;
         const { data: urlData } = sb.storage.from('homework-verification').getPublicUrl(path);
         imageUrls.push(urlData.publicUrl);
