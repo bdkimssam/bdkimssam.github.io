@@ -87,23 +87,13 @@
   }
   const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0);
 
-  function barRows(items, { labelKey, valueKey, color = '', suffix = '명' }) {
-    const max = Math.max(1, ...items.map((i) => i[valueKey]));
-    return `<div class="bars">${items.map((i) => `
-      <div class="bar-row">
-        <span class="lbl">${i[labelKey]}</span>
-        <span class="bar-track"><span class="bar-fill ${color}" style="width:${Math.round((i[valueKey] / max) * 100)}%"></span></span>
-        <span class="val">${i[valueKey]}${suffix}</span>
-      </div>`).join('')}</div>`;
-  }
-
   // 비율 막대: 전체 대비 몇 %인지 함께 보여줘요
-  function shareRows(items, labelKey, total) {
+  function shareRows(items, labelKey, total, color = '') {
     if (!items || !items.length) return '<p class="sub">자료가 없어요.</p>';
     return `<div class="bars">${items.map((i) => `
       <div class="bar-row share">
         <span class="lbl">${i[labelKey]}</span>
-        <span class="bar-track"><span class="bar-fill" style="width:${pct(i.n, total)}%"></span></span>
+        <span class="bar-track"><span class="bar-fill ${color}" style="width:${pct(i.n, total)}%"></span></span>
         <span class="val">${i.n}명 · ${pct(i.n, total)}%</span>
       </div>`).join('')}</div>`;
   }
@@ -169,7 +159,7 @@
 
       <div class="panel">
         <h2>재원 기간 분포 <span class="hint">재원생 ${l.total}명</span></h2>
-        ${barRows(d.buckets, { labelKey: 'label', valueKey: 'n' })}
+        ${shareRows(d.buckets, 'label', l.total)}
       </div>
 
       <div class="panel">
@@ -179,12 +169,12 @@
 
       <div class="panel">
         <h2>학년별 인원 <span class="hint">재원생</span></h2>
-        ${barRows(d.by_grade, { labelKey: 'grade', valueKey: 'n', color: 'green' })}
+        ${shareRows(d.by_grade, 'grade', c.active, 'green')}
       </div>
 
       <div class="panel">
         <h2>강의실별 인원 <span class="hint">재원생</span></h2>
-        ${barRows(d.by_room, { labelKey: 'room', valueKey: 'n', color: 'green' })}
+        ${shareRows(d.by_room, 'room', c.active, 'green')}
       </div>
 
       <div class="panel">
