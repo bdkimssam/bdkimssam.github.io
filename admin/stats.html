@@ -38,6 +38,7 @@
   .bar-fill { display:block; height:100%; background:#1D4ED8; border-radius:999px; min-width:3px; }
   .bar-fill.green { background:#15803D; }
   .bar-row .val { text-align:right; color:var(--muted); font-weight:700; font-size:12.5px; }
+  .bar-row.share { grid-template-columns:150px 1fr 92px; }
 
   /* 월별 입회·퇴원 */
   .months { display:flex; gap:4px; align-items:flex-end; overflow-x:auto; padding-bottom:6px; }
@@ -96,6 +97,17 @@
       </div>`).join('')}</div>`;
   }
 
+  // 비율 막대: 전체 대비 몇 %인지 함께 보여줘요
+  function shareRows(items, labelKey, total) {
+    if (!items || !items.length) return '<p class="sub">자료가 없어요.</p>';
+    return `<div class="bars">${items.map((i) => `
+      <div class="bar-row share">
+        <span class="lbl">${i[labelKey]}</span>
+        <span class="bar-track"><span class="bar-fill" style="width:${pct(i.n, total)}%"></span></span>
+        <span class="val">${i.n}명 · ${pct(i.n, total)}%</span>
+      </div>`).join('')}</div>`;
+  }
+
   function monthChart(rows) {
     const max = Math.max(1, ...rows.map((r) => Math.max(r.joined, r.left)));
     const h = (n) => Math.round((n / max) * 56);
@@ -143,6 +155,16 @@
               </div>`;
             }).join('')}</div>`
           : '<p class="sub">자료가 없어요.</p>'}
+      </div>
+
+      <div class="panel">
+        <h2>초 · 중 · 고 비율 <span class="hint">재원생 ${c.active}명</span></h2>
+        ${shareRows(d.by_type, 'type', c.active)}
+      </div>
+
+      <div class="panel">
+        <h2>학교별 비율 <span class="hint">재원생 ${c.active}명</span></h2>
+        ${shareRows(d.by_school, 'school', c.active)}
       </div>
 
       <div class="panel">
