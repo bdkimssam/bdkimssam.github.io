@@ -86,6 +86,12 @@
   .pay b { font-weight:900; }
   .badge.paid { background:#DCFCE7; color:#15803D; } .badge.unpaid { background:#FEE2E2; color:#B91C1C; }
   .badge.mem { background:#DBEAFE; color:#1D4ED8; } .badge.ext { background:#FEF3C7; color:#92400E; } .badge.wait { background:#EDE9FE; color:#6D28D9; }
+  .badge.sent { background:#F2F2F2; color:#5C5C5C; }
+  .nbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:10px 0 4px; padding:10px 12px; background:#F2F2F2; border-radius:10px; }
+  .nbar .btn { margin-left:auto; }
+  .npick { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:#161616; cursor:pointer; }
+  .npick.done { opacity:0.45; cursor:default; }
+  .npick input { width:15px; height:15px; margin:0; cursor:pointer; accent-color:#161616; }
   .typesel { display:flex; gap:8px; margin-bottom:12px; }
   .typesel label { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:800; padding:7px 12px; border:1px solid var(--gray-200); border-radius:999px; cursor:pointer; }
   .typesel label:has(input:checked) { background:#EEF2FF; border-color:#C5CAE9; color:#364293; }
@@ -537,6 +543,8 @@
   // ---- 신청 현황 ----
   let fbRows = [];
   let appLectureId = null, appRows = [], addMode = 'add', addTargetId = null, activeStudents = null;
+  // 특강 안내 알림톡: 이미 보낸 신청(application_id → 보낸 시각)과 지금 고른 신청
+  let noticeSent = new Map(), noticePicked = new Set();
   function fmtPhone(v) {
     const d = String(v || '').replace(/\D/g, '');
     if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
@@ -562,6 +570,9 @@
     appRows = data || [];
     const fb = await sb.rpc('rpc_admin_list_special_feedback', { p_password: getAdminPassword(), p_lecture_id: appLectureId });
     fbRows = fb.error ? [] : (fb.data || []);
+    const sent = await sb.rpc('rpc_admin_list_special_notice_sent', { p_password: getAdminPassword(), p_lecture_id: appLectureId });
+    noticeSent = new Map((sent.error ? [] : (sent.data || [])).map((r) => [r.application_id, r.sent_at]));
+    noticePicked = new Set();
     renderApps();
   }
   const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
@@ -597,10 +608,14 @@
     else if (a.status === 'confirmed') btns.push(['cancelled', '취소', 'warn']);
     else if (a.status === 'cancelled') btns.push(['pending', '복원', '']);
     const phones = [a.student_phone ? `학생 ${fmtPhone(a.student_phone)}` : '', a.parent_phone ? `학부모 ${fmtPhone(a.parent_phone)}` : '학부모 연락처 없음'].filter(Boolean).join(' · ');
+    const sentAt = noticeSent.get(a.id);
     return `<div class="arow">
       <div class="l1">
+        ${a.status === 'confirmed' ? `<label class="npick${sentAt ? ' done' : ''}" title="${sentAt ? '이미 보냈어요' : '특강 안내 알림톡 보낼 사람으로 고르기'}">
+          <input type="checkbox" class="nchk" data-id="${esc(a.id)}" ${sentAt ? 'disabled' : ''} ${noticePicked.has(a.id) ? 'checked' : ''}></label>` : ''}
         ${order ? `<span class="badge wait">대기 ${order}번</span>` : ''}
         <span class="nm">${esc(a.student_name)}</span>
+        ${sentAt ? `<span class="badge sent">안내 ${esc(fmtWhen(sentAt))}</span>` : ''}
         <span class="badge ${mem ? 'mem' : 'ext'}">${mem ? '재원생' : '외부생'}</span>
         <span>${esc([a.grade, a.school].filter(Boolean).join(' · '))}</span>
       </div>
@@ -632,14 +647,43 @@
       </div>
       <div class="hint">확정은 정원 안에서만 돼요. 취소해도 대기자는 자동으로 올라가지 않아요 — 연락하신 뒤 "확정(승격)"을 눌러 주세요.</div>
       ${sec('확인 대기 (외부생)', pending.length, pending)}
+      ${confirmed.length ? `<div class="nbar">
+        <label class="npick"><input type="checkbox" id="nchk-all" ${(() => {
+          const todo = confirmed.filter((a) => !noticeSent.has(a.id));
+          return todo.length && todo.every((a) => noticePicked.has(a.id)) ? 'checked' : '';
+        })()}> 안 보낸 사람 모두 고르기</label>
+        <button type="button" class="btn" id="notice-send" ${noticePicked.size ? '' : 'disabled'}>
+          ${noticePicked.size ? `선택 ${noticePicked.size}명에게 특강 안내 발송` : '특강 안내 발송'}
+        </button>
+      </div>` : ''}
       ${sec('확정', confirmed.length, confirmed)}
       ${sec('대기', waitlist.length, waitlist, true)}
       ${cancelled.length ? `<details class="cancelled"><summary>취소됨 (${cancelled.length})</summary>${cancelled.map((a) => appRowHtml(a, 0)).join('')}</details>` : ''}
       ${appRows.length ? '' : '<div class="loading">아직 신청이 없어요.</div>'}`;
   }
 
+  // 특강 안내 알림톡: 고르기
+  $('app-body').addEventListener('change', (e) => {
+    const all = e.target.closest('#nchk-all');
+    if (all) {
+      appRows.filter((a) => a.status === 'confirmed' && !noticeSent.has(a.id))
+             .forEach((a) => { if (all.checked) noticePicked.add(a.id); else noticePicked.delete(a.id); });
+      renderApps();
+      return;
+    }
+    const chk = e.target.closest('.nchk');
+    if (!chk) return;
+    if (chk.checked) noticePicked.add(chk.dataset.id); else noticePicked.delete(chk.dataset.id);
+    const btn = document.getElementById('notice-send');
+    if (btn) {
+      btn.disabled = noticePicked.size === 0;
+      btn.textContent = noticePicked.size ? `선택 ${noticePicked.size}명에게 특강 안내 발송` : '특강 안내 발송';
+    }
+  });
+
   $('app-body').addEventListener('click', async (e) => {
     if (e.target.closest('#app-add')) { openAdd(); return; }
+    if (e.target.closest('#notice-send')) { await sendSpecialNotice(e.target.closest('#notice-send')); return; }
     const btn = e.target.closest('button[data-aact]'); if (!btn) return;
     const a = appRows.find((x) => x.id === btn.dataset.id); if (!a) return;
     if (btn.dataset.aact === 'hist') { openHistory(a.id, a.student_name + ' 신청', 'special_lecture_applications'); return; }
@@ -657,6 +701,48 @@
     if (error) { alert(noSql58(error)); btn.disabled = false; return; }
     await reloadApps(); load();
   });
+  // 특강 안내 알림톡 발송 (이 버튼을 눌렀을 때만 나가요)
+  async function sendSpecialNotice(btn) {
+    const ids = [...noticePicked];
+    if (!ids.length) return;
+    btn.disabled = true;
+    btn.textContent = '확인 중...';
+
+    const pre = await sb.rpc('rpc_admin_preview_special_notice', { p_password: getAdminPassword(), p_application_ids: ids });
+    btn.disabled = false;
+    btn.textContent = `선택 ${ids.length}명에게 특강 안내 발송`;
+    if (pre.error) { alert(noSql58(pre.error)); return; }
+
+    const rows = pre.data || [];
+    const ok = rows.filter((r) => r.sendable);
+    const no = rows.filter((r) => !r.sendable);
+    if (!ok.length) {
+      alert('보낼 수 있는 학생이 없어요.\n' + no.map((r) => `· ${r.student_name}: ${r.reason}`).join('\n'));
+      return;
+    }
+    const s = ok[0];
+    let msg = `학부모 ${ok.length}명에게 특강 안내를 보냅니다.\n\n`
+            + `· 특강: ${s.lecture_title}\n· 기간: ${s.period}\n· 시간: ${s.time_text}\n· 강의실: ${s.classroom}\n\n`
+            + ok.map((r) => `· ${r.student_name}`).join('\n');
+    if (no.length) msg += `\n\n제외 ${no.length}명\n` + no.map((r) => `· ${r.student_name}: ${r.reason}`).join('\n');
+    msg += '\n\n보낼까요? (보내면 취소할 수 없어요)';
+    if (!confirm(msg)) return;
+
+    btn.disabled = true;
+    btn.textContent = '발송 중...';
+    const { data, error } = await sb.rpc('rpc_admin_send_special_notice', {
+      p_password: getAdminPassword(), p_application_ids: ok.map((r) => r.application_id),
+    });
+    btn.disabled = false;
+    if (error) { alert(noSql58(error)); return; }
+    const skipped = (data && data.skipped) || [];
+    let done = `특강 안내 ${(data && data.sent) || 0}명에게 발송했어요.`;
+    if (data && data.reason) done = `발송하지 못했어요: ${data.reason}`;
+    if (skipped.length) done += `\n\n제외 ${skipped.length}명\n` + skipped.map((x) => `· ${x.name}: ${x.reason}`).join('\n');
+    alert(done);
+    await reloadApps();
+  }
+
   $('app-close').addEventListener('click', () => { $('app-overlay').style.display = 'none'; });
   $('app-overlay').addEventListener('click', (e) => { if (e.target.id === 'app-overlay') $('app-overlay').style.display = 'none'; });
 
