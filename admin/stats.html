@@ -175,6 +175,17 @@
       </div>
 
       <div class="panel">
+        <h2>형제자매 <span class="hint">학생 관리의 형제 체크 기준</span></h2>
+        <div class="cards">
+          <div class="stat"><div class="v">${d.sibling.n}<small>명</small></div><div class="k">형제자매 학생</div></div>
+          <div class="stat"><div class="v">${pct(d.sibling.n, d.sibling.total)}<small>%</small></div><div class="k">재원생 ${d.sibling.total}명 중</div></div>
+          <div class="stat accent"><div class="v">${d.sibling_avg_months.sib != null ? monthsText(d.sibling_avg_months.sib) : '-'}</div><div class="k">형제자매 평균 재원 기간</div></div>
+          <div class="stat"><div class="v">${d.sibling_avg_months.others != null ? monthsText(d.sibling_avg_months.others) : '-'}</div><div class="k">그 외 학생 평균</div></div>
+        </div>
+        ${d.sibling.n === 0 ? '<div class="note" style="margin-top:14px;">아직 체크된 학생이 없어요. 학생 관리의 형제 칸에서 체크하면 여기 숫자가 채워져요.</div>' : ''}
+      </div>
+
+      <div class="panel">
         <h2>초 · 중 · 고 비율 <span class="hint">재원생 ${c.active}명</span></h2>
         ${shareRows(d.by_type, 'type', c.active)}
       </div>

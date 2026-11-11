@@ -32,7 +32,8 @@
   tr:first-child td { border-top:none; }
   th, td { white-space: nowrap; }
   /* 가입 칸이 남는 폭을 흡수해서, 나머지 칸은 내용만큼만 차지하게 */
-  th:nth-child(6), td:nth-child(6) { width:100%; }
+  th:nth-child(7), td:nth-child(7) { width:100%; }
+  .sib-chk { width:16px; height:16px; margin:0; cursor:pointer; accent-color:#161616; }
   td.name { font-weight:700; }
   td.code { color: var(--muted); font-family: 'SFMono-Regular', Consolas, monospace; font-size:12.5px; }
   select.classroom-select {
@@ -182,7 +183,7 @@
   <div class="panel">
     <table id="student-table" style="display:none;">
       <thead>
-        <tr><th>강의실</th><th>이름</th><th>학생코드</th><th>학년</th><th>첫 등원일</th><th>가입</th><th></th></tr>
+        <tr><th>강의실</th><th>이름</th><th>학생코드</th><th>학년</th><th>첫 등원일</th><th>형제</th><th>가입</th><th></th></tr>
       </thead>
       <tbody id="student-tbody"></tbody>
     </table>
@@ -395,6 +396,10 @@
             <input type="date" class="attend-pick" tabindex="-1" aria-hidden="true">
           </span>
         </td>
+        <td style="text-align:center;">
+          <input type="checkbox" class="sib-chk" data-code="${s.student_code}" title="형제자매 체크"
+                 ${s.sibling ? 'checked' : ''} ${s.withdrawn ? 'disabled' : ''}>
+        </td>
         <td style="white-space:nowrap;">${signupCell(s.student_code)}${tenureBadge(s)}</td>
         <td style="white-space:nowrap;">
           <button type="button" class="edit-btn" data-code="${s.student_code}">수정</button>
@@ -406,6 +411,27 @@
     `).join('');
 
     // 첫 등원일: 타이핑이 멈춘 뒤에 저장해요. 저장 중에도 입력칸을 잠그지 않아요 (커서가 튕기지 않게)
+    // 형제자매 체크: 누르면 바로 저장돼요
+    tbody.querySelectorAll('.sib-chk').forEach((chk) => {
+      chk.addEventListener('change', async () => {
+        const want = chk.checked;
+        chk.disabled = true;
+        const { error } = await sb.rpc('rpc_admin_set_sibling', {
+          p_password: getAdminPassword(),
+          p_student_code: chk.dataset.code,
+          p_on: want,
+        });
+        chk.disabled = false;
+        if (error) {
+          chk.checked = !want;
+          alert('형제자매 저장 실패: ' + error.message);
+          return;
+        }
+        const t = allStudents.find((x) => x.student_code === chk.dataset.code);
+        if (t) t.sibling = want;
+      });
+    });
+
     tbody.querySelectorAll('.attend-date').forEach((inp) => {
       const wrap = inp.closest('.attend-wrap');
       const picker = wrap.querySelector('.attend-pick');
