@@ -137,6 +137,9 @@
   .notice-toggle input { width:13px; height:13px; margin:0; cursor:pointer; accent-color:#15803D; }
   .bulk-bar .bulk-bell-btn { flex:1; padding:10px; border-radius:9px; border:none; background:#15803D; color:#fff; font-weight:800; font-size:13px; cursor:pointer; }
   .bulk-bar .bulk-bell-btn:disabled { background:rgba(255,255,255,0.18); color:rgba(255,255,255,0.55); cursor:default; }
+  .bulk-bar .bulk-unpaid-btn { flex:1; padding:10px; border-radius:9px; border:1px solid rgba(255,255,255,0.7); background:transparent; color:#fff; font-weight:800; font-size:13px; cursor:pointer; }
+  .bulk-bar .bulk-unpaid-btn:disabled { border-color:rgba(255,255,255,0.2); color:rgba(255,255,255,0.45); cursor:default; }
+  .tag.unpaidn { background:#F2F2F2; color:#5C5C5C; }
   .tuition-set .ts-title { grid-column: 1 / -1; font-size:12px; font-weight:800; color:var(--ink); }
   .tuition-set .ts-help { grid-column: 1 / -1; font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:-4px; }
   .tuition-set .tuition-save-btn { padding:9px 14px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer; border:1px solid var(--navy-900); background:#fff; color:var(--navy-900); white-space:nowrap; }
@@ -232,6 +235,7 @@
 
   let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); // 이번 달 1일
   let currentRows = [];
+  let unpaidNotice = new Map();   // 미납 안내 기록: 학생코드 → { count, last }
   let currentRates = [];
   let currentFilter = 'all';
   let editingCode = null; // 지금 입력폼 열려있는 student_code
@@ -379,6 +383,13 @@
     currentRows = data || [];
     selectedCodes = new Set();
     amountOverrides = new Map();
+    // 미납 안내 기록 (불러오지 못해도 목록은 그대로 보여줘요)
+    unpaidNotice = new Map();
+    const un = await sb.rpc('rpc_admin_list_unpaid_notice', {
+      p_password: getAdminPassword(),
+      p_billing_month: monthStr(currentMonth),
+    });
+    if (!un.error) (un.data || []).forEach((x) => unpaidNotice.set(x.student_code, { count: x.sent_count, last: x.last_sent_at }));
     renderStats();
     renderList();
   }
@@ -438,6 +449,10 @@
     const bellTargets = currentRows.filter(
       (r) => selectedCodes.has(r.student_code) && r.paid && !r.notice_sent_at
     );
+    // 미납 안내 대상: 선택한 학생 중 수납 확인이 안 된 재원생 (여러 번 보낼 수 있어요)
+    const unpaidTargets = currentRows.filter(
+      (r) => selectedCodes.has(r.student_code) && !r.paid && !r.withdrawn
+    );
 
     bulkBarEl.innerHTML = `
       <div class="bulk-bar">
@@ -462,6 +477,11 @@
         <div class="bulk-actions">
           <button type="button" class="bulk-bell-btn" id="bulk-bell-btn" ${bellTargets.length === 0 ? 'disabled' : ''}>
             ${bellTargets.length === 0 ? '알림톡 보낼 학생 없음' : `선택 ${bellTargets.length}명 알림톡 발송`}
+          </button>
+        </div>
+        <div class="bulk-actions">
+          <button type="button" class="bulk-unpaid-btn" id="bulk-unpaid-btn" ${unpaidTargets.length === 0 ? 'disabled' : ''}>
+            ${unpaidTargets.length === 0 ? '미납 안내 보낼 학생 없음' : `선택 ${unpaidTargets.length}명 미납 안내 발송`}
           </button>
         </div>
       </div>
@@ -546,6 +566,61 @@
 
         const skipped = (data && data.skipped) || [];
         let done = `알림톡 ${(data && data.sent) || 0}명에게 발송했어요.`;
+        if (skipped.length > 0) done += `\n\n제외 ${skipped.length}명\n` + skipped.map((s) => `· ${s.name}: ${s.reason}`).join('\n');
+        alert(done);
+        selectedCodes.clear();
+        loadPayments();
+      });
+    }
+
+    // 미납 안내 알림톡 일괄 발송 (이 버튼을 누를 때만 발송돼요. 같은 달에 여러 번 보낼 수 있어요)
+    const unpaidBtn = document.getElementById('bulk-unpaid-btn');
+    if (unpaidBtn && unpaidTargets.length > 0) {
+      unpaidBtn.addEventListener('click', async () => {
+        const codes = unpaidTargets.map((r) => r.student_code);
+        const label = `선택 ${unpaidTargets.length}명 미납 안내 발송`;
+        const monthNum = currentMonth.getMonth() + 1;
+        unpaidBtn.disabled = true;
+        unpaidBtn.textContent = '확인 중...';
+
+        const pre = await sb.rpc('rpc_admin_preview_unpaid_notice', {
+          p_password: getAdminPassword(),
+          p_billing_month: monthStr(currentMonth),
+          p_student_codes: codes,
+        });
+        unpaidBtn.disabled = false;
+        unpaidBtn.textContent = label;
+        if (pre.error) { alert('미리보기 실패: ' + pre.error.message); return; }
+
+        const rows = pre.data || [];
+        const ok = rows.filter((x) => x.sendable);
+        const no = rows.filter((x) => !x.sendable);
+        if (ok.length === 0) {
+          alert('보낼 수 있는 학생이 없어요.\n' + no.map((x) => `· ${x.student_name}: ${x.reason}`).join('\n'));
+          return;
+        }
+
+        const lines = ok.slice(0, 15).map((x) => `· ${x.student_name}${x.sent_count > 0 ? ` (${x.sent_count + 1}회째)` : ''}`);
+        if (ok.length > 15) lines.push(`· 외 ${ok.length - 15}명`);
+        let msg = `학부모 ${ok.length}명에게 ${monthNum}월 미납 안내 알림톡을 보냅니다.\n\n${lines.join('\n')}`;
+        if (no.length > 0) msg += `\n\n제외 ${no.length}명\n` + no.map((x) => `· ${x.student_name}: ${x.reason}`).join('\n');
+        msg += '\n\n보낼까요? (보내면 취소할 수 없어요)';
+        if (!confirm(msg)) return;
+
+        unpaidBtn.disabled = true;
+        unpaidBtn.textContent = '발송 중...';
+        const { data, error } = await sb.rpc('rpc_admin_send_unpaid_notice', {
+          p_password: getAdminPassword(),
+          p_billing_month: monthStr(currentMonth),
+          p_student_codes: ok.map((x) => x.student_code),
+        });
+        unpaidBtn.disabled = false;
+        unpaidBtn.textContent = label;
+        if (error) { alert('발송 실패: ' + error.message); return; }
+        if (data && data.reason) { alert('발송하지 못했어요: ' + data.reason); return; }
+
+        const skipped = (data && data.skipped) || [];
+        let done = `미납 안내 ${(data && data.sent) || 0}명에게 발송했어요.`;
         if (skipped.length > 0) done += `\n\n제외 ${skipped.length}명\n` + skipped.map((s) => `· ${s.name}: ${s.reason}`).join('\n');
         alert(done);
         selectedCodes.clear();
@@ -667,7 +742,7 @@
               <button type="button" class="action-btn toggle-btn" data-code="${r.student_code}">${isEditing ? '닫기' : (r.paid ? '수정' : '납부 입력')}</button>
             </div>
           </div>
-          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.withdrawn ? '<span class="tag wd">퇴원</span>' : ''}${r.class_type_fixed ? '<span class="tag">구분 지정</span>' : ''}${r.discount_rate > 0 ? `<span class="tag disc">할인 ${r.discount_rate}%</span>` : ''}${r.deduct_weeks > 0 ? `<span class="tag ded">차감 ${r.deduct_weeks}주</span>` : ''}${r.notice_sent_at ? `<span class="tag bell">알림톡 ${fmtSentAt(r.notice_sent_at)}</span>` : ''}<label class="notice-toggle${r.tuition_notice_on === false ? ' off' : ''}" title="말일 수납 안내를 받을지 정해요"><input type="checkbox" class="notice-chk" data-code="${r.student_code}" ${r.tuition_notice_on === false ? '' : 'checked'}>수납 안내</label>${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}${r.paid && r.payment_method ? ' · ' + r.payment_method : ''}</div>
+          <div class="meta">${r.grade || ''}${r.class_type ? ' · ' + r.class_type : ''}${r.withdrawn ? '<span class="tag wd">퇴원</span>' : ''}${r.class_type_fixed ? '<span class="tag">구분 지정</span>' : ''}${r.discount_rate > 0 ? `<span class="tag disc">할인 ${r.discount_rate}%</span>` : ''}${r.deduct_weeks > 0 ? `<span class="tag ded">차감 ${r.deduct_weeks}주</span>` : ''}${r.notice_sent_at ? `<span class="tag bell">알림톡 ${fmtSentAt(r.notice_sent_at)}</span>` : ''}${!r.paid && unpaidNotice.has(r.student_code) ? `<span class="tag unpaidn">미납 안내 ${fmtSentAt(unpaidNotice.get(r.student_code).last)} · ${unpaidNotice.get(r.student_code).count}회</span>` : ''}<label class="notice-toggle${r.tuition_notice_on === false ? ' off' : ''}" title="말일 수납 안내를 받을지 정해요"><input type="checkbox" class="notice-chk" data-code="${r.student_code}" ${r.tuition_notice_on === false ? '' : 'checked'}>수납 안내</label>${r.paid && r.paid_date ? ' · 납부일 ' + r.paid_date : ''}${r.paid && r.payment_method ? ' · ' + r.payment_method : ''}</div>
           ${r.paid && r.memo ? `<div class="memo-line">메모: ${r.memo}</div>` : ''}
           ${form}
         </div>
