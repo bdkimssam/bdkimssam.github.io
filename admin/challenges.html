@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>챌린지 | 관리자</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://reuzxqlhncwrwswadbvn.supabase.co" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<style>
+  :root { --navy-950:#0A0A0A; --navy-900:#161616; --ink:#161616; --muted:#5C5C5C; --gray-50:#F2F2F2; --gray-200:#E5E5E5; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 60px; display:flex; flex-direction:column; gap:18px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  .panel h2 { font-size:15px; font-weight:900; margin:0 0 14px; }
+
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .topbar label { font-size:12.5px; color:var(--muted); font-weight:700; display:flex; align-items:center; gap:6px; cursor:pointer; }
+
+  button { font-family:inherit; cursor:pointer; }
+  .btn { border:none; border-radius:10px; padding:10px 16px; font-size:13.5px; font-weight:800; background:var(--navy-950); color:#fff; }
+  .btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--gray-200); }
+  .btn.sm { padding:7px 12px; font-size:12.5px; border-radius:8px; }
+  .btn:disabled { opacity:.5; cursor:default; }
+
+  /* 목록 */
+  .clist { display:flex; flex-direction:column; gap:10px; }
+  .citem { border:1px solid var(--gray-200); border-radius:12px; padding:15px 16px; display:flex; align-items:flex-start; gap:12px; }
+  .citem .body { flex:1; min-width:0; }
+  .citem .t { font-size:14.5px; font-weight:900; }
+  .citem .t .off { font-size:11.5px; font-weight:800; color:var(--muted); border:1px solid var(--gray-200); border-radius:6px; padding:2px 6px; margin-left:7px; vertical-align:1px; }
+  .citem .t .on { font-size:11.5px; font-weight:800; color:#fff; background:var(--navy-950); border-radius:6px; padding:2.5px 7px; margin-left:7px; vertical-align:1px; }
+  .citem .meta { font-size:12.5px; color:var(--muted); margin-top:5px; line-height:1.7; }
+  .citem.arch { opacity:.55; }
+  .empty { text-align:center; color:var(--muted); font-size:13.5px; padding:26px 0; }
+  .loading { text-align:center; color:var(--muted); font-size:13.5px; padding:30px 0; }
+
+  /* 폼 */
+  .frm { display:flex; flex-direction:column; gap:16px; }
+  .frm .row { display:flex; flex-direction:column; gap:6px; }
+  .frm label.fl { font-size:12.5px; font-weight:800; color:var(--ink); }
+  .frm label.fl .hint { font-weight:600; color:var(--muted); margin-left:6px; }
+  .frm input[type="text"], .frm input[type="number"], .frm input[type="date"], .frm textarea {
+    font-family:inherit; font-size:14px; padding:10px 12px; border:1px solid var(--gray-200); border-radius:10px; background:#fff; color:var(--ink); width:100%;
+  }
+  .frm textarea { resize:vertical; min-height:70px; line-height:1.6; }
+  .frm input:focus, .frm textarea:focus { outline:none; border-color:var(--navy-950); }
+  .dates { display:flex; align-items:center; gap:8px; }
+  .frm .dates input { width:170px; }
+  .dates .dlen { font-size:12.5px; color:var(--muted); font-weight:700; white-space:nowrap; }
+  .chks { display:flex; gap:16px; flex-wrap:wrap; }
+  .chks label { font-size:13.5px; font-weight:700; display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .chks input { width:16px; height:16px; accent-color:var(--navy-950); }
+
+  .steps { display:flex; flex-direction:column; gap:7px; }
+  .srow { display:flex; align-items:center; gap:8px; font-size:13.5px; }
+  .srow .no { width:40px; font-size:12px; color:var(--muted); font-weight:800; white-space:nowrap; }
+  .frm .srow input { width:90px; text-align:right; }
+  .frm .srow input.amt { width:120px; }
+  .srow .u, .srow span { color:var(--muted); font-size:12.5px; white-space:nowrap; }
+  .box { background:var(--gray-50); border:1px solid var(--gray-200); border-radius:12px; padding:14px 15px; display:flex; flex-direction:column; gap:10px; }
+  .note { font-size:12.5px; color:var(--muted); line-height:1.65; }
+
+  .fbtns { display:flex; gap:8px; justify-content:flex-end; }
+  .err { font-size:13px; color:#B91C1C; font-weight:700; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← 관리자 홈</a>
+  <div class="brand">챌린지</div>
+</header>
+
+<main>
+  <div>
+    <h1>챌린지 관리</h1>
+    <p class="sub">장학금 챌린지를 만들고 고치는 화면이에요. 공개로 켜 둔 챌린지만 학생에게 보여요.</p>
+  </div>
+
+  <!-- 목록 -->
+  <div class="panel" id="list-panel">
+    <div class="topbar" style="margin-bottom:14px;">
+      <h2 style="margin:0;">챌린지 목록</h2>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <label><input type="checkbox" id="show-arch"> 지난 챌린지도 보기</label>
+        <button class="btn sm" id="new-btn">+ 새 챌린지</button>
+      </div>
+    </div>
+    <div id="list"><div class="loading">불러오는 중...</div></div>
+  </div>
+
+  <!-- 등록/수정 폼 -->
+  <div class="panel" id="form-panel" style="display:none;">
+    <h2 id="form-title">새 챌린지</h2>
+    <div class="frm">
+      <div class="row">
+        <label class="fl" for="f-title">챌린지 이름</label>
+        <input type="text" id="f-title" maxlength="100" placeholder="예) 겨울방학 아침 공부 챌린지">
+      </div>
+      <div class="row">
+        <label class="fl" for="f-desc">설명 <span class="hint">학생에게 보여줄 안내 글이에요</span></label>
+        <textarea id="f-desc" placeholder="예) 매일 아침 공부한 사진을 올려 주세요."></textarea>
+      </div>
+      <div class="row">
+        <label class="fl">기간</label>
+        <div class="dates">
+          <input type="date" id="f-start"> ~ <input type="date" id="f-end">
+          <span class="dlen" id="f-len"></span>
+        </div>
+      </div>
+      <div class="row">
+        <label class="fl">대상</label>
+        <div class="chks">
+          <label><input type="checkbox" class="f-target" value="초등"> 초등</label>
+          <label><input type="checkbox" class="f-target" value="중등"> 중등</label>
+          <label><input type="checkbox" class="f-target" value="고등"> 고등</label>
+        </div>
+      </div>
+
+      <div class="row">
+        <label class="fl">장학금 지급 방식</label>
+        <div class="chks">
+          <label><input type="radio" name="f-rtype" value="steps" checked> 인증 일수 기준</label>
+          <label><input type="radio" name="f-rtype" value="top_n"> 상위 몇 명</label>
+        </div>
+      </div>
+
+      <!-- 일수 기준 단계 -->
+      <div class="box" id="steps-box">
+        <div class="steps" id="steps"></div>
+        <p class="note">쓰는 단계만 채우면 돼요. 학생은 자기가 넘은 가장 높은 단계의 금액을 받아요.<br>
+        모두에게 똑같이 줄 챌린지는 1단계 하나만 채우면 돼요. (예: 기간이 10일이고 다 인증해야 하면 → 10일 이상)</p>
+      </div>
+
+      <!-- 상위 N명 -->
+      <div class="box" id="top-box" style="display:none;">
+        <div class="srow">
+          <span>상위</span>
+          <input type="number" id="f-topn" min="1" step="1"> <span class="u">명에게</span>
+          <input type="number" id="f-topamt" class="amt" min="0" step="1000"> <span class="u">원씩</span>
+        </div>
+        <p class="note">순위가 같은 학생이 있으면 나중에 원장님이 직접 정해요.</p>
+      </div>
+
+      <div class="row">
+        <div class="chks">
+          <label><input type="checkbox" id="f-visible"> 학생에게 공개 <span class="hint" style="font-weight:600; color:var(--muted);">(켜면 학생이 신청할 수 있어요)</span></label>
+          <label id="arch-wrap" style="display:none;"><input type="checkbox" id="f-archived"> 지난 챌린지로 보내기</label>
+        </div>
+      </div>
+
+      <p class="err" id="f-err"></p>
+      <div class="fbtns">
+        <button class="btn ghost" id="cancel-btn">취소</button>
+        <button class="btn" id="save-btn">저장</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  const el = (id) => document.getElementById(id);
+  const won = (n) => Number(n).toLocaleString('ko-KR');
+  let editingId = null;   // null이면 새로 만들기
+  let rows = [];          // 불러온 챌린지 목록
+
+  function dayLen(s, e) {
+    if (!s || !e) return null;
+    const d = (new Date(e) - new Date(s)) / 86400000 + 1;
+    return d >= 1 ? Math.round(d) : null;
+  }
+  function fmtDate(d) {
+    const [y, m, dd] = d.split('-');
+    return `${y}. ${Number(m)}. ${Number(dd)}.`;
+  }
+
+  // ----- 목록 -----
+  function rewardText(c) {
+    if (c.reward_type === 'top_n') return `상위 ${c.top_n}명 · ${won(c.top_amount)}원`;
+    const st = c.steps || [];
+    if (st.length === 1) return `${st[0].days}일 이상 인증 · ${won(st[0].amount)}원`;
+    return st.map((s) => `${s.days}일↑ ${won(s.amount)}원`).join(' / ');
+  }
+
+  function renderList() {
+    const showArch = el('show-arch').checked;
+    const items = rows.filter((c) => showArch || !c.archived);
+    if (!items.length) {
+      el('list').innerHTML = '<div class="empty">아직 챌린지가 없어요. [+ 새 챌린지]로 만들어 보세요.</div>';
+      return;
+    }
+    el('list').innerHTML = `<div class="clist">${items.map((c) => `
+      <div class="citem ${c.archived ? 'arch' : ''}">
+        <div class="body">
+          <div class="t">${c.title}
+            ${c.archived ? '<span class="off">지난 챌린지</span>' : (c.visible ? '<span class="on">공개</span>' : '<span class="off">비공개</span>')}
+          </div>
+          <div class="meta">
+            ${fmtDate(c.start_date)} ~ ${fmtDate(c.end_date)} (${dayLen(c.start_date, c.end_date)}일) · 대상: ${(c.targets || []).join('·')}<br>
+            ${rewardText(c)}
+          </div>
+        </div>
+        <button class="btn ghost sm" data-edit="${c.id}">수정</button>
+      </div>`).join('')}</div>`;
+    document.querySelectorAll('[data-edit]').forEach((b) => {
+      b.addEventListener('click', () => openForm(rows.find((c) => c.id === b.dataset.edit)));
+    });
+  }
+
+  async function loadList() {
+    const { data, error } = await sb.rpc('rpc_admin_list_challenges', {
+      p_password: getAdminPassword(), p_include_archived: true,
+    });
+    if (error) { el('list').innerHTML = `<div class="empty">불러오지 못했어요: ${error.message}</div>`; return; }
+    rows = data || [];
+    renderList();
+  }
+
+  // ----- 폼 -----
+  function stepRowsHtml() {
+    let h = '';
+    for (let i = 1; i <= 5; i++) {
+      h += `<div class="srow">
+        <span class="no">${i}단계</span>
+        <input type="number" class="s-days" data-i="${i}" min="1" step="1" placeholder="일수"> <span class="u">일 이상 →</span>
+        <input type="number" class="s-amt amt" data-i="${i}" min="0" step="1000" placeholder="금액"> <span class="u">원</span>
+      </div>`;
+    }
+    return h;
+  }
+
+  function updateLen() {
+    const n = dayLen(el('f-start').value, el('f-end').value);
+    el('f-len').textContent = n ? `${n}일` : '';
+  }
+
+  function setRtype(t) {
+    el('steps-box').style.display = t === 'steps' ? '' : 'none';
+    el('top-box').style.display = t === 'top_n' ? '' : 'none';
+  }
+
+  function openForm(c) {
+    editingId = c ? c.id : null;
+    el('form-title').textContent = c ? '챌린지 수정' : '새 챌린지';
+    el('f-title').value = c ? c.title : '';
+    el('f-desc').value = (c && c.description) || '';
+    el('f-start').value = c ? c.start_date : '';
+    el('f-end').value = c ? c.end_date : '';
+    updateLen();
+    document.querySelectorAll('.f-target').forEach((x) => { x.checked = c ? (c.targets || []).includes(x.value) : false; });
+    const rt = c ? c.reward_type : 'steps';
+    document.querySelector(`input[name="f-rtype"][value="${rt}"]`).checked = true;
+    setRtype(rt);
+    el('steps').innerHTML = stepRowsHtml();
+    if (c && c.reward_type === 'steps' && Array.isArray(c.steps)) {
+      c.steps.forEach((s, idx) => {
+        const d = document.querySelector(`.s-days[data-i="${idx + 1}"]`);
+        const a = document.querySelector(`.s-amt[data-i="${idx + 1}"]`);
+        if (d) d.value = s.days;
+        if (a) a.value = s.amount;
+      });
+    }
+    el('f-topn').value = (c && c.top_n) || '';
+    el('f-topamt').value = (c && c.top_amount) || '';
+    el('f-visible').checked = c ? !!c.visible : false;
+    el('f-archived').checked = c ? !!c.archived : false;
+    el('arch-wrap').style.display = c ? '' : 'none';   // 지난 챌린지 보내기는 수정할 때만
+    el('f-err').style.display = 'none';
+    el('form-panel').style.display = '';
+    el('form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function closeForm() { el('form-panel').style.display = 'none'; editingId = null; }
+
+  function showErr(msg) { const e = el('f-err'); e.textContent = msg; e.style.display = 'block'; }
+
+  async function save() {
+    const title = el('f-title').value.trim();
+    const start = el('f-start').value, end = el('f-end').value;
+    const targets = [...document.querySelectorAll('.f-target:checked')].map((x) => x.value);
+    const rtype = document.querySelector('input[name="f-rtype"]:checked').value;
+
+    if (!title) return showErr('챌린지 이름을 넣어 주세요.');
+    if (!start || !end) return showErr('기간을 넣어 주세요.');
+    if (new Date(end) < new Date(start)) return showErr('종료일이 시작일보다 빨라요.');
+    if (!targets.length) return showErr('대상을 하나 이상 골라 주세요.');
+
+    let steps = null, topn = null, topamt = null;
+    if (rtype === 'steps') {
+      steps = [];
+      for (let i = 1; i <= 5; i++) {
+        const d = document.querySelector(`.s-days[data-i="${i}"]`).value;
+        const a = document.querySelector(`.s-amt[data-i="${i}"]`).value;
+        if (d === '' && a === '') continue;
+        if (d === '' || a === '') return showErr(`${i}단계: 일수와 금액을 둘 다 넣어 주세요.`);
+        steps.push({ days: Number(d), amount: Number(a) });
+      }
+      if (!steps.length) return showErr('단계를 하나 이상 넣어 주세요.');
+      const len = dayLen(start, end);
+      for (let i = 0; i < steps.length; i++) {
+        if (steps[i].days < 1 || steps[i].days > len) return showErr(`${i + 1}단계: 일수는 1~${len}일(기간 일수) 사이여야 해요.`);
+        if (steps[i].amount <= 0) return showErr(`${i + 1}단계: 금액을 확인해 주세요.`);
+        if (i > 0 && steps[i].days <= steps[i - 1].days) return showErr(`${i + 1}단계: 일수는 앞 단계보다 커야 해요.`);
+      }
+    } else {
+      topn = Number(el('f-topn').value);
+      topamt = Number(el('f-topamt').value);
+      if (!topn || topn < 1) return showErr('상위 몇 명인지 넣어 주세요.');
+      if (!topamt || topamt <= 0) return showErr('금액을 확인해 주세요.');
+    }
+
+    el('save-btn').disabled = true;
+    const { error } = await sb.rpc('rpc_admin_save_challenge', {
+      p_password: getAdminPassword(),
+      p_id: editingId,
+      p_title: title,
+      p_description: el('f-desc').value,
+      p_start_date: start,
+      p_end_date: end,
+      p_targets: targets,
+      p_reward_type: rtype,
+      p_steps: steps,
+      p_top_n: topn,
+      p_top_amount: topamt,
+      p_visible: el('f-visible').checked,
+      p_archived: el('f-archived').checked,
+    });
+    el('save-btn').disabled = false;
+    if (error) return showErr(`저장하지 못했어요: ${error.message}`);
+    closeForm();
+    await loadList();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    requireDirector();
+    el('new-btn').addEventListener('click', () => openForm(null));
+    el('cancel-btn').addEventListener('click', closeForm);
+    el('save-btn').addEventListener('click', save);
+    el('show-arch').addEventListener('change', renderList);
+    el('f-start').addEventListener('change', updateLen);
+    el('f-end').addEventListener('change', updateLen);
+    document.querySelectorAll('input[name="f-rtype"]').forEach((r) => {
+      r.addEventListener('change', () => setRtype(r.value));
+    });
+    loadList();
+  });
+</script>
+</body>
+</html>
