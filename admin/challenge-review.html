@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>챌린지 확인 | 관리자</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://reuzxqlhncwrwswadbvn.supabase.co" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<style>
+  :root { --navy-950:#0A0A0A; --navy-900:#161616; --ink:#161616; --muted:#5C5C5C; --gray-50:#F2F2F2; --gray-200:#E5E5E5; --red:#B91C1C; --green:#15803D; --amber:#B45309; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 20px 60px; display:flex; flex-direction:column; gap:18px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 4px; }
+  p.sub { font-size: 13px; color: var(--muted); margin: 0; line-height:1.6; }
+  .panel { background:#fff; border:1px solid var(--gray-200); border-radius:16px; padding:22px; box-shadow: 0 8px 24px rgba(11,18,32,0.05); }
+  .panel h2 { font-size:15px; font-weight:900; margin:0 0 14px; }
+  .panel h2 .hint { font-size:12px; font-weight:600; color:var(--muted); margin-left:7px; }
+  button { font-family:inherit; cursor:pointer; }
+  .btn { border:none; border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:800; background:var(--navy-950); color:#fff; }
+  .btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--gray-200); }
+  .btn.danger { background:#fff; color:var(--red); border:1px solid #FECACA; }
+  .btn:disabled { opacity:.5; cursor:default; }
+  select, input[type="number"], input[type="text"] { font-family:inherit; font-size:13.5px; padding:9px 11px; border:1px solid var(--gray-200); border-radius:9px; background:#fff; color:var(--ink); }
+  .loading { text-align:center; color:var(--muted); font-size:13.5px; padding:30px 0; }
+  .empty { text-align:center; color:var(--muted); font-size:13.5px; padding:22px 0; }
+
+  .pickbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .pickbar select { min-width:260px; }
+  .pickbar .pinfo { font-size:12.5px; color:var(--muted); font-weight:700; }
+
+  /* 신청자 표 */
+  table.at { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.at th { text-align:left; font-size:12px; color:var(--muted); font-weight:700; padding:0 8px 8px 0; border-bottom:1px solid var(--gray-200); }
+  table.at td { padding:10px 8px 10px 0; border-bottom:1px solid var(--gray-200); vertical-align:middle; }
+  .st { font-size:11.5px; font-weight:800; padding:2.5px 8px; border-radius:999px; background:#F3F4F6; color:var(--muted); }
+  .st.wait { background:#FEF3C7; color:var(--amber); }
+  .st.ok { background:#DCFCE7; color:var(--green); }
+  .st.no { background:#FEE2E2; color:var(--red); }
+  .redo-n { color:var(--amber); font-weight:800; font-size:12px; margin-left:5px; }
+  .rowbtns { display:flex; gap:6px; flex-wrap:wrap; }
+
+  /* 인증 사진 */
+  .pgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:12px; }
+  .pcard { border:1px solid var(--gray-200); border-radius:12px; overflow:hidden; background:#fff; display:flex; flex-direction:column; }
+  .pcard img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; cursor:zoom-in; background:var(--gray-50); }
+  .pcard .pm { padding:9px 11px; font-size:12.5px; display:flex; flex-direction:column; gap:6px; }
+  .pcard .who { font-weight:800; }
+  .pcard .who small { color:var(--muted); font-weight:700; margin-left:5px; }
+  .pcard .re-tag { color:var(--amber); font-weight:800; font-size:12px; }
+  .pcard .re-cm { color:var(--muted); font-size:12px; line-height:1.5; }
+  .represets { display:none; flex-direction:column; gap:5px; padding:0 11px 11px; }
+  .represets.open { display:flex; }
+  .represets button { text-align:left; font-size:12px; padding:7px 9px; border:1px solid var(--gray-200); background:var(--gray-50); border-radius:7px; font-weight:700; color:var(--ink); }
+  .represets .custom { display:flex; gap:5px; }
+  .represets .custom input { flex:1; font-size:12px; padding:7px 9px; }
+
+  /* 결과·지급 */
+  table.rt { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.rt th { text-align:left; font-size:12px; color:var(--muted); font-weight:700; padding:0 8px 8px 0; border-bottom:1px solid var(--gray-200); }
+  table.rt td { padding:10px 8px 10px 0; border-bottom:1px solid var(--gray-200); vertical-align:middle; }
+  table.rt .amt-in { width:110px; text-align:right; }
+  .tie { color:var(--amber); font-weight:800; font-size:12px; }
+  .paid-at { color:var(--muted); font-size:12px; margin-left:6px; }
+  .note { font-size:12.5px; color:var(--muted); background:var(--gray-50); border:1px solid var(--gray-200); border-radius:10px; padding:11px 13px; line-height:1.65; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="challenges.html">← 챌린지 목록</a>
+  <div class="brand">챌린지 확인</div>
+</header>
+
+<main>
+  <div>
+    <h1>챌린지 확인</h1>
+    <p class="sub">신청 승인, 인증 사진 확인, 지급 기록까지 여기서 해요.</p>
+  </div>
+
+  <div class="panel">
+    <div class="pickbar">
+      <select id="ch-pick"><option value="">챌린지 고르기...</option></select>
+      <span class="pinfo" id="ch-info"></span>
+    </div>
+  </div>
+
+  <div class="panel" id="apps-panel" style="display:none;">
+    <h2>신청자 <span class="hint" id="apps-count"></span></h2>
+    <div id="apps"></div>
+  </div>
+
+  <div class="panel" id="proofs-panel" style="display:none;">
+    <h2>인증 사진 <span class="hint">사진을 누르면 크게 보여요</span></h2>
+    <div style="margin-bottom:12px;">
+      <select id="pf-student"><option value="">전체 학생</option></select>
+    </div>
+    <div id="proofs"></div>
+  </div>
+
+  <div class="panel" id="result-panel" style="display:none;">
+    <h2>결과 · 지급 <span class="hint" id="result-hint"></span></h2>
+    <div id="results"></div>
+    <p class="note" style="margin-top:12px;" id="result-note"></p>
+  </div>
+</main>
+
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  const el = (id) => document.getElementById(id);
+  const won = (n) => Number(n).toLocaleString('ko-KR');
+  function fmtD(d) { const [, m, dd] = String(d).split('-'); return `${Number(m)}/${Number(dd)}`; }
+  function fmtDT(iso) {
+    const d = new Date(iso);
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+  const todayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const RE_PRESETS = [
+    '사진이 흐려요. 다시 찍어 올려 주세요.',
+    '내용이 잘 안 보여요. 다시 올려 주세요.',
+    '챌린지 내용과 다른 사진 같아요. 다시 올려 주세요.',
+  ];
+
+  let challenges = [];
+  let current = null;     // 선택된 챌린지
+  let apps = [];          // 신청자 현황
+  let proofs = [];        // 인증 사진
+
+  // ----- 챌린지 고르기 -----
+  async function loadChallenges() {
+    const { data, error } = await sb.rpc('rpc_admin_list_challenges', {
+      p_password: getAdminPassword(), p_include_archived: true,
+    });
+    if (error) { alert('챌린지 목록을 불러오지 못했어요: ' + error.message); return; }
+    challenges = data || [];
+    el('ch-pick').innerHTML = '<option value="">챌린지 고르기...</option>' +
+      challenges.map((c) => `<option value="${c.id}">${c.title} (${fmtD(c.start_date)}~${fmtD(c.end_date)})${c.archived ? ' · 지난' : ''}</option>`).join('');
+    const qid = new URLSearchParams(location.search).get('id');
+    if (qid && challenges.some((c) => c.id === qid)) {
+      el('ch-pick').value = qid;
+      pick(qid);
+    }
+  }
+
+  function rewardText(c) {
+    if (c.reward_type === 'top_n') return `상위 ${c.top_n}명 · ${won(c.top_amount)}원`;
+    return (c.steps || []).map((s) => `${s.days}일↑ ${won(s.amount)}원`).join(' / ');
+  }
+
+  async function pick(id) {
+    current = challenges.find((c) => c.id === id) || null;
+    if (!current) {
+      ['apps-panel', 'proofs-panel', 'result-panel'].forEach((p) => { el(p).style.display = 'none'; });
+      el('ch-info').textContent = '';
+      return;
+    }
+    el('ch-info').textContent = `${fmtD(current.start_date)} ~ ${fmtD(current.end_date)} · ${(current.targets || []).join('·')} · ${rewardText(current)} · ${current.visible ? '공개 중' : '비공개'}`;
+    ['apps-panel', 'proofs-panel', 'result-panel'].forEach((p) => { el(p).style.display = ''; });
+    el('apps').innerHTML = '<div class="loading">불러오는 중...</div>';
+    el('proofs').innerHTML = '<div class="loading">불러오는 중...</div>';
+    el('results').innerHTML = '';
+    await Promise.all([loadApps(), loadProofs()]);
+  }
+
+  // ----- 신청자 -----
+  async function loadApps() {
+    const { data, error } = await sb.rpc('rpc_admin_challenge_overview', {
+      p_password: getAdminPassword(), p_challenge_id: current.id,
+    });
+    if (error) { el('apps').innerHTML = `<div class="empty">불러오지 못했어요: ${error.message}</div>`; return; }
+    apps = data || [];
+    renderApps();
+    renderResults();
+    // 사진 필터 학생 목록
+    el('pf-student').innerHTML = '<option value="">전체 학생</option>' +
+      apps.map((a) => `<option value="${a.student_code}">${a.student_name} (${a.grade || '-'})</option>`).join('');
+  }
+
+  function stBadge(s) {
+    if (s === '대기') return '<span class="st wait">대기</span>';
+    if (s === '승인') return '<span class="st ok">승인</span>';
+    return '<span class="st no">거절</span>';
+  }
+
+  function renderApps() {
+    const n = { 대기: 0, 승인: 0, 거절: 0 };
+    apps.forEach((a) => { n[a.status] = (n[a.status] || 0) + 1; });
+    el('apps-count').textContent = apps.length ? `대기 ${n['대기']} · 승인 ${n['승인']} · 거절 ${n['거절']}` : '';
+    if (!apps.length) { el('apps').innerHTML = '<div class="empty">아직 신청한 학생이 없어요.</div>'; return; }
+    el('apps').innerHTML = `<table class="at">
+      <thead><tr><th>이름</th><th>학년</th><th>상태</th><th>인증</th><th>마지막 인증</th><th>신청</th><th></th></tr></thead>
+      <tbody>${apps.map((a) => `
+        <tr>
+          <td style="font-weight:800;">${a.student_name}</td>
+          <td>${a.grade || '-'}</td>
+          <td>${stBadge(a.status)}</td>
+          <td>${a.days}일${a.redo_count > 0 ? `<span class="redo-n">재인증 ${a.redo_count}</span>` : ''}</td>
+          <td>${a.last_proof_date ? fmtD(a.last_proof_date) : '-'}</td>
+          <td style="color:var(--muted); font-size:12.5px;">${fmtDT(a.applied_at)}</td>
+          <td><div class="rowbtns">
+            ${a.status !== '승인' ? `<button class="btn" data-app="${a.application_id}" data-to="승인">승인</button>` : ''}
+            ${a.status !== '거절' ? `<button class="btn danger" data-app="${a.application_id}" data-to="거절">거절</button>` : ''}
+            ${a.status !== '대기' ? `<button class="btn ghost" data-app="${a.application_id}" data-to="대기">대기로</button>` : ''}
+          </div></td>
+        </tr>`).join('')}</tbody></table>`;
+    el('apps').querySelectorAll('[data-app]').forEach((b) => b.addEventListener('click', async () => {
+      const a = apps.find((x) => x.application_id === b.dataset.app);
+      if (b.dataset.to === '거절' && !confirm(`${a.student_name} 학생의 신청을 거절할까요?\n거절하면 이 학생은 인증을 올릴 수 없어요.`)) return;
+      b.disabled = true;
+      const { error } = await sb.rpc('rpc_admin_set_challenge_app_status', {
+        p_password: getAdminPassword(), p_application_id: b.dataset.app, p_status: b.dataset.to,
+      });
+      if (error) { alert('바꾸지 못했어요: ' + error.message); b.disabled = false; return; }
+      await loadApps();
+    }));
+  }
+
+  // ----- 인증 사진 -----
+  async function loadProofs() {
+    const scode = el('pf-student').value || null;
+    const { data, error } = await sb.rpc('rpc_admin_challenge_proofs', {
+      p_password: getAdminPassword(), p_challenge_id: current.id, p_student_code: scode,
+    });
+    if (error) { el('proofs').innerHTML = `<div class="empty">불러오지 못했어요: ${error.message}</div>`; return; }
+    proofs = data || [];
+    renderProofs();
+  }
+
+  function renderProofs() {
+    if (!proofs.length) { el('proofs').innerHTML = '<div class="empty">아직 올라온 인증이 없어요.</div>'; return; }
+    el('proofs').innerHTML = `<div class="pgrid">${proofs.map((p) => `
+      <div class="pcard" data-pid="${p.proof_id}">
+        <img src="${p.photo_url}" loading="lazy" alt="인증 사진" data-zoom="${p.photo_url}">
+        <div class="pm">
+          <span class="who">${p.student_name}<small>${fmtD(p.proof_date)}</small></span>
+          ${p.status === '재인증'
+            ? `<span class="re-tag">재인증 요청함</span>
+               ${p.admin_comment ? `<span class="re-cm">${p.admin_comment}</span>` : ''}
+               <button class="btn ghost" data-accept="${p.proof_id}">다시 인정</button>`
+            : `<button class="btn ghost" data-redo="${p.proof_id}">재인증 요청</button>`}
+        </div>
+        <div class="represets" id="rp-${p.proof_id}">
+          ${RE_PRESETS.map((t, i) => `<button data-preset="${p.proof_id}" data-i="${i}">${t}</button>`).join('')}
+          <div class="custom">
+            <input type="text" id="rc-${p.proof_id}" maxlength="100" placeholder="직접 쓰기">
+            <button class="btn" data-custom="${p.proof_id}">보내기</button>
+          </div>
+        </div>
+      </div>`).join('')}</div>`;
+
+    el('proofs').querySelectorAll('[data-zoom]').forEach((img) => img.addEventListener('click', () => window.open(img.dataset.zoom, '_blank')));
+    el('proofs').querySelectorAll('[data-redo]').forEach((b) => b.addEventListener('click', () => {
+      const box = el(`rp-${b.dataset.redo}`);
+      box.classList.toggle('open');
+    }));
+    el('proofs').querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () =>
+      setProof(b.dataset.preset, '재인증', RE_PRESETS[Number(b.dataset.i)])));
+    el('proofs').querySelectorAll('[data-custom]').forEach((b) => b.addEventListener('click', () => {
+      const t = el(`rc-${b.dataset.custom}`).value.trim();
+      if (!t) { alert('문구를 써 주세요.'); return; }
+      setProof(b.dataset.custom, '재인증', t);
+    }));
+    el('proofs').querySelectorAll('[data-accept]').forEach((b) => b.addEventListener('click', () =>
+      setProof(b.dataset.accept, '인정', null)));
+  }
+
+  async function setProof(proofId, status, comment) {
+    const { error } = await sb.rpc('rpc_admin_set_proof_status', {
+      p_password: getAdminPassword(), p_proof_id: proofId, p_status: status, p_comment: comment,
+    });
+    if (error) { alert('바꾸지 못했어요: ' + error.message); return; }
+    await Promise.all([loadProofs(), loadApps()]);   // 일수가 달라지니 신청자·결과도 갱신
+  }
+
+  // ----- 결과 · 지급 -----
+  function stepAmount(c, days) {
+    let amt = 0;
+    (c.steps || []).forEach((s) => { if (days >= s.days) amt = Number(s.amount); });
+    return amt;
+  }
+
+  function renderResults() {
+    const c = current;
+    const over = todayStr() > c.end_date;
+    el('result-hint').textContent = over ? '챌린지가 끝났어요' : '진행 중이에요 (일수는 지금까지 기준)';
+    const ok = apps.filter((a) => a.status === '승인');
+    if (!ok.length) {
+      el('results').innerHTML = '<div class="empty">승인된 학생이 없어요.</div>';
+      el('result-note').textContent = '';
+      return;
+    }
+    let rows;
+    if (c.reward_type === 'top_n') {
+      const sorted = [...ok].sort((a, b) => b.days - a.days);
+      const cut = sorted[c.top_n - 1] ? Number(sorted[c.top_n - 1].days) : null;
+      rows = sorted.map((a, i) => {
+        const days = Number(a.days);
+        const inTop = i < c.top_n;
+        const tie = cut !== null && days === cut && sorted.filter((x) => Number(x.days) === cut).length > 1
+          && sorted.findIndex((x) => Number(x.days) === cut) < c.top_n;
+        return { a, days, suggest: inTop ? Number(c.top_amount) : 0, label: `${i + 1}위`, tie };
+      });
+      el('result-note').textContent = `상위 ${c.top_n}명 · ${won(c.top_amount)}원. 동점(주황 표시)이 있으면 누구에게 줄지 직접 정해 주세요. 지급 체크는 기록용이에요 — 실제 지급은 따로 해 주세요.`;
+    } else {
+      rows = ok.map((a) => {
+        const days = Number(a.days);
+        return { a, days, suggest: stepAmount(c, days), label: '', tie: false };
+      });
+      el('result-note').textContent = '금액은 지금 일수로 계산한 단계 금액이에요. 수정해서 지급 체크할 수도 있어요. 지급 체크는 기록용이에요 — 실제 지급은 따로 해 주세요.';
+    }
+    el('results').innerHTML = `<table class="rt">
+      <thead><tr>${c.reward_type === 'top_n' ? '<th>순위</th>' : ''}<th>이름</th><th>인증 일수</th><th>계산 금액</th><th>지급 기록</th></tr></thead>
+      <tbody>${rows.map((r) => `
+        <tr>
+          ${c.reward_type === 'top_n' ? `<td>${r.label}${r.tie ? ' <span class="tie">동점</span>' : ''}</td>` : ''}
+          <td style="font-weight:800;">${r.a.student_name}</td>
+          <td>${r.days}일</td>
+          <td>${r.suggest > 0 ? won(r.suggest) + '원' : '-'}</td>
+          <td>
+            <input type="number" class="amt-in" id="amt-${r.a.student_code}" step="1000" min="0"
+                   value="${r.a.paid_amount != null ? Number(r.a.paid_amount) : (r.suggest || '')}" ${r.a.paid_amount != null ? 'disabled' : ''}>
+            <button class="btn ${r.a.paid_amount != null ? 'ghost' : ''}" data-pay="${r.a.student_code}" data-on="${r.a.paid_amount != null ? '0' : '1'}">
+              ${r.a.paid_amount != null ? '지급 취소' : '지급 완료'}</button>
+            ${r.a.paid_at ? `<span class="paid-at">${fmtDT(r.a.paid_at)}</span>` : ''}
+          </td>
+        </tr>`).join('')}</tbody></table>`;
+    el('results').querySelectorAll('[data-pay]').forEach((b) => b.addEventListener('click', async () => {
+      const code = b.dataset.pay;
+      const on = b.dataset.on === '1';
+      const a = apps.find((x) => x.student_code === code);
+      let amount = null;
+      if (on) {
+        amount = Number(el(`amt-${code}`).value);
+        if (!amount || amount <= 0) { alert('금액을 확인해 주세요.'); return; }
+        if (!confirm(`${a.student_name} · ${won(amount)}원 지급으로 기록할까요?`)) return;
+      } else {
+        if (!confirm(`${a.student_name} 학생의 지급 기록을 지울까요?`)) return;
+      }
+      b.disabled = true;
+      const { error } = await sb.rpc('rpc_admin_set_payout', {
+        p_password: getAdminPassword(), p_challenge_id: current.id,
+        p_student_code: code, p_amount: amount, p_on: on,
+      });
+      if (error) { alert('기록하지 못했어요: ' + error.message); b.disabled = false; return; }
+      await loadApps();
+    }));
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    requireDirector();
+    el('ch-pick').addEventListener('change', () => pick(el('ch-pick').value));
+    el('pf-student').addEventListener('change', loadProofs);
+    loadChallenges();
+  });
+</script>
+</body>
+</html>

@@ -209,7 +209,10 @@
             ${rewardText(c)}
           </div>
         </div>
-        <button class="btn ghost sm" data-edit="${c.id}">수정</button>
+        <div style="display:flex; gap:6px;">
+          <a class="btn sm" style="text-decoration:none; display:inline-flex; align-items:center;" href="challenge-review.html?id=${c.id}">신청·인증</a>
+          <button class="btn ghost sm" data-edit="${c.id}">수정</button>
+        </div>
       </div>`).join('')}</div>`;
     document.querySelectorAll('[data-edit]').forEach((b) => {
       b.addEventListener('click', () => openForm(rows.find((c) => c.id === b.dataset.edit)));
