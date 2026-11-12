@@ -721,9 +721,12 @@
       return;
     }
     const s = ok[0];
-    let msg = `학부모 ${ok.length}명에게 특강 안내를 보냅니다.\n\n`
+    const nMem = ok.filter((r) => r.applicant_type !== 'outsider').length;
+    const nOut = ok.length - nMem;
+    let msg = `학부모 ${ok.length}명에게 특강 안내를 보냅니다.`
+            + (nOut > 0 ? ` (재원생 ${nMem} · 외부생 ${nOut})` : '') + `\n\n`
             + `· 특강: ${s.lecture_title}\n· 기간: ${s.period}\n· 시간: ${s.time_text}\n· 강의실: ${s.classroom}\n\n`
-            + ok.map((r) => `· ${r.student_name}`).join('\n');
+            + ok.map((r) => `· ${r.student_name}${r.applicant_type === 'outsider' ? ' (외부생)' : ''}`).join('\n');
     if (no.length) msg += `\n\n제외 ${no.length}명\n` + no.map((r) => `· ${r.student_name}: ${r.reason}`).join('\n');
     msg += '\n\n보낼까요? (보내면 취소할 수 없어요)';
     if (!confirm(msg)) return;
