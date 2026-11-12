@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>챌린지 대시보드 | 봉덕김쌤수학학원</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; --red:#B91C1C; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background:var(--navy-950); color:#fff; padding:16px 20px; text-align:center; }
+  header a { color:#fff; text-decoration:none; font-weight:800; font-size:15px; }
+  main { max-width:640px; margin:0 auto; padding:22px 16px 60px; }
+  h1 { font-size:20px; font-weight:900; margin:0 0 6px; }
+  .sub { font-size:13px; color:var(--muted); line-height:1.6; margin:0 0 16px; }
+  .card { background:#fff; border:1px solid var(--gray-200); border-radius:14px; padding:16px 18px; margin-bottom:12px; }
+  .top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .title { font-weight:900; font-size:16.5px; }
+  .badge { font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:999px; background:#F3F4F6; color:var(--muted); }
+  .badge.wait { background:#FEF3C7; color:#B45309; }
+  .badge.ok { background:#DCFCE7; color:#15803D; }
+  .badge.no { background:#FEE2E2; color:var(--red); }
+  .badge.done { background:#E0E7FF; color:#3730A3; }
+  .info { margin-top:8px; font-size:13.5px; line-height:1.8; color:#374151; }
+  .info b { color:var(--muted); font-weight:700; margin-right:4px; }
+  .btn { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:10px; padding:11px 16px; font:inherit; font-size:14px; font-weight:800; cursor:pointer; color:var(--ink); }
+  .btn.primary { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .btn.block { width:100%; margin-top:12px; }
+  label.f { display:block; font-size:13px; font-weight:700; margin-top:13px; }
+  label.f small { color:var(--muted); font-weight:500; }
+  input[type=text], input[type=tel] { width:100%; margin-top:5px; padding:11px 12px; border:1px solid var(--gray-200); border-radius:10px; font:inherit; font-size:15px; background:#fff; color:var(--ink); }
+  .err { margin-top:12px; font-size:13px; color:var(--red); font-weight:700; line-height:1.5; }
+  .note { font-size:12.5px; color:var(--muted); line-height:1.6; }
+  .empty { text-align:center; color:var(--muted); font-size:14px; padding:36px 10px; line-height:1.8; }
+  .empty a { color:var(--ink); font-weight:800; }
+  .me { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; font-size:13.5px; }
+  .me .who { font-weight:900; }
+  .me button { appearance:none; border:none; background:none; font:inherit; font-size:12.5px; color:var(--muted); text-decoration:underline; cursor:pointer; padding:0; }
+  .golink { display:block; text-align:center; margin:0 0 14px; font-size:13.5px; font-weight:800; color:var(--ink); }
+
+  /* 달성 단계 */
+  .stepbox { margin-top:12px; background:var(--gray-50); border-radius:10px; padding:12px 14px; }
+  .stepbox .big { font-size:15px; font-weight:900; margin-bottom:8px; }
+  .stepbox .big b { font-size:20px; }
+  .strow { display:flex; align-items:center; gap:8px; font-size:13px; padding:3px 0; color:var(--muted); }
+  .strow.hit { color:#15803D; font-weight:800; }
+  .strow .ic { width:18px; text-align:center; }
+
+  /* 인증 사진 */
+  .pgrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:12px; }
+  .pitem { position:relative; border-radius:10px; overflow:hidden; border:1px solid var(--gray-200); background:var(--gray-50); display:block; }
+  .pitem img { width:100%; aspect-ratio:1; object-fit:cover; display:block; }
+  .pitem .pd { position:absolute; left:0; bottom:0; right:0; font-size:11px; font-weight:800; color:#fff; background:rgba(7,12,22,.55); padding:3px 6px; }
+  .pitem.re::after { content:'다시 올려 주세요'; position:absolute; top:6px; left:6px; font-size:10.5px; font-weight:800; background:#B45309; color:#fff; padding:2px 6px; border-radius:6px; }
+  .cm { margin-top:8px; font-size:12.5px; color:#374151; background:#FFF7ED; border:1px solid #FED7AA; border-radius:8px; padding:8px 10px; line-height:1.6; }
+  .cm b { color:#B45309; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<header><a href="index.html">봉덕김쌤수학학원</a></header>
+<main>
+  <h1>챌린지 대시보드</h1>
+  <p class="sub">내가 참여한 챌린지의 인증 기록이에요. 학부모님도 같은 방법으로 보실 수 있어요.</p>
+
+  <!-- 로그인 -->
+  <section id="login-pane" hidden>
+    <div class="card">
+      <div class="title" style="font-size:15.5px;">누구인지 알려 주세요</div>
+      <label class="f">학생 이름
+        <input type="text" id="l-name" maxlength="30" autocomplete="off" placeholder="홍길동"></label>
+      <label class="f">학부모님 전화번호 <small>(전체, 예: 010-1234-5678)</small>
+        <input type="tel" id="l-phone" maxlength="20" autocomplete="off" inputmode="numeric" placeholder="010-0000-0000"></label>
+      <p class="err" id="l-err" hidden></p>
+      <button class="btn primary block" id="l-btn">확인</button>
+    </div>
+  </section>
+
+  <!-- 대시보드 -->
+  <section id="main-pane" hidden>
+    <div class="me">
+      <span class="who" id="me-name"></span>
+      <button id="logout-btn" type="button">다른 사람으로 하기</button>
+    </div>
+    <a class="golink" href="challenge.html">챌린지 신청·오늘 인증하러 가기 →</a>
+    <div id="list"><div class="empty">불러오는 중...</div></div>
+  </section>
+</main>
+
+<script src="assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const won = (n) => Number(n).toLocaleString('ko-KR');
+  function fmtD(d) { const [, m, dd] = d.split('-'); return `${Number(m)}/${Number(dd)}`; }
+  function dayLen(s, e) { return Math.round((new Date(e) - new Date(s)) / 86400000) + 1; }
+  const todayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  // challenge.html 과 같은 로그인 저장을 같이 써요
+  const saved = () => ({
+    name: localStorage.getItem('ch_name') || '',
+    phone: localStorage.getItem('ch_phone') || '',
+    display: localStorage.getItem('ch_display') || '',
+  });
+  function setSaved(name, phone, display) {
+    localStorage.setItem('ch_name', name);
+    localStorage.setItem('ch_phone', phone);
+    localStorage.setItem('ch_display', display);
+  }
+  function clearSaved() {
+    localStorage.removeItem('ch_name');
+    localStorage.removeItem('ch_phone');
+    localStorage.removeItem('ch_display');
+  }
+  function showLogin() { $('login-pane').hidden = false; $('main-pane').hidden = true; }
+  function showMain() {
+    $('login-pane').hidden = true; $('main-pane').hidden = false;
+    $('me-name').textContent = saved().display;
+    load();
+  }
+
+  async function login() {
+    const name = $('l-name').value.trim();
+    const phone = $('l-phone').value.trim();
+    const errEl = $('l-err');
+    errEl.hidden = true;
+    if (!name || !phone) { errEl.textContent = '이름과 전화번호를 넣어 주세요.'; errEl.hidden = false; return; }
+    $('l-btn').disabled = true;
+    const { data, error } = await sb.rpc('rpc_challenge_login', { p_name: name, p_phone: phone });
+    $('l-btn').disabled = false;
+    if (error) { errEl.textContent = '확인하지 못했어요. 잠시 뒤 다시 해 보세요.'; errEl.hidden = false; return; }
+    if (!data || !data.length) {
+      errEl.textContent = '학생을 찾을 수 없어요. 이름과 학부모님 전화번호를 다시 확인해 주세요.';
+      errEl.hidden = false; return;
+    }
+    const s = data[0];
+    setSaved(name, phone, `${s.student_name}${s.grade ? ' (' + s.grade + ')' : ''}`);
+    showMain();
+  }
+
+  // 단계 달성 표시
+  function stepBox(c) {
+    const over = todayStr() > c.end_date;
+    const head = `<div class="big"><b>${c.my_days}</b>일 인증 ${over ? '(끝)' : '중'}</div>`;
+    if (c.reward_type === 'top_n') {
+      return `<div class="stepbox">${head}
+        <div class="strow"><span class="ic">🏆</span>상위 ${c.top_n}명에게 ${won(c.top_amount)}원 — 결과는 끝나고 원장님이 발표해요</div></div>`;
+    }
+    const steps = c.steps || [];
+    const rows = steps.map((s) => {
+      const hit = c.my_days >= s.days;
+      let extra = '';
+      if (!hit && !over) extra = ` (${s.days - c.my_days}일 남았어요)`;
+      return `<div class="strow ${hit ? 'hit' : ''}"><span class="ic">${hit ? '✓' : '○'}</span>${s.days}일 이상 → ${won(s.amount)}원${extra}</div>`;
+    }).join('');
+    return `<div class="stepbox">${head}${rows}</div>`;
+  }
+
+  function badgeOf(c) {
+    const over = todayStr() > c.end_date;
+    if (c.my_status === '대기') return '<span class="badge wait">승인 기다리는 중</span>';
+    if (c.my_status === '거절') return '<span class="badge no">참여 불가</span>';
+    if (over) return '<span class="badge done">끝났어요</span>';
+    return '<span class="badge ok">참여 중</span>';
+  }
+
+  function cardHtml(c, proofs) {
+    const re = proofs.filter((p) => p.status === '재인증');
+    const grid = proofs.length ? `<div class="pgrid">${proofs.map((p) => `
+      <a class="pitem ${p.status === '재인증' ? 're' : ''}" href="${p.photo_url}" target="_blank" rel="noopener">
+        <img src="${p.photo_url}" loading="lazy" alt="${fmtD(p.proof_date)} 인증 사진">
+        <span class="pd">${fmtD(p.proof_date)}</span>
+      </a>`).join('')}</div>` : '<p class="note" style="margin-top:10px;">아직 올린 인증이 없어요.</p>';
+    const cms = re.filter((p) => p.admin_comment).map((p) =>
+      `<div class="cm"><b>${fmtD(p.proof_date)} 다시 올려 주세요:</b> ${p.admin_comment}</div>`).join('');
+    return `<div class="card">
+      <div class="top"><span class="title">${c.title}</span>${badgeOf(c)}</div>
+      <div class="info"><b>기간</b>${fmtD(c.start_date)} ~ ${fmtD(c.end_date)} (${dayLen(c.start_date, c.end_date)}일)</div>
+      ${stepBox(c)}
+      ${cms}
+      ${grid}
+    </div>`;
+  }
+
+  async function load() {
+    const s = saved();
+    const { data, error } = await sb.rpc('rpc_challenge_dashboard', { p_name: s.name, p_phone: s.phone });
+    if (error) {
+      if ((error.message || '').includes('학생')) { clearSaved(); showLogin(); return; }
+      $('list').innerHTML = '<div class="empty">불러오지 못했어요. 잠시 뒤 다시 해 보세요.</div>';
+      return;
+    }
+    const rows = data || [];
+    if (!rows.length) {
+      $('list').innerHTML = '<div class="empty">아직 참여한 챌린지가 없어요.<br><a href="challenge.html">챌린지 보러 가기 →</a></div>';
+      return;
+    }
+    const proofsMap = {};
+    await Promise.all(rows.map(async (c) => {
+      const r = await sb.rpc('rpc_challenge_my_proofs', { p_name: s.name, p_phone: s.phone, p_challenge_id: c.id });
+      proofsMap[c.id] = r.error ? [] : (r.data || []);
+    }));
+    $('list').innerHTML = rows.map((c) => cardHtml(c, proofsMap[c.id])).join('');
+  }
+
+  $('l-btn').addEventListener('click', login);
+  $('l-phone').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+  $('logout-btn').addEventListener('click', () => { clearSaved(); showLogin(); });
+  if (saved().name && saved().phone) showMain(); else showLogin();
+</script>
+</body>
+</html>
