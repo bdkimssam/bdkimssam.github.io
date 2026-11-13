@@ -214,6 +214,9 @@ function showErr(id, msg) { const e = $(id); e.textContent = msg || ''; e.hidden
 function openForm(id) {
   current = lectures.find(l => l.id === id); if (!current) return;
   $('f').reset(); showErr('f-err', '');
+  // 학년 선택지: 대상 학년이 지정된 특강은 그 학년만 (비워 두면 전체)
+  const tg = current.target_grades || [];
+  [...$('f-grade').options].forEach(o => { o.hidden = !!o.value && tg.length > 0 && !tg.includes(o.value); o.disabled = o.hidden; });
   $('f-title').textContent = current.title;
   $('f-sub').textContent = current.state === 'waitlist' ? '정원이 차서 대기로 접수돼요.' : '';
   $('list').hidden = true; $('done-wrap').hidden = true; $('form-wrap').hidden = false;
@@ -228,6 +231,8 @@ $('f').addEventListener('submit', async e => {
   const sp = $('f-sphone').value.trim(), pp = $('f-pphone').value.trim();
   if (!name) return showErr('f-err', '학생 이름을 입력해 주세요.');
   if (!grade) return showErr('f-err', '학년을 선택해 주세요.');
+  const tg = current.target_grades || [];
+  if (tg.length && !tg.includes(grade)) return showErr('f-err', `이 특강은 ${tg.join(', ')} 학생만 신청할 수 있어요.`);
   if (!school) return showErr('f-err', '학교를 입력해 주세요.');
   if (!sp) return showErr('f-err', '학생 연락처를 입력해 주세요.');
   if (!pp) return showErr('f-err', '학부모 연락처를 입력해 주세요.');
