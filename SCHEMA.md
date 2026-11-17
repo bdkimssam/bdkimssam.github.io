@@ -498,3 +498,4 @@ order by table_name;
 - `school_grade_cuts(id, exam_year, grade, exam_type, school, subject, cut_1, cut_2, cut_3, created_at, updated_at)` — 학교·학년·시험·과목별 1·2·3등급 컷(점수, 0~100). `exam_year`는 학년도(3월~다음해 2월), `exam_type`은 '1학기중간'/'1학기기말'/'2학기중간'/'2학기기말'(모의고사 제외), `grade`는 중1~고3, 과목은 자유 입력. `unique(exam_year, grade, exam_type, school, subject)`, check `cut_1 ≥ cut_2 ≥ cut_3`. RLS 켜짐/정책 없음, `log_row_change()` 트리거(`trg_log_school_grade_cuts`)로 이력.
 - 원장님 RPC: `rpc_admin_list_grade_cuts(p_password, p_exam_year, p_exam_type)`, `rpc_admin_save_grade_cut`(p_id 없으면 입력, 있으면 수정 — 중복·순서 오류는 한글 메시지), `rpc_admin_delete_grade_cut`.
 - 화면: `admin/grade-cuts.html`(원장님 전용, 관리자 홈 "학습 관리"의 시험 성적 옆 카드). 학부모 대시보드 표시는 아직 없음(다음 단계).
+- **(126)** 등급컷은 1·2·3등급 중 **하나 이상만** 있으면 저장(나머지는 null, 목록엔 '-'). 입력한 값끼리만 1등급 ≥ 2등급 ≥ 3등급 순서 검사.

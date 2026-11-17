@@ -63,7 +63,7 @@
 </header>
 <main>
   <h1>학교별 등급컷</h1>
-  <p class="sub">학교·학년·시험·과목별로 1·2·3등급 컷(점수)을 입력해요. 같은 학교·학년·시험·과목은 한 번만 넣을 수 있고, 수정·삭제는 목록에서 해요. 모든 변경은 이력으로 남아요.</p>
+  <p class="sub">학교·학년·시험·과목별로 1·2·3등급 컷(점수)을 입력해요. 아는 등급만 넣어도 되고(최소 1개), 나머지는 비워 둬요. 같은 학교·학년·시험·과목은 한 번만 넣을 수 있고, 수정·삭제는 목록에서 해요. 모든 변경은 이력으로 남아요.</p>
   <div class="bar">
     <select id="f-year"></select>
     <select id="f-type"><option value="">전체 시험</option></select>
@@ -111,7 +111,8 @@
   const TYPES = ['1학기중간','1학기기말','2학기중간','2학기기말'];
   const $ = (id) => document.getElementById(id);
   const esc = (v) => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  const fmt = (n) => { const v = Number(n); return Number.isInteger(v) ? String(v) : String(parseFloat(v.toFixed(2))); };
+  const fmt = (n) => { if (n == null || n === '') return '-';
+    const v = Number(n); return Number.isInteger(v) ? String(v) : String(parseFloat(v.toFixed(2))); };
   const isMissingFn = (e) => e && (e.code === 'PGRST202' || /Could not find the function/i.test(e.message || ''));
   function curYear() {
     const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()).split('-').map(Number);
@@ -175,7 +176,8 @@
     $('e-school').value = r ? r.school : ''; $('e-grade').value = r ? r.grade : '';
     $('e-subject').value = r ? r.subject : '';
     $('e-year').value = r ? r.exam_year : curYear(); $('e-type').value = r ? r.exam_type : ($('f-type').value || '');
-    $('e-c1').value = r ? fmt(r.cut_1) : ''; $('e-c2').value = r ? fmt(r.cut_2) : ''; $('e-c3').value = r ? fmt(r.cut_3) : '';
+    const cv = (v) => v == null ? '' : fmt(v);
+    $('e-c1').value = r ? cv(r.cut_1) : ''; $('e-c2').value = r ? cv(r.cut_2) : ''; $('e-c3').value = r ? cv(r.cut_3) : '';
     $('form-overlay').style.display = 'flex';
   }
   $('new-btn').onclick = () => openForm(null);
@@ -189,10 +191,13 @@
     if (!$('e-grade').value) { $('e-err').textContent = '학년을 선택해 주세요.'; return; }
     if (!subject) { $('e-err').textContent = '과목을 입력해 주세요.'; return; }
     if (!$('e-type').value) { $('e-err').textContent = '시험 종류를 선택해 주세요.'; return; }
-    const c1 = parseFloat($('e-c1').value), c2 = parseFloat($('e-c2').value), c3 = parseFloat($('e-c3').value);
-    if ([c1, c2, c3].some(isNaN)) { $('e-err').textContent = '1·2·3등급 컷을 모두 입력해 주세요.'; return; }
-    if ([c1, c2, c3].some(v => v < 0 || v > 100)) { $('e-err').textContent = '등급컷은 0~100점 사이로 입력해 주세요.'; return; }
-    if (c1 < c2 || c2 < c3) { $('e-err').textContent = '1등급 ≥ 2등급 ≥ 3등급 순서여야 해요.'; return; }
+    const num = (id) => { const t = $(id).value.trim(); return t === '' ? null : parseFloat(t); };
+    const c1 = num('e-c1'), c2 = num('e-c2'), c3 = num('e-c3');
+    const got = [c1, c2, c3].filter(v => v !== null);
+    if (!got.length) { $('e-err').textContent = '등급컷을 하나 이상 입력해 주세요.'; return; }
+    if (got.some(v => isNaN(v) || v < 0 || v > 100)) { $('e-err').textContent = '등급컷은 0~100점 사이 숫자로 입력해 주세요.'; return; }
+    if ((c1 !== null && c2 !== null && c1 < c2) || (c2 !== null && c3 !== null && c2 < c3) || (c1 !== null && c3 !== null && c1 < c3)) {
+      $('e-err').textContent = '입력한 등급컷은 1등급 ≥ 2등급 ≥ 3등급 순서여야 해요.'; return; }
     $('e-save').disabled = true;
     const { error } = await sb.rpc('rpc_admin_save_grade_cut', {
       p_password: getAdminPassword(), p_id: editing ? editing.id : null, p_exam_year: parseInt($('e-year').value, 10),
