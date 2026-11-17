@@ -493,3 +493,8 @@ order by table_name;
 - 받는 사람: `sl_notice_recipients(공지id)` — 재원생(퇴원·테스트% 제외), 학년=`sl_student_grade`(반 배정 → 등록서), 대상 매칭=`sl_notice_matches`(학부모 공지 조회와 동일 규칙), 번호=`sl_student_phones`(출석체크 번호 1·2 → 없으면 등록서 번호), 같은 번호는 1회.
 - RPC(원장님 전용): `rpc_admin_notice_preview`, `rpc_admin_send_notice_alimtalk(p_password, p_announcement_id, p_kind, p_title)`, `rpc_admin_notice_status`, `rpc_admin_notice_templates`. 변수 `#{제목}`(40자), 문자 대체발송 없음.
 - `rpc_get_announcements`: 학부모 대시보드 공지 3건 → 5건.
+
+## 125 — 학교별 등급컷 (2026-11-18)
+- `school_grade_cuts(id, exam_year, grade, exam_type, school, subject, cut_1, cut_2, cut_3, created_at, updated_at)` — 학교·학년·시험·과목별 1·2·3등급 컷(점수, 0~100). `exam_year`는 학년도(3월~다음해 2월), `exam_type`은 '1학기중간'/'1학기기말'/'2학기중간'/'2학기기말'(모의고사 제외), `grade`는 중1~고3, 과목은 자유 입력. `unique(exam_year, grade, exam_type, school, subject)`, check `cut_1 ≥ cut_2 ≥ cut_3`. RLS 켜짐/정책 없음, `log_row_change()` 트리거(`trg_log_school_grade_cuts`)로 이력.
+- 원장님 RPC: `rpc_admin_list_grade_cuts(p_password, p_exam_year, p_exam_type)`, `rpc_admin_save_grade_cut`(p_id 없으면 입력, 있으면 수정 — 중복·순서 오류는 한글 메시지), `rpc_admin_delete_grade_cut`.
+- 화면: `admin/grade-cuts.html`(원장님 전용, 관리자 홈 "학습 관리"의 시험 성적 옆 카드). 학부모 대시보드 표시는 아직 없음(다음 단계).
