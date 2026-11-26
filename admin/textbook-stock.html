@@ -27,6 +27,10 @@
   .tabs { display:flex; gap:6px; margin-bottom:12px; }
   .tab { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:999px; padding:8px 18px; font-size:13.5px; font-weight:800; cursor:pointer; color:var(--muted); font-family:inherit; }
   .tab.on { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .mwrap.compact { display:inline-block; max-width:100%; }
+  .mwrap.compact table.m { width:auto; }
+  .mwrap.compact table.m td.c { min-width:90px; }
+  .mwrap.compact table.m th.rh { min-width:110px; }
   .mwrap { background:#fff; border:1px solid var(--gray-200); border-radius:12px; }
   @media (max-width:760px) { .mwrap { overflow-x:auto; } }
   table.m { border-collapse:separate; border-spacing:0; width:100%; font-size:13px; }
@@ -231,7 +235,7 @@
     const { terms, prods, map } = gridOf(group);
     $('add-term-label').textContent = group === '고등' ? '과목 추가' : '학기 추가';
     if (!terms.length || !prods.length) { $('stock').innerHTML = '<div class="empty">표시할 칸이 없어요.</div>'; return; }
-    let h = '<div class="mwrap"><table class="m"><thead><tr><th class="rh">' + (group === '고등' ? '과목' : '학년-학기') + '</th>';
+    let h = '<div class="mwrap' + (prods.length <= 4 ? ' compact' : '') + '"><table class="m"><thead><tr><th class="rh">' + (group === '고등' ? '과목' : '학년-학기') + '</th>';
     prods.forEach((p) => { h += `<th class="hdr-click ${p.off ? 'off-h' : ''}" data-col="${esc(p.name)}">${esc(p.name)}</th>`; });
     h += '</tr></thead><tbody>';
     terms.forEach((t) => {
