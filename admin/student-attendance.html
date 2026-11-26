@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>학생별 월간 출결 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  .sub { font-size:12.5px; color:var(--muted); margin:0 0 16px; line-height:1.55; }
+  button { font-family:inherit; }
+  .btn { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:9px; padding:8px 13px; font-size:13px; font-weight:800; cursor:pointer; color:var(--ink); }
+  .bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  .bar select { font-size:14px; padding:9px 11px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; font-family:inherit; min-width:200px; }
+  .month { font-weight:900; font-size:17px; min-width:110px; text-align:center; }
+  .sums { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .sum { background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:10px 16px; text-align:center; min-width:88px; }
+  .sum .n { font-weight:900; font-size:20px; }
+  .sum .t { font-size:11.5px; color:var(--muted); font-weight:700; margin-top:2px; }
+  .cal { background:#fff; border:1px solid var(--gray-200); border-radius:12px; overflow:hidden; }
+  .cal .row { display:grid; grid-template-columns:repeat(7, 1fr); }
+  .cal .dow { background:#F9FAFB; font-weight:800; font-size:12px; text-align:center; padding:9px 0; border-bottom:1px solid var(--gray-200); }
+  .cal .dow.sun { color:#B91C1C; } .cal .dow.sat { color:#1D4ED8; }
+  .day { min-height:104px; padding:7px 8px; border-right:1px solid #F0F1F4; border-bottom:1px solid #F0F1F4; font-size:12px; line-height:1.5; }
+  .day:nth-child(7n) { border-right:none; }
+  .day.empty { background:#FAFAFB; }
+  .day .dn { font-weight:800; font-size:12.5px; color:var(--muted); }
+  .day.sun .dn { color:#B91C1C; } .day.sat .dn { color:#1D4ED8; }
+  .day.today { background:#FFFBEB; }
+  .day .tm { font-weight:700; color:#374151; white-space:nowrap; }
+  .day .tag { display:inline-block; font-weight:800; font-size:11px; padding:1px 7px; border-radius:999px; background:#F3F4F6; color:var(--muted); margin-top:3px; }
+  .tag.late { background:#FEF3C7; color:#92400E; }
+  .tag.early { background:#FFEDD5; color:#C2410C; }
+  .tag.abs { background:#FEE2E2; color:#B91C1C; }
+  .tag.mk { background:#EDE9FE; color:#6D28D9; }
+  .tag.ok { background:#DCFCE7; color:#15803D; }
+  .day .memo { margin-top:3px; font-size:11.5px; color:#4B5563; word-break:break-word; }
+  .loading { color:var(--muted); font-size:13px; padding:28px 6px; text-align:center; }
+  @media (max-width:760px) { .day { min-height:84px; padding:5px 4px; font-size:11px; } .day .tm { font-size:10.5px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">학생별 월간 출결</span>
+</header>
+
+<main>
+  <h1>학생별 월간 출결</h1>
+  <p class="sub">학생과 달을 고르면 날짜마다 <b>등원·하원 시간</b>과 선생님이 적은 <b>지각·조퇴·결석·보강</b> 기록이 달력에 나와요. 원장님만 볼 수 있어요.</p>
+
+  <div class="bar">
+    <select id="student"><option value="">학생을 선택하세요</option></select>
+    <button class="btn" id="prev" type="button"><i class="fa-solid fa-chevron-left"></i></button>
+    <span class="month" id="month-label"></span>
+    <button class="btn" id="next" type="button"><i class="fa-solid fa-chevron-right"></i></button>
+    <button class="btn" id="this-month" type="button">이번 달</button>
+  </div>
+
+  <div class="sums" id="sums"></div>
+  <div id="cal"><div class="loading">학생을 선택하세요.</div></div>
+</main>
+
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  requireDirector();
+
+  const $ = (id) => document.getElementById(id);
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function seoulToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()); }
+  function hhmm(ts) {
+    return new Date(ts).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  const pad = (n) => String(n).padStart(2, '0');
+
+  let students = [];
+  let year, month; // month: 1~12
+  (() => { const [y, m] = seoulToday().split('-').map(Number); year = y; month = m; })();
+
+  async function loadStudents() {
+    const { data, error } = await sb.rpc('rpc_admin_list_all_students', { p_password: getAdminPassword(), p_include_withdrawn: false });
+    if (error) { $('cal').innerHTML = `<div class="loading">${esc('학생 목록을 불러오지 못했어요: ' + error.message)}</div>`; return; }
+    students = (data || []).slice().sort((a, b) => {
+      const g = compareGrades(a.grade, b.grade);
+      return g !== 0 ? g : (a.student_name || '').localeCompare(b.student_name || '', 'ko');
+    });
+    const groups = {};
+    students.forEach((s) => { const g = s.grade || '학년 미지정'; (groups[g] = groups[g] || []).push(s); });
+    $('student').innerHTML = '<option value="">학생을 선택하세요</option>' + Object.keys(groups).map((g) =>
+      `<optgroup label="${esc(g)}">` + groups[g].map((s) => `<option value="${esc(s.student_code)}">${esc(s.student_name || s.student_code)}</option>`).join('') + '</optgroup>').join('');
+  }
+
+  async function load() {
+    $('month-label').textContent = `${year}년 ${month}월`;
+    const code = $('student').value;
+    if (!code) { $('sums').innerHTML = ''; $('cal').innerHTML = '<div class="loading">학생을 선택하세요.</div>'; return; }
+    $('cal').innerHTML = '<div class="loading">불러오는 중...</div>';
+    const { data, error } = await sb.rpc('rpc_admin_student_month_attendance', {
+      p_password: getAdminPassword(), p_student_code: code, p_month: `${year}-${pad(month)}-01`,
+    });
+    if (error) {
+      const missing = error.code === 'PGRST202' || /Could not find the function/i.test(error.message || '');
+      $('cal').innerHTML = `<div class="loading">${esc(missing ? '월간 출결 SQL이 아직 실행되지 않았어요.' : '불러오지 못했어요: ' + error.message)}</div>`;
+      return;
+    }
+    render(data || { checks: [], notes: [] });
+  }
+
+  function tagOf(status) {
+    return { '지각': 'late', '조퇴': 'early', '결석': 'abs', '보강': 'mk', '출석': 'ok' }[status] || '';
+  }
+
+  function render(d) {
+    const byDay = {};
+    const ensure = (ymd) => (byDay[ymd] = byDay[ymd] || { ins: [], outs: [], notes: [] });
+    (d.checks || []).forEach((c) => { const e = ensure(c.check_date); (c.check_type === '등원' ? e.ins : e.outs).push(c.checked_at); });
+    (d.notes || []).forEach((n) => { ensure(n.attendance_date).notes.push(n); });
+
+    let nDays = 0, late = 0, early = 0, abs = 0, mk = 0;
+    Object.values(byDay).forEach((e) => {
+      if (e.ins.length || e.outs.length) nDays++;
+      e.notes.forEach((n) => { if (n.status === '지각') late++; else if (n.status === '조퇴') early++; else if (n.status === '결석') abs++; else if (n.status === '보강') mk++; });
+    });
+    $('sums').innerHTML = [
+      ['등원한 날', nDays, ''], ['지각', late, '#92400E'], ['조퇴', early, '#C2410C'], ['결석', abs, '#B91C1C'], ['보강', mk, '#6D28D9'],
+    ].map(([t, n, c]) => `<div class="sum"><div class="n" ${c ? `style="color:${c}"` : ''}>${n}</div><div class="t">${t}</div></div>`).join('');
+
+    const first = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const today = seoulToday();
+    let h = '<div class="cal"><div class="row">' + ['일', '월', '화', '수', '목', '금', '토'].map((w, i) =>
+      `<div class="dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${w}</div>`).join('') + '</div><div class="row">';
+    for (let i = 0; i < first; i++) h += '<div class="day empty"></div>';
+    for (let day = 1; day <= days; day++) {
+      const ymd = `${year}-${pad(month)}-${pad(day)}`;
+      const dow = (first + day - 1) % 7;
+      const e = byDay[ymd];
+      let body = '';
+      if (e) {
+        if (e.ins.length) body += `<div class="tm">등원 ${esc(hhmm(e.ins[0]))}</div>`;
+        if (e.outs.length) body += `<div class="tm">하원 ${esc(hhmm(e.outs[e.outs.length - 1]))}</div>`;
+        e.notes.forEach((n) => {
+          if (n.status && !(n.status === '출석' && !n.memo && (e.ins.length || e.outs.length))) body += `<div><span class="tag ${tagOf(n.status)}">${esc(n.status)}</span></div>`;
+          if (n.memo) body += `<div class="memo">${esc(n.memo)}</div>`;
+          if (n.makeup_date) body += `<div class="memo">보강일 ${esc(String(n.makeup_date).slice(5).replace('-', '/'))}</div>`;
+        });
+      }
+      h += `<div class="day ${dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''} ${ymd === today ? 'today' : ''}"><div class="dn">${day}</div>${body}</div>`;
+    }
+    const tail = (first + days) % 7;
+    if (tail) for (let i = tail; i < 7; i++) h += '<div class="day empty"></div>';
+    h += '</div></div>';
+    $('cal').innerHTML = h;
+  }
+
+  $('student').addEventListener('change', load);
+  $('prev').addEventListener('click', () => { month--; if (month < 1) { month = 12; year--; } load(); });
+  $('next').addEventListener('click', () => { month++; if (month > 12) { month = 1; year++; } load(); });
+  $('this-month').addEventListener('click', () => { const [y, m] = seoulToday().split('-').map(Number); year = y; month = m; load(); });
+
+  (async () => { $('month-label').textContent = `${year}년 ${month}월`; await loadStudents(); })();
+</script>
+
+</body>
+</html>

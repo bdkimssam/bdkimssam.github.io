@@ -505,3 +505,7 @@ order by table_name;
 - `textbook_inventory_log` — id, item_id, `kind`('in' 입고|'out' 출고|'adjust' 조정), `delta`(±권수), `balance_after`, log_date, memo. RLS 켜짐/정책 없음.
 - RPC(원장님 비밀번호만): `rpc_admin_list_textbook_inventory`, `rpc_admin_record_textbook_stock(입고/출고/조정; 출고는 재고 초과 불가, 조정은 실제 수량으로 맞춤)`, `rpc_admin_list_textbook_stock_log`, `rpc_admin_add_textbook_product(교재 종류 추가 → 그 구분의 모든 학기/과목에 칸 생성)`, `rpc_admin_add_textbook_term(학기/과목 추가 → 모든 교재 종류 칸 생성)`, `rpc_admin_set_textbook_active(줄 또는 열 숨김/보임)`.
 - 화면: `admin/textbook-stock.html`(원장님 전용, 관리자 홈 '교재 · 학생 관리' 섹션 카드). 구분 탭 + 학기×교재 표, 칸 클릭으로 입고·출고·조정, '수량 한꺼번에 입력'(조정으로 일괄 저장).
+
+## 학생별 월간 출결 (2026-11-26)
+- RPC `rpc_admin_student_month_attendance(p_password, p_student_code, p_month)` — 한 학생의 그 달 `attendance_checks`(등원·하원 시각)와 `attendance`(지각·조퇴·결석·보강, 메모, 보강일)를 jsonb(`checks`, `notes`)로 반환. 원장님 비밀번호만.
+- 화면: `admin/student-attendance.html`(원장님 전용, 관리자 홈 '교재 · 학생 관리' 섹션 카드). 학생·달 선택 → 달력형, 날짜별 등원/하원 시간·지각 등 태그·메모, 위에 월 요약.
