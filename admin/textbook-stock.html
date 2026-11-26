@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>교재 재고 관리 | 관리자</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --navy-950:#070C16; --navy-900:#0B1220; --ink:#12172B; --muted:#6B7280; --gray-50:#F5F6F8; --gray-200:#E4E7EC; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Pretendard','Noto Sans KR',sans-serif; background:var(--gray-50); color:var(--ink); }
+  header { background: var(--navy-950); color:#fff; padding: 18px 20px; display:flex; align-items:center; justify-content:center; gap:14px; }
+  a.back { color: rgba(255,255,255,0.7); font-size:13px; text-decoration:none; }
+  .brand { font-weight:800; font-size:15px; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 19px; font-weight: 900; margin: 0 0 6px; }
+  .sub { font-size:12.5px; color:var(--muted); margin:0 0 16px; line-height:1.55; }
+  button { font-family:inherit; }
+  .btn { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:9px; padding:8px 13px; font-size:12.5px; font-weight:800; cursor:pointer; color:var(--ink); }
+  .btn.primary { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .bar label { font-size:13px; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .sec { font-size:13px; font-weight:900; margin:20px 2px 8px; }
+  .sec small { font-weight:700; color:var(--muted); margin-left:4px; }
+  .item { display:flex; align-items:center; gap:12px; background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:11px 14px; margin-bottom:7px; flex-wrap:wrap; }
+  .item.off { opacity:.55; }
+  .item .nm { font-weight:900; font-size:15px; flex:1 1 110px; min-width:0; word-break:break-word; }
+  .item .qty { font-weight:900; font-size:20px; min-width:64px; text-align:right; }
+  .item .qty small { font-size:12px; color:var(--muted); font-weight:700; margin-left:2px; }
+  .item .qty.zero { color:#B91C1C; }
+  .item .acts { display:flex; gap:5px; flex-wrap:wrap; }
+  .mini { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:6px 11px; font-size:12px; font-weight:800; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .mini.in { background:#DCFCE7; border-color:#86EFAC; color:#15803D; }
+  .mini.out { background:#FEE2E2; border-color:#FCA5A5; color:#B91C1C; }
+  .badge { font-size:11px; font-weight:800; padding:2px 8px; border-radius:999px; background:#F3F4F6; color:var(--muted); }
+  .loading, .empty { color:var(--muted); font-size:13px; padding:24px 6px; text-align:center; }
+  .logbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 10px; }
+  .logbar select { font-size:13.5px; padding:8px 10px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; font-family:inherit; }
+  .log { background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:10px 14px; margin-bottom:6px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; }
+  .log .dt { color:var(--muted); font-size:12px; min-width:62px; }
+  .log .who { font-weight:800; }
+  .log .k { font-weight:800; font-size:11.5px; padding:2px 8px; border-radius:999px; }
+  .log .k.in { background:#DCFCE7; color:#15803D; } .log .k.out { background:#FEE2E2; color:#B91C1C; } .log .k.adjust { background:#FEF3C7; color:#92400E; }
+  .log .d { font-weight:900; }
+  .log .bal { color:var(--muted); font-size:12px; }
+  .log .memo { flex-basis:100%; font-size:12.5px; color:#4B5563; }
+  /* modal */
+  .overlay { position:fixed; inset:0; background:rgba(11,18,32,0.45); display:none; align-items:flex-start; justify-content:center; z-index:50; padding:16px; overflow:auto; }
+  .box { background:#fff; border-radius:16px; width:100%; max-width:420px; margin:auto; }
+  .box .head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--gray-200); font-weight:800; font-size:15px; }
+  .box .head button { border:none; background:none; font-size:20px; cursor:pointer; color:var(--muted); }
+  .box .body { padding:14px 18px 18px; }
+  .field { margin-bottom:12px; }
+  .field > label { display:block; font-size:12px; font-weight:800; color:var(--muted); margin-bottom:5px; }
+  .field input[type="text"], .field input[type="number"], .field input[type="date"], .field select {
+    width:100%; font-size:14px; padding:9px 11px; border-radius:9px; border:1px solid var(--gray-200); font-family:inherit; background:#fff; }
+  .hint { font-size:11.5px; color:var(--muted); margin-top:4px; line-height:1.5; }
+  .err { color:#B91C1C; font-size:12.5px; font-weight:700; margin:8px 0 0; min-height:16px; }
+  .cur { font-size:13px; color:var(--muted); margin-bottom:10px; }
+  .cur b { color:var(--ink); font-size:16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html"><i class="fa-solid fa-arrow-left"></i> 관리자 홈</a>
+  <span class="brand">교재 재고 관리</span>
+</header>
+
+<main>
+  <h1>교재 재고</h1>
+  <p class="sub">제본해 둔 교재가 몇 권 남았는지 기록해요. 입고·출고를 적으면 현재 수량이 자동으로 바뀌고, 아래 내역에 남아요. 원장님만 볼 수 있어요.</p>
+
+  <div class="bar">
+    <button class="btn primary" id="add-item" type="button"><i class="fa-solid fa-plus"></i> 교재 추가</button>
+    <label><input type="checkbox" id="show-off"> 사용 안 함 교재도 보기</label>
+  </div>
+
+  <div id="stock"><div class="loading">불러오는 중...</div></div>
+
+  <div class="sec" style="margin-top:30px">입고 · 출고 내역</div>
+  <div class="logbar">
+    <select id="log-filter"></select>
+  </div>
+  <div id="log"><div class="loading">불러오는 중...</div></div>
+</main>
+
+<!-- 입고/출고/조정 -->
+<div class="overlay" id="mv-overlay">
+  <div class="box">
+    <div class="head"><span id="mv-title">입고</span><button type="button" id="mv-close">&times;</button></div>
+    <div class="body">
+      <div class="cur" id="mv-cur"></div>
+      <div class="field"><label id="mv-qty-label">수량</label><input type="number" id="mv-qty" min="0" step="1" inputmode="numeric"></div>
+      <div class="field"><label>날짜</label><input type="date" id="mv-date"></div>
+      <div class="field"><label>메모 (선택)</label><input type="text" id="mv-memo" maxlength="200" placeholder="예: 제본소 입고, 3월 신입생 배부"></div>
+      <div class="hint" id="mv-hint"></div>
+      <div class="err" id="mv-err"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+        <button class="btn" type="button" id="mv-cancel">취소</button>
+        <button class="btn primary" type="button" id="mv-save">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 교재 추가/수정 -->
+<div class="overlay" id="it-overlay">
+  <div class="box">
+    <div class="head"><span id="it-title">교재 추가</span><button type="button" id="it-close">&times;</button></div>
+    <div class="body">
+      <div class="field"><label>구분 *</label>
+        <select id="it-group"><option value="초중등">초중등</option><option value="고등">고등</option></select></div>
+      <div class="field"><label>교재 이름 *</label><input type="text" id="it-name" maxlength="40" placeholder="예: BUILD5"></div>
+      <div class="field" id="it-qty-wrap"><label>현재 수량</label><input type="number" id="it-qty" min="0" step="1" value="0" inputmode="numeric">
+        <div class="hint">지금 가지고 있는 권수예요. 나중에는 입고·출고로 바꿔요.</div></div>
+      <div class="field" id="it-active-wrap" style="display:none"><label><input type="checkbox" id="it-active"> 사용 중인 교재</label>
+        <div class="hint">더 이상 안 쓰는 교재는 체크를 풀면 목록에서 숨겨져요. (내역은 그대로 남아요)</div></div>
+      <div class="err" id="it-err"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+        <button class="btn" type="button" id="it-cancel">취소</button>
+        <button class="btn primary" type="button" id="it-save">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/supabase-client.js?v=20261009b"></script>
+<script>
+  requireDirector();
+
+  let items = [];
+  let mvItem = null, mvKind = 'in', editingId = null;
+  const KIND = { in: '입고', out: '출고', adjust: '조정' };
+  const $ = (id) => document.getElementById(id);
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function isMissingFn(error) {
+    return error && (error.code === 'PGRST202' || /Could not find the function/i.test(error.message || ''));
+  }
+  function seoulToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()); }
+  function fmtDate(v) {
+    const s = String(v || '').slice(0, 10); if (!s) return '';
+    const [, m, d] = s.split('-').map(Number);
+    return `${m}/${d}`;
+  }
+  function errText(error) {
+    return isMissingFn(error) ? '교재 재고 SQL이 아직 실행되지 않았어요.' : (error.message || String(error));
+  }
+
+  // ---- 재고 목록 ----
+  async function loadItems() {
+    const { data, error } = await sb.rpc('rpc_admin_list_textbook_inventory', { p_password: getAdminPassword() });
+    if (error) { $('stock').innerHTML = `<div class="loading">${esc('불러오지 못했어요: ' + errText(error))}</div>`; return; }
+    items = data || [];
+    renderItems();
+    renderFilter();
+  }
+
+  function itemHtml(it) {
+    return `<div class="item ${it.is_active ? '' : 'off'}">
+      <div class="nm">${esc(it.name)} ${it.is_active ? '' : '<span class="badge">사용 안 함</span>'}</div>
+      <div class="qty ${it.qty === 0 ? 'zero' : ''}">${it.qty}<small>권</small></div>
+      <div class="acts">
+        <button class="mini in" data-act="in" data-id="${esc(it.id)}">입고</button>
+        <button class="mini out" data-act="out" data-id="${esc(it.id)}">출고</button>
+        <button class="mini" data-act="adjust" data-id="${esc(it.id)}" title="실제로 세어 보고 수량을 맞출 때">수량 조정</button>
+        <button class="mini" data-act="edit" data-id="${esc(it.id)}">수정</button>
+      </div></div>`;
+  }
+
+  function renderItems() {
+    const showOff = $('show-off').checked;
+    const list = items.filter((it) => showOff || it.is_active);
+    const html = ['초중등', '고등'].map((g) => {
+      const rows = list.filter((it) => it.level_group === g);
+      if (!rows.length) return '';
+      const total = rows.filter((it) => it.is_active).reduce((s, it) => s + it.qty, 0);
+      return `<div class="sec">${g} <small>합계 ${total}권</small></div>` + rows.map(itemHtml).join('');
+    }).join('');
+    $('stock').innerHTML = html || '<div class="empty">등록된 교재가 없어요. 위에서 교재를 추가해 보세요.</div>';
+  }
+  $('show-off').addEventListener('change', renderItems);
+
+  $('stock').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act]'); if (!btn) return;
+    const it = items.find((x) => x.id === btn.dataset.id); if (!it) return;
+    if (btn.dataset.act === 'edit') openItem(it); else openMove(it, btn.dataset.act);
+  });
+
+  // ---- 입고 / 출고 / 조정 ----
+  function openMove(it, kind) {
+    mvItem = it; mvKind = kind;
+    $('mv-title').textContent = `${it.level_group} ${it.name} · ${KIND[kind]}`;
+    $('mv-cur').innerHTML = `현재 <b>${it.qty}권</b>`;
+    $('mv-qty-label').textContent = kind === 'adjust' ? '실제 수량 (세어 본 권수)' : `${KIND[kind]} 수량`;
+    $('mv-qty').value = kind === 'adjust' ? it.qty : '';
+    $('mv-date').value = seoulToday();
+    $('mv-memo').value = '';
+    $('mv-hint').textContent = kind === 'adjust' ? '재고를 직접 세어 보고 맞출 때만 써요. 내역에 "조정"으로 남아요.' : '';
+    $('mv-err').textContent = '';
+    $('mv-overlay').style.display = 'flex';
+    $('mv-qty').focus();
+  }
+  function closeMove() { $('mv-overlay').style.display = 'none'; }
+  $('mv-close').addEventListener('click', closeMove);
+  $('mv-cancel').addEventListener('click', closeMove);
+
+  $('mv-save').addEventListener('click', async () => {
+    $('mv-err').textContent = '';
+    const raw = $('mv-qty').value.trim();
+    const qty = Number(raw);
+    if (raw === '' || !Number.isInteger(qty) || qty < 0) { $('mv-err').textContent = '수량을 숫자로 적어 주세요.'; return; }
+    if (mvKind !== 'adjust' && qty < 1) { $('mv-err').textContent = '수량은 1 이상이어야 해요.'; return; }
+    if (mvKind === 'out' && qty > mvItem.qty) { $('mv-err').textContent = `재고가 부족해요. (현재 ${mvItem.qty}권)`; return; }
+    $('mv-save').disabled = true;
+    const { error } = await sb.rpc('rpc_admin_record_textbook_stock', {
+      p_password: getAdminPassword(), p_item_id: mvItem.id, p_kind: mvKind, p_qty: qty,
+      p_date: $('mv-date').value || null, p_memo: $('mv-memo').value.trim() || null,
+    });
+    $('mv-save').disabled = false;
+    if (error) { $('mv-err').textContent = '실패했어요: ' + errText(error); return; }
+    closeMove();
+    await loadItems();
+    loadLog();
+  });
+
+  // ---- 교재 추가 / 수정 ----
+  function openItem(it) {
+    editingId = it ? it.id : null;
+    $('it-title').textContent = it ? '교재 수정' : '교재 추가';
+    $('it-group').value = it ? it.level_group : '초중등';
+    $('it-name').value = it ? it.name : '';
+    $('it-qty').value = 0;
+    $('it-qty-wrap').style.display = it ? 'none' : '';
+    $('it-active-wrap').style.display = it ? '' : 'none';
+    $('it-active').checked = it ? it.is_active : true;
+    $('it-err').textContent = '';
+    $('it-overlay').style.display = 'flex';
+    $('it-name').focus();
+  }
+  function closeItem() { $('it-overlay').style.display = 'none'; }
+  $('add-item').addEventListener('click', () => openItem(null));
+  $('it-close').addEventListener('click', closeItem);
+  $('it-cancel').addEventListener('click', closeItem);
+
+  $('it-save').addEventListener('click', async () => {
+    $('it-err').textContent = '';
+    const name = $('it-name').value.trim();
+    if (!name) { $('it-err').textContent = '교재 이름을 적어 주세요.'; return; }
+    const qty = Number($('it-qty').value || 0);
+    if (!editingId && (!Number.isInteger(qty) || qty < 0)) { $('it-err').textContent = '수량은 0 이상 숫자로 적어 주세요.'; return; }
+    $('it-save').disabled = true;
+    const { error } = await sb.rpc('rpc_admin_save_textbook_inventory', {
+      p_password: getAdminPassword(), p_id: editingId, p_level_group: $('it-group').value,
+      p_name: name, p_qty: editingId ? null : qty, p_is_active: $('it-active').checked,
+    });
+    $('it-save').disabled = false;
+    if (error) { $('it-err').textContent = '실패했어요: ' + errText(error); return; }
+    closeItem();
+    await loadItems();
+    loadLog();
+  });
+
+  // ---- 내역 ----
+  function renderFilter() {
+    const cur = $('log-filter').value;
+    $('log-filter').innerHTML = '<option value="">전체 교재</option>' + items.map((it) =>
+      `<option value="${esc(it.id)}">${esc(it.level_group)} ${esc(it.name)}</option>`).join('');
+    $('log-filter').value = items.some((it) => it.id === cur) ? cur : '';
+  }
+  $('log-filter').addEventListener('change', loadLog);
+
+  async function loadLog() {
+    const { data, error } = await sb.rpc('rpc_admin_list_textbook_stock_log', {
+      p_password: getAdminPassword(), p_item_id: $('log-filter').value || null, p_limit: 100,
+    });
+    if (error) { $('log').innerHTML = `<div class="loading">${esc('불러오지 못했어요: ' + errText(error))}</div>`; return; }
+    const rows = data || [];
+    $('log').innerHTML = rows.length ? rows.map((l) => `<div class="log">
+      <span class="dt">${esc(fmtDate(l.log_date))}</span>
+      <span class="who">${esc(l.level_group)} ${esc(l.name)}</span>
+      <span class="k ${esc(l.kind)}">${esc(KIND[l.kind] || l.kind)}</span>
+      <span class="d">${l.delta > 0 ? '+' : ''}${l.delta}권</span>
+      <span class="bal">→ 재고 ${l.balance_after}권</span>
+      ${l.memo ? `<span class="memo">${esc(l.memo)}</span>` : ''}</div>`).join('')
+      : '<div class="empty">아직 입고·출고 내역이 없어요.</div>';
+  }
+
+  (async () => { await loadItems(); loadLog(); })();
+</script>
+
+</body>
+</html>
