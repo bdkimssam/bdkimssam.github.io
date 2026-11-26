@@ -501,7 +501,7 @@ order by table_name;
 - **(126)** 등급컷은 1·2·3등급 중 **하나 이상만** 있으면 저장(나머지는 null, 목록엔 '-'). 입력한 값끼리만 1등급 ≥ 2등급 ≥ 3등급 순서 검사.
 
 ## 교재 재고 관리 (2026-11-26)
-- `textbook_inventory` — id, `level_group`('초중등'|'고등'), name, `qty`(현재 권수, 0 이상), sort_order, `is_active`(안 쓰는 교재는 숨김), unique(level_group, name). RLS 켜짐/정책 없음(원장님 비밀번호 RPC로만 접근). 초기 13권(초중등 CORE1·CORE2·DRILL·BUILD1~4·MASTER·EXPRESS1~2, 고등 CORE1·CORE2·BUILD1) 등록.
+- `textbook_inventory` — 학년-학기(과목) × 교재 종류별 한 칸이 한 행. id, `level_group`('초중등'|'고등'), `term`(초중등은 '초3-1'~'중3-2', 고등은 과목: 공통수학1·공통수학2·대수·미적분1·확률과통계·기하·미적분2), `term_order`, name(교재 종류: CORE1·CORE2·DRILL·BUILD1~4·MASTER·EXPRESS1~2, 고등은 CORE1·BUILD1), `qty`(현재 권수, 0 이상), sort_order, `is_active`(안 쓰는 줄/열 숨김), unique(level_group, term, name). RLS 켜짐/정책 없음(원장님 비밀번호 RPC로만 접근).
 - `textbook_inventory_log` — id, item_id, `kind`('in' 입고|'out' 출고|'adjust' 조정), `delta`(±권수), `balance_after`, log_date, memo. RLS 켜짐/정책 없음.
-- RPC(원장님 비밀번호만): `rpc_admin_list_textbook_inventory`, `rpc_admin_save_textbook_inventory(p_id null이면 교재 추가, 처음 수량은 '조정' 내역으로 남음)`, `rpc_admin_record_textbook_stock(입고/출고/조정, 출고는 재고 초과 불가)`, `rpc_admin_list_textbook_stock_log`.
-- 화면: `admin/textbook-stock.html`(원장님 전용, 관리자 홈 '교재 · 학생 관리' 섹션에 카드).
+- RPC(원장님 비밀번호만): `rpc_admin_list_textbook_inventory`, `rpc_admin_record_textbook_stock(입고/출고/조정; 출고는 재고 초과 불가, 조정은 실제 수량으로 맞춤)`, `rpc_admin_list_textbook_stock_log`, `rpc_admin_add_textbook_product(교재 종류 추가 → 그 구분의 모든 학기/과목에 칸 생성)`, `rpc_admin_add_textbook_term(학기/과목 추가 → 모든 교재 종류 칸 생성)`, `rpc_admin_set_textbook_active(줄 또는 열 숨김/보임)`.
+- 화면: `admin/textbook-stock.html`(원장님 전용, 관리자 홈 '교재 · 학생 관리' 섹션 카드). 구분 탭 + 학기×교재 표, 칸 클릭으로 입고·출고·조정, '수량 한꺼번에 입력'(조정으로 일괄 저장).

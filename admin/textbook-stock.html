@@ -24,30 +24,42 @@
   .btn:disabled { opacity:.5; cursor:not-allowed; }
   .bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
   .bar label { font-size:13px; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:5px; cursor:pointer; }
-  .sec { font-size:13px; font-weight:900; margin:20px 2px 8px; }
-  .sec small { font-weight:700; color:var(--muted); margin-left:4px; }
-  .item { display:flex; align-items:center; gap:12px; background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:11px 14px; margin-bottom:7px; flex-wrap:wrap; }
-  .item.off { opacity:.55; }
-  .item .nm { font-weight:900; font-size:15px; flex:1 1 110px; min-width:0; word-break:break-word; }
-  .item .qty { font-weight:900; font-size:20px; min-width:64px; text-align:right; }
-  .item .qty small { font-size:12px; color:var(--muted); font-weight:700; margin-left:2px; }
-  .item .qty.zero { color:#B91C1C; }
-  .item .acts { display:flex; gap:5px; flex-wrap:wrap; }
-  .mini { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:8px; padding:6px 11px; font-size:12px; font-weight:800; cursor:pointer; color:var(--muted); font-family:inherit; }
-  .mini.in { background:#DCFCE7; border-color:#86EFAC; color:#15803D; }
-  .mini.out { background:#FEE2E2; border-color:#FCA5A5; color:#B91C1C; }
-  .badge { font-size:11px; font-weight:800; padding:2px 8px; border-radius:999px; background:#F3F4F6; color:var(--muted); }
-  .loading, .empty { color:var(--muted); font-size:13px; padding:24px 6px; text-align:center; }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .tab { appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:999px; padding:8px 18px; font-size:13.5px; font-weight:800; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .tab.on { background:var(--navy-900); border-color:var(--navy-900); color:#fff; }
+  .mwrap { background:#fff; border:1px solid var(--gray-200); border-radius:12px; overflow:auto; max-height:70vh; }
+  table.m { border-collapse:separate; border-spacing:0; width:100%; font-size:13px; }
+  table.m th, table.m td { padding:0; border-bottom:1px solid var(--gray-200); border-right:1px solid #F0F1F4; text-align:center; white-space:nowrap; }
+  table.m thead th { position:sticky; top:0; background:#F9FAFB; z-index:2; font-weight:800; font-size:12px; padding:9px 10px; color:var(--ink); }
+  table.m th.rh { position:sticky; left:0; background:#F9FAFB; z-index:1; text-align:left; padding:0 12px; font-weight:800; min-width:88px; }
+  table.m thead th.rh { z-index:3; }
+  table.m td.c { min-width:62px; height:42px; cursor:pointer; font-weight:800; font-size:15px; }
+  table.m td.c:hover { background:#EEF2FF; }
+  table.m td.c.zero { color:#D1D5DB; }
+  table.m td.c.low { color:#B91C1C; }
+  table.m td.c input { width:54px; padding:6px 4px; font-size:14px; font-weight:800; text-align:center; border:1px solid var(--gray-200); border-radius:7px; font-family:inherit; }
+  table.m td.c input.chg { border-color:#6366F1; background:#EEF2FF; }
+  table.m tr.tot th, table.m tr.tot td { position:sticky; bottom:0; background:#F9FAFB; font-weight:900; padding:9px 10px; border-top:2px solid var(--gray-200); z-index:2; }
+  table.m tr.tot th.rh { z-index:3; }
+  .hdr-click { cursor:pointer; }
+  .off-h { opacity:.45; }
   .logbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 10px; }
   .logbar select { font-size:13.5px; padding:8px 10px; border-radius:9px; border:1px solid var(--gray-200); background:#fff; font-family:inherit; }
+  .sec { font-size:13px; font-weight:900; margin:26px 2px 8px; }
   .log { background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:10px 14px; margin-bottom:6px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; }
-  .log .dt { color:var(--muted); font-size:12px; min-width:62px; }
+  .log .dt { color:var(--muted); font-size:12px; min-width:48px; }
   .log .who { font-weight:800; }
   .log .k { font-weight:800; font-size:11.5px; padding:2px 8px; border-radius:999px; }
   .log .k.in { background:#DCFCE7; color:#15803D; } .log .k.out { background:#FEE2E2; color:#B91C1C; } .log .k.adjust { background:#FEF3C7; color:#92400E; }
   .log .d { font-weight:900; }
   .log .bal { color:var(--muted); font-size:12px; }
   .log .memo { flex-basis:100%; font-size:12.5px; color:#4B5563; }
+  .loading, .empty { color:var(--muted); font-size:13px; padding:24px 6px; text-align:center; }
+  .pills { display:flex; gap:6px; margin-bottom:12px; }
+  .pill { flex:1; appearance:none; border:1px solid var(--gray-200); background:#fff; border-radius:9px; padding:9px 0; font-size:13.5px; font-weight:800; cursor:pointer; font-family:inherit; color:var(--muted); }
+  .pill.on[data-k="in"] { background:#DCFCE7; border-color:#86EFAC; color:#15803D; }
+  .pill.on[data-k="out"] { background:#FEE2E2; border-color:#FCA5A5; color:#B91C1C; }
+  .pill.on[data-k="adjust"] { background:#FEF3C7; border-color:#FCD34D; color:#92400E; }
   /* modal */
   .overlay { position:fixed; inset:0; background:rgba(11,18,32,0.45); display:none; align-items:flex-start; justify-content:center; z-index:50; padding:16px; overflow:auto; }
   .box { background:#fff; border-radius:16px; width:100%; max-width:420px; margin:auto; }
@@ -73,28 +85,43 @@
 
 <main>
   <h1>교재 재고</h1>
-  <p class="sub">제본해 둔 교재가 몇 권 남았는지 기록해요. 입고·출고를 적으면 현재 수량이 자동으로 바뀌고, 아래 내역에 남아요. 원장님만 볼 수 있어요.</p>
+  <p class="sub">제본해 둔 교재가 몇 권 남았는지 기록해요. <b>칸을 누르면</b> 입고·출고를 적을 수 있고, 현재 수량이 자동으로 바뀌어 아래 내역에 남아요. 원장님만 볼 수 있어요.</p>
 
-  <div class="bar">
-    <button class="btn primary" id="add-item" type="button"><i class="fa-solid fa-plus"></i> 교재 추가</button>
-    <label><input type="checkbox" id="show-off"> 사용 안 함 교재도 보기</label>
+  <div class="tabs">
+    <button class="tab on" type="button" data-g="초중등">초중등</button>
+    <button class="tab" type="button" data-g="고등">고등</button>
+  </div>
+  <div class="bar" id="bar-normal">
+    <button class="btn primary" id="bulk-on" type="button"><i class="fa-solid fa-pen-to-square"></i> 수량 한꺼번에 입력</button>
+    <button class="btn" id="add-prod" type="button"><i class="fa-solid fa-plus"></i> 교재 종류 추가</button>
+    <button class="btn" id="add-term" type="button"><i class="fa-solid fa-plus"></i> <span id="add-term-label">학기 추가</span></button>
+    <label><input type="checkbox" id="show-off"> 숨긴 칸도 보기</label>
+  </div>
+  <div class="bar" id="bar-bulk" style="display:none">
+    <button class="btn primary" id="bulk-save" type="button">바뀐 칸 저장</button>
+    <button class="btn" id="bulk-cancel" type="button">취소</button>
+    <span class="hint" id="bulk-msg" style="margin:0">세어 본 권수를 칸마다 적고 저장하면 "조정"으로 내역에 남아요.</span>
   </div>
 
   <div id="stock"><div class="loading">불러오는 중...</div></div>
+  <div class="hint" style="margin-top:8px">줄 이름이나 맨 위 교재 이름을 누르면 그 줄/열을 숨기거나 다시 보이게 할 수 있어요.</div>
 
-  <div class="sec" style="margin-top:30px">입고 · 출고 내역</div>
-  <div class="logbar">
-    <select id="log-filter"></select>
-  </div>
+  <div class="sec">입고 · 출고 내역</div>
+  <div class="logbar"><select id="log-filter"></select></div>
   <div id="log"><div class="loading">불러오는 중...</div></div>
 </main>
 
 <!-- 입고/출고/조정 -->
 <div class="overlay" id="mv-overlay">
   <div class="box">
-    <div class="head"><span id="mv-title">입고</span><button type="button" id="mv-close">&times;</button></div>
+    <div class="head"><span id="mv-title"></span><button type="button" id="mv-close">&times;</button></div>
     <div class="body">
       <div class="cur" id="mv-cur"></div>
+      <div class="pills" id="mv-pills">
+        <button type="button" class="pill on" data-k="in">입고</button>
+        <button type="button" class="pill" data-k="out">출고</button>
+        <button type="button" class="pill" data-k="adjust">수량 조정</button>
+      </div>
       <div class="field"><label id="mv-qty-label">수량</label><input type="number" id="mv-qty" min="0" step="1" inputmode="numeric"></div>
       <div class="field"><label>날짜</label><input type="date" id="mv-date"></div>
       <div class="field"><label>메모 (선택)</label><input type="text" id="mv-memo" maxlength="200" placeholder="예: 제본소 입고, 3월 신입생 배부"></div>
@@ -108,22 +135,32 @@
   </div>
 </div>
 
-<!-- 교재 추가/수정 -->
-<div class="overlay" id="it-overlay">
+<!-- 이름 입력 (교재 종류 / 학기 추가) -->
+<div class="overlay" id="nm-overlay">
   <div class="box">
-    <div class="head"><span id="it-title">교재 추가</span><button type="button" id="it-close">&times;</button></div>
+    <div class="head"><span id="nm-title"></span><button type="button" id="nm-close">&times;</button></div>
     <div class="body">
-      <div class="field"><label>구분 *</label>
-        <select id="it-group"><option value="초중등">초중등</option><option value="고등">고등</option></select></div>
-      <div class="field"><label>교재 이름 *</label><input type="text" id="it-name" maxlength="40" placeholder="예: BUILD5"></div>
-      <div class="field" id="it-qty-wrap"><label>현재 수량</label><input type="number" id="it-qty" min="0" step="1" value="0" inputmode="numeric">
-        <div class="hint">지금 가지고 있는 권수예요. 나중에는 입고·출고로 바꿔요.</div></div>
-      <div class="field" id="it-active-wrap" style="display:none"><label><input type="checkbox" id="it-active"> 사용 중인 교재</label>
-        <div class="hint">더 이상 안 쓰는 교재는 체크를 풀면 목록에서 숨겨져요. (내역은 그대로 남아요)</div></div>
-      <div class="err" id="it-err"></div>
+      <div class="field"><label id="nm-label">이름</label><input type="text" id="nm-input" maxlength="40"></div>
+      <div class="hint" id="nm-hint"></div>
+      <div class="err" id="nm-err"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
-        <button class="btn" type="button" id="it-cancel">취소</button>
-        <button class="btn primary" type="button" id="it-save">저장</button>
+        <button class="btn" type="button" id="nm-cancel">취소</button>
+        <button class="btn primary" type="button" id="nm-save">추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 줄/열 숨기기 -->
+<div class="overlay" id="hd-overlay">
+  <div class="box">
+    <div class="head"><span id="hd-title"></span><button type="button" id="hd-close">&times;</button></div>
+    <div class="body">
+      <div class="hint" id="hd-hint" style="margin:0 0 12px"></div>
+      <div class="err" id="hd-err"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+        <button class="btn" type="button" id="hd-cancel">닫기</button>
+        <button class="btn primary" type="button" id="hd-save"></button>
       </div>
     </div>
   </div>
@@ -134,9 +171,12 @@
   requireDirector();
 
   let items = [];
-  let mvItem = null, mvKind = 'in', editingId = null;
+  let group = '초중등';
+  let bulk = false;
+  let mvItem = null, mvKind = 'in', nmMode = null, hdTarget = null;
   const KIND = { in: '입고', out: '출고', adjust: '조정' };
   const $ = (id) => document.getElementById(id);
+  const pw = () => getAdminPassword();
   function esc(v) {
     return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
@@ -153,64 +193,108 @@
     return isMissingFn(error) ? '교재 재고 SQL이 아직 실행되지 않았어요.' : (error.message || String(error));
   }
 
-  // ---- 재고 목록 ----
+  // ---- 표 만들기 ----
+  function gridOf(g) {
+    const rows = items.filter((it) => it.level_group === g);
+    const showOff = $('show-off').checked;
+    const terms = [], prods = [];
+    rows.forEach((it) => {
+      if (!terms.find((t) => t.name === it.term)) terms.push({ name: it.term, ord: it.term_order });
+      if (!prods.find((p) => p.name === it.name)) prods.push({ name: it.name, ord: it.sort_order });
+    });
+    terms.sort((a, b) => a.ord - b.ord); prods.sort((a, b) => a.ord - b.ord);
+    terms.forEach((t) => { t.off = !rows.some((it) => it.term === t.name && it.is_active); });
+    prods.forEach((p) => { p.off = !rows.some((it) => it.name === p.name && it.is_active); });
+    const map = {};
+    rows.forEach((it) => { map[it.term + '\u0001' + it.name] = it; });
+    return {
+      terms: terms.filter((t) => showOff || !t.off),
+      prods: prods.filter((p) => showOff || !p.off),
+      map,
+    };
+  }
+
   async function loadItems() {
-    const { data, error } = await sb.rpc('rpc_admin_list_textbook_inventory', { p_password: getAdminPassword() });
+    const { data, error } = await sb.rpc('rpc_admin_list_textbook_inventory', { p_password: pw() });
     if (error) { $('stock').innerHTML = `<div class="loading">${esc('불러오지 못했어요: ' + errText(error))}</div>`; return; }
     items = data || [];
-    renderItems();
+    renderGrid();
     renderFilter();
   }
 
-  function itemHtml(it) {
-    return `<div class="item ${it.is_active ? '' : 'off'}">
-      <div class="nm">${esc(it.name)} ${it.is_active ? '' : '<span class="badge">사용 안 함</span>'}</div>
-      <div class="qty ${it.qty === 0 ? 'zero' : ''}">${it.qty}<small>권</small></div>
-      <div class="acts">
-        <button class="mini in" data-act="in" data-id="${esc(it.id)}">입고</button>
-        <button class="mini out" data-act="out" data-id="${esc(it.id)}">출고</button>
-        <button class="mini" data-act="adjust" data-id="${esc(it.id)}" title="실제로 세어 보고 수량을 맞출 때">수량 조정</button>
-        <button class="mini" data-act="edit" data-id="${esc(it.id)}">수정</button>
-      </div></div>`;
+  function renderGrid() {
+    const { terms, prods, map } = gridOf(group);
+    $('add-term-label').textContent = group === '고등' ? '과목 추가' : '학기 추가';
+    if (!terms.length || !prods.length) { $('stock').innerHTML = '<div class="empty">표시할 칸이 없어요.</div>'; return; }
+    let h = '<div class="mwrap"><table class="m"><thead><tr><th class="rh">' + (group === '고등' ? '과목' : '학년-학기') + '</th>';
+    prods.forEach((p) => { h += `<th class="hdr-click ${p.off ? 'off-h' : ''}" data-col="${esc(p.name)}">${esc(p.name)}</th>`; });
+    h += '</tr></thead><tbody>';
+    terms.forEach((t) => {
+      h += `<tr><th class="rh hdr-click ${t.off ? 'off-h' : ''}" data-row="${esc(t.name)}">${esc(t.name)}</th>`;
+      prods.forEach((p) => {
+        const it = map[t.name + '\u0001' + p.name];
+        if (!it) { h += '<td></td>'; return; }
+        if (bulk) h += `<td class="c"><input type="number" min="0" step="1" inputmode="numeric" data-id="${esc(it.id)}" data-orig="${it.qty}" value="${it.qty}"></td>`;
+        else h += `<td class="c ${it.qty === 0 ? 'zero' : ''}" data-id="${esc(it.id)}">${it.qty}</td>`;
+      });
+      h += '</tr>';
+    });
+    h += '</tbody><tfoot><tr class="tot"><th class="rh">합계</th>';
+    prods.forEach((p) => {
+      const sum = terms.reduce((s, t) => { const it = map[t.name + '\u0001' + p.name]; return s + (it && it.is_active ? it.qty : 0); }, 0);
+      h += `<td>${sum}</td>`;
+    });
+    h += '</tr></tfoot></table></div>';
+    $('stock').innerHTML = h;
   }
 
-  function renderItems() {
-    const showOff = $('show-off').checked;
-    const list = items.filter((it) => showOff || it.is_active);
-    const html = ['초중등', '고등'].map((g) => {
-      const rows = list.filter((it) => it.level_group === g);
-      if (!rows.length) return '';
-      const total = rows.filter((it) => it.is_active).reduce((s, it) => s + it.qty, 0);
-      return `<div class="sec">${g} <small>합계 ${total}권</small></div>` + rows.map(itemHtml).join('');
-    }).join('');
-    $('stock').innerHTML = html || '<div class="empty">등록된 교재가 없어요. 위에서 교재를 추가해 보세요.</div>';
-  }
-  $('show-off').addEventListener('change', renderItems);
+  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
+    if (bulk && !confirm('입력 중인 수량이 사라져요. 탭을 바꿀까요?')) return;
+    bulk = false; setBulkUi();
+    group = b.dataset.g;
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === b));
+    renderGrid(); renderFilter(); loadLog();
+  }));
+  $('show-off').addEventListener('change', renderGrid);
 
+  // 칸 / 머리글 클릭
   $('stock').addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-act]'); if (!btn) return;
-    const it = items.find((x) => x.id === btn.dataset.id); if (!it) return;
-    if (btn.dataset.act === 'edit') openItem(it); else openMove(it, btn.dataset.act);
+    if (bulk) return;
+    const cell = e.target.closest('td.c[data-id]');
+    if (cell) { const it = items.find((x) => x.id === cell.dataset.id); if (it) openMove(it, 'in'); return; }
+    const row = e.target.closest('th[data-row]');
+    if (row) { openHide({ term: row.dataset.row, name: null }); return; }
+    const col = e.target.closest('th[data-col]');
+    if (col) openHide({ term: null, name: col.dataset.col });
+  });
+  $('stock').addEventListener('input', (e) => {
+    const inp = e.target.closest('input[data-id]'); if (!inp) return;
+    inp.classList.toggle('chg', inp.value.trim() !== inp.dataset.orig);
   });
 
   // ---- 입고 / 출고 / 조정 ----
+  function setKind(k) {
+    mvKind = k;
+    document.querySelectorAll('#mv-pills .pill').forEach((p) => p.classList.toggle('on', p.dataset.k === k));
+    $('mv-qty-label').textContent = k === 'adjust' ? '실제 수량 (세어 본 권수)' : `${KIND[k]} 수량`;
+    $('mv-qty').value = k === 'adjust' ? mvItem.qty : '';
+    $('mv-hint').textContent = k === 'adjust' ? '재고를 직접 세어 보고 맞출 때만 써요. 내역에 "조정"으로 남아요.' : '';
+    $('mv-err').textContent = '';
+  }
   function openMove(it, kind) {
-    mvItem = it; mvKind = kind;
-    $('mv-title').textContent = `${it.level_group} ${it.name} · ${KIND[kind]}`;
+    mvItem = it;
+    $('mv-title').textContent = `${it.term} ${it.name}`;
     $('mv-cur').innerHTML = `현재 <b>${it.qty}권</b>`;
-    $('mv-qty-label').textContent = kind === 'adjust' ? '실제 수량 (세어 본 권수)' : `${KIND[kind]} 수량`;
-    $('mv-qty').value = kind === 'adjust' ? it.qty : '';
     $('mv-date').value = seoulToday();
     $('mv-memo').value = '';
-    $('mv-hint').textContent = kind === 'adjust' ? '재고를 직접 세어 보고 맞출 때만 써요. 내역에 "조정"으로 남아요.' : '';
-    $('mv-err').textContent = '';
+    setKind(kind);
     $('mv-overlay').style.display = 'flex';
     $('mv-qty').focus();
   }
   function closeMove() { $('mv-overlay').style.display = 'none'; }
+  document.querySelectorAll('#mv-pills .pill').forEach((p) => p.addEventListener('click', () => setKind(p.dataset.k)));
   $('mv-close').addEventListener('click', closeMove);
   $('mv-cancel').addEventListener('click', closeMove);
-
   $('mv-save').addEventListener('click', async () => {
     $('mv-err').textContent = '';
     const raw = $('mv-qty').value.trim();
@@ -220,7 +304,7 @@
     if (mvKind === 'out' && qty > mvItem.qty) { $('mv-err').textContent = `재고가 부족해요. (현재 ${mvItem.qty}권)`; return; }
     $('mv-save').disabled = true;
     const { error } = await sb.rpc('rpc_admin_record_textbook_stock', {
-      p_password: getAdminPassword(), p_item_id: mvItem.id, p_kind: mvKind, p_qty: qty,
+      p_password: pw(), p_item_id: mvItem.id, p_kind: mvKind, p_qty: qty,
       p_date: $('mv-date').value || null, p_memo: $('mv-memo').value.trim() || null,
     });
     $('mv-save').disabled = false;
@@ -230,61 +314,116 @@
     loadLog();
   });
 
-  // ---- 교재 추가 / 수정 ----
-  function openItem(it) {
-    editingId = it ? it.id : null;
-    $('it-title').textContent = it ? '교재 수정' : '교재 추가';
-    $('it-group').value = it ? it.level_group : '초중등';
-    $('it-name').value = it ? it.name : '';
-    $('it-qty').value = 0;
-    $('it-qty-wrap').style.display = it ? 'none' : '';
-    $('it-active-wrap').style.display = it ? '' : 'none';
-    $('it-active').checked = it ? it.is_active : true;
-    $('it-err').textContent = '';
-    $('it-overlay').style.display = 'flex';
-    $('it-name').focus();
+  // ---- 수량 한꺼번에 입력 ----
+  function setBulkUi() {
+    $('bar-normal').style.display = bulk ? 'none' : '';
+    $('bar-bulk').style.display = bulk ? '' : 'none';
+    $('bulk-msg').textContent = '세어 본 권수를 칸마다 적고 저장하면 "조정"으로 내역에 남아요.';
   }
-  function closeItem() { $('it-overlay').style.display = 'none'; }
-  $('add-item').addEventListener('click', () => openItem(null));
-  $('it-close').addEventListener('click', closeItem);
-  $('it-cancel').addEventListener('click', closeItem);
+  $('bulk-on').addEventListener('click', () => { bulk = true; setBulkUi(); renderGrid(); });
+  $('bulk-cancel').addEventListener('click', () => { bulk = false; setBulkUi(); renderGrid(); });
+  $('bulk-save').addEventListener('click', async () => {
+    const changed = [];
+    for (const inp of $('stock').querySelectorAll('input[data-id]')) {
+      const v = inp.value.trim();
+      if (v === inp.dataset.orig) continue;
+      const n = Number(v);
+      if (v === '' || !Number.isInteger(n) || n < 0) { $('bulk-msg').textContent = '수량은 0 이상 숫자로만 적어 주세요.'; return; }
+      changed.push({ id: inp.dataset.id, qty: n });
+    }
+    if (!changed.length) { $('bulk-msg').textContent = '바뀐 칸이 없어요.'; return; }
+    $('bulk-save').disabled = true;
+    let done = 0;
+    for (const c of changed) {
+      $('bulk-msg').textContent = `저장 중... ${done}/${changed.length}`;
+      const { error } = await sb.rpc('rpc_admin_record_textbook_stock', {
+        p_password: pw(), p_item_id: c.id, p_kind: 'adjust', p_qty: c.qty, p_date: seoulToday(), p_memo: '재고 파악(일괄 입력)',
+      });
+      if (error) { $('bulk-save').disabled = false; $('bulk-msg').textContent = `${done}칸 저장 후 실패했어요: ` + errText(error); await loadItems(); loadLog(); return; }
+      done++;
+    }
+    $('bulk-save').disabled = false;
+    bulk = false; setBulkUi();
+    await loadItems(); loadLog();
+  });
 
-  $('it-save').addEventListener('click', async () => {
-    $('it-err').textContent = '';
-    const name = $('it-name').value.trim();
-    if (!name) { $('it-err').textContent = '교재 이름을 적어 주세요.'; return; }
-    const qty = Number($('it-qty').value || 0);
-    if (!editingId && (!Number.isInteger(qty) || qty < 0)) { $('it-err').textContent = '수량은 0 이상 숫자로 적어 주세요.'; return; }
-    $('it-save').disabled = true;
-    const { error } = await sb.rpc('rpc_admin_save_textbook_inventory', {
-      p_password: getAdminPassword(), p_id: editingId, p_level_group: $('it-group').value,
-      p_name: name, p_qty: editingId ? null : qty, p_is_active: $('it-active').checked,
-    });
-    $('it-save').disabled = false;
-    if (error) { $('it-err').textContent = '실패했어요: ' + errText(error); return; }
-    closeItem();
+  // ---- 교재 종류 / 학기(과목) 추가 ----
+  function openName(mode) {
+    nmMode = mode;
+    const isProd = mode === 'prod';
+    $('nm-title').textContent = isProd ? `교재 종류 추가 (${group})` : (group === '고등' ? '과목 추가 (고등)' : '학기 추가 (초중등)');
+    $('nm-label').textContent = isProd ? '교재 이름' : (group === '고등' ? '과목 이름' : '학년-학기 이름');
+    $('nm-input').placeholder = isProd ? '예: BUILD5' : (group === '고등' ? '예: 수학I' : '예: 고1-1');
+    $('nm-hint').textContent = isProd ? `${group}의 모든 ${group === '고등' ? '과목' : '학기'}에 이 교재 칸이 0권으로 생겨요.` : `모든 교재 종류의 칸이 0권으로 생겨요.`;
+    $('nm-input').value = ''; $('nm-err').textContent = '';
+    $('nm-overlay').style.display = 'flex';
+    $('nm-input').focus();
+  }
+  function closeName() { $('nm-overlay').style.display = 'none'; }
+  $('add-prod').addEventListener('click', () => openName('prod'));
+  $('add-term').addEventListener('click', () => openName('term'));
+  $('nm-close').addEventListener('click', closeName);
+  $('nm-cancel').addEventListener('click', closeName);
+  $('nm-save').addEventListener('click', async () => {
+    $('nm-err').textContent = '';
+    const name = $('nm-input').value.trim();
+    if (!name) { $('nm-err').textContent = '이름을 적어 주세요.'; return; }
+    $('nm-save').disabled = true;
+    const { error } = nmMode === 'prod'
+      ? await sb.rpc('rpc_admin_add_textbook_product', { p_password: pw(), p_level_group: group, p_name: name })
+      : await sb.rpc('rpc_admin_add_textbook_term', { p_password: pw(), p_level_group: group, p_term: name });
+    $('nm-save').disabled = false;
+    if (error) { $('nm-err').textContent = '실패했어요: ' + errText(error); return; }
+    closeName();
     await loadItems();
-    loadLog();
+  });
+
+  // ---- 줄/열 숨기기 ----
+  function openHide(target) {
+    hdTarget = target;
+    const rows = items.filter((it) => it.level_group === group && (target.term ? it.term === target.term : it.name === target.name));
+    const off = !rows.some((it) => it.is_active);
+    hdTarget.active = off; // 눌렀을 때 바꿀 값
+    $('hd-title').textContent = target.term ? `${target.term} 줄` : `${target.name} 열`;
+    $('hd-hint').textContent = off
+      ? '지금 숨겨져 있어요. 다시 보이게 할 수 있어요.'
+      : '더 이상 안 쓰는 줄/열은 숨겨 둘 수 있어요. 수량과 내역은 그대로 남아요.';
+    $('hd-save').textContent = off ? '다시 보이기' : '숨기기';
+    $('hd-err').textContent = '';
+    $('hd-overlay').style.display = 'flex';
+  }
+  function closeHide() { $('hd-overlay').style.display = 'none'; }
+  $('hd-close').addEventListener('click', closeHide);
+  $('hd-cancel').addEventListener('click', closeHide);
+  $('hd-save').addEventListener('click', async () => {
+    $('hd-save').disabled = true;
+    const { error } = await sb.rpc('rpc_admin_set_textbook_active', {
+      p_password: pw(), p_level_group: group, p_term: hdTarget.term, p_name: hdTarget.name, p_active: hdTarget.active,
+    });
+    $('hd-save').disabled = false;
+    if (error) { $('hd-err').textContent = '실패했어요: ' + errText(error); return; }
+    closeHide();
+    await loadItems();
   });
 
   // ---- 내역 ----
   function renderFilter() {
     const cur = $('log-filter').value;
-    $('log-filter').innerHTML = '<option value="">전체 교재</option>' + items.map((it) =>
-      `<option value="${esc(it.id)}">${esc(it.level_group)} ${esc(it.name)}</option>`).join('');
-    $('log-filter').value = items.some((it) => it.id === cur) ? cur : '';
+    const { terms } = gridOf(group);
+    $('log-filter').innerHTML = `<option value="">${group} 전체 내역</option>` + terms.map((t) =>
+      `<option value="${esc(t.name)}">${esc(t.name)}만</option>`).join('');
+    $('log-filter').value = terms.some((t) => t.name === cur) ? cur : '';
   }
   $('log-filter').addEventListener('change', loadLog);
 
   async function loadLog() {
-    const { data, error } = await sb.rpc('rpc_admin_list_textbook_stock_log', {
-      p_password: getAdminPassword(), p_item_id: $('log-filter').value || null, p_limit: 100,
-    });
+    const { data, error } = await sb.rpc('rpc_admin_list_textbook_stock_log', { p_password: pw(), p_item_id: null, p_limit: 500 });
     if (error) { $('log').innerHTML = `<div class="loading">${esc('불러오지 못했어요: ' + errText(error))}</div>`; return; }
-    const rows = data || [];
+    const term = $('log-filter').value;
+    const rows = (data || []).filter((l) => l.level_group === group && (!term || l.term === term)).slice(0, 100);
     $('log').innerHTML = rows.length ? rows.map((l) => `<div class="log">
       <span class="dt">${esc(fmtDate(l.log_date))}</span>
-      <span class="who">${esc(l.level_group)} ${esc(l.name)}</span>
+      <span class="who">${esc(l.term)} ${esc(l.name)}</span>
       <span class="k ${esc(l.kind)}">${esc(KIND[l.kind] || l.kind)}</span>
       <span class="d">${l.delta > 0 ? '+' : ''}${l.delta}권</span>
       <span class="bal">→ 재고 ${l.balance_after}권</span>
